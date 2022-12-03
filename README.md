@@ -10,6 +10,7 @@ For more information on how to use or install this plugin go to : https://bakkes
 The plugin works by recording at every game tick the position and velocity of your car (when you're in record mode) and storing them in a file.
 Then when you want to practice,the plugin will spawn a bot in freeplay (and teleport you, limit your boost, set up a countdown etc.) and will then, at every tick, set the position and velocity of the bot to those pre-recorded.
 That's the core of the plugin, the rest is just UI and little features.
+If you don't know how to code plugins and want to learn please visit https://wiki.bakkesplugins.com/plugin_tutorial/getting_started/ and join the [BakkesMod programming discord](https://discord.gg/s97RgrgkxE).
 
 ## The reason I published the code
 I'm publishing this code because there is still work to do on this plugin but I currently don't have time to do it myself. 
