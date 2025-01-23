@@ -295,7 +295,18 @@ void kickoffPractice::start(std::vector<std::string> args)
 			//LOG("Unlimited boost setting : {}, consumption rate : {}", boost.GetUnlimitedBoostRefCount(),boost.GetBoostConsumptionRate());
 
 			boost.SetUnlimitedBoostRefCount(0);			//on limite le boost du joueur (TODO: voir si c'ests utile pour le bot)
-			boost.SetCurrentBoostAmount(0.3333f);
+			boost.SetCurrentBoostAmount(0.333f);
+
+			// Reset boost pickups, because moving the player can cause picking up boost.
+			gameWrapper->SetTimeout([this](GameWrapper* gameWrapper) 
+				{
+					if (!gameWrapper->IsInFreeplay()) return;
+					ServerWrapper server = gameWrapper->GetGameEventAsServer();
+					if (!server) return;
+					server.ResetPickups();
+				},
+				0.1f
+			);
 
 			BallWrapper ball = server.GetBall();
 			if (!ball)return;
@@ -407,7 +418,7 @@ void kickoffPractice::tick(std::string eventName)
 		joueur->SetVelocity(Vector(0, 0, 0));
 		BoostWrapper boost = joueur->GetBoostComponent();
 		if (!boost)return;
-		boost.SetBoostAmount(0.339f);
+		boost.SetBoostAmount(0.333f);
 	}
 	delete bot;
 	delete joueur;
