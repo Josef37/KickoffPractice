@@ -2,7 +2,7 @@
 Kickoff Practice is a BakkesMod plugin for RocketLeague that helps you train your kickoffs by spawning a bot in freeplay to face you on kickoffs.
 Using this plugin you can record a kickoff sequence then go in freeplay and spawn a bot to face you on kickoff, the bot will then use the pre-recorded sequence and thus copy your movements.
 
-## How to use the plugin ?
+## How to use the plugin
 In order to be able to install and use this plugin in RocketLeague you have to first install BakkesMod (PC only).
 For more information on how to use or install this plugin go to : https://bakkesplugins.com/plugins/view/328.
 
@@ -22,8 +22,7 @@ The things left to do are :
   
   - code a way to record a kickoff from a replay. That way you could theoretically face anyone's kickoff (for example the kickoff from a pro player recorded from an RLCS replay file).
   
-  - sometimes the player will pick up a small boost pad while being teleported for the kickoff. Fixes could be to find a way to forbid the player to pick up boost while teleporting or to find a way to "refill" boost pads.
-  - code a better UI : add morre options/make the current ones less ugly ...
+  - code a better UI : add more options/make the current ones less ugly ...
 
 Finally I hope the code is easy enough to understand on your own (english is not my main language so some names in the code may be a mix of french and english 😅). 
 As I said I don't have enough time to work on this project anymore so I don't have time to make good documentation. 

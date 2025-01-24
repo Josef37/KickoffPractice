@@ -9,10 +9,9 @@
 #include <sstream>
 #include <filesystem>
 #include <algorithm>
-#include <cstdlib>
 #include <stdlib.h>
 
-BAKKESMOD_PLUGIN(kickoffPractice, "A plugin to train kickoff by facing a bot doing prerecorded inputs in freeplay", plugin_version, PERMISSION_ALL)
+BAKKESMOD_PLUGIN(kickoffPractice, "Kickoff Practice", plugin_version, PERMISSION_ALL)
 
 std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 namespace fs = std::filesystem;
@@ -26,16 +25,14 @@ void kickoffPractice::onLoad()
 	this->unlimitedBoostDefaultSetting = 1;
 	this->rotationBot = Rotator(0, 0, 0);
 	this->locationBot = Vector(0, 0, 0);
-	this->tickCompteur = 0;
-	this->kickoffState = KickoffStates::nothing;
+	this->tickCounter = 0;
+	this->kickoffState = KickoffState::nothing;
 	this->botJustSpawned = false;
-	this->currrentKickoffIndex = 0;
+	this->currentKickoffIndex = 0;
 	this->botCarID = 0;
 	this->selectedCarUI = 0;
-	srand((int)time(0));//initialize the random c thingy
+	srand((int)time(0)); // initialize the random number generator seed
 
-
-	//readKickoffFile("C:\\Users\\Antonin\\Desktop\\recordedInput.txt");
 	_globalCvarManager = cvarManager;
 
 	this->configPath = gameWrapper->GetDataFolderW() + L"/kickoffPractice";
@@ -48,10 +45,10 @@ void kickoffPractice::onLoad()
 		}
 	}
 
-	this->readConfigFile(configPath +L"/config.cfg");
+	this->readConfigFile(configPath + L"/config.cfg");
 	if (strlen(botKickoffFolder) == 0)
 	{
-		wcstombs(botKickoffFolder,(configPath + L"/bot").c_str(),sizeof(botKickoffFolder));
+		wcstombs(botKickoffFolder, (configPath + L"/bot").c_str(), sizeof(botKickoffFolder));
 	}
 	if (strlen(recordedKickoffFolder) == 0)
 	{
@@ -71,9 +68,9 @@ void kickoffPractice::onLoad()
 	this->loadInputFiles();
 
 	auto items = gameWrapper->GetItemsWrapper();
-	std::vector < std::string> temp;
 	if (items)
 	{
+		std::vector <std::string> itemLabels;
 		for (auto item : items.GetAllProducts())
 		{
 			if (!item)
@@ -85,16 +82,16 @@ void kickoffPractice::onLoad()
 			{
 				continue;
 			}
-			std::string nom = item.GetLabel().ToString();
-			temp.push_back(nom);
+			std::string label = item.GetLabel().ToString();
+			itemLabels.push_back(label);
 		}
-		nbCarBody = temp.size();
+		nbCarBody = itemLabels.size();
 		carNames = new char* [nbCarBody];
-		for (int i = 0;i < nbCarBody;i++)
+		for (int i = 0; i < nbCarBody; i++)
 		{
 			carNames[i] = new char[128];
-			if (temp[i].size() < 128)
-				strcpy(carNames[i], temp[i].c_str());
+			if (itemLabels[i].size() < 128)
+				strcpy(carNames[i], itemLabels[i].c_str());
 			else
 				strcpy(carNames[i], "Too long name :D");
 		}
@@ -108,48 +105,46 @@ void kickoffPractice::onLoad()
 	}
 	storeBodyIndex();
 
-	//for (int i = 0; i < carNames.size();i++)
-		//LOG(carNames[i]);
-
 	cvarManager->registerNotifier("kickoff_train", [this](std::vector<std::string> args) {
 		this->start(args);
 		}, "Practice kickoff", PERMISSION_FREEPLAY);
-	gameWrapper->HookEvent("Function TAGame.EngineShare_TA.EventPostPhysicsStep", bind(&kickoffPractice::tick, this, std::placeholders::_1));
+	gameWrapper->HookEvent("Function TAGame.EngineShare_TA.EventPostPhysicsStep", [this](std::string eventName) {
+		this->tick(eventName);
+		});
 
 	gameWrapper->HookEventWithCallerPost<CarWrapper>("Function TAGame.Car_TA.OnHitBall",
-		[this](CarWrapper caller, void* params, std::string eventname) 
+		[this](CarWrapper caller, void* params, std::string eventname)
 		{
-			//si on est en séquence de kickoff quand on a touché la balle
-			if (this->kickoffState == KickoffStates::started)
+			if (this->kickoffState == KickoffState::started)
 			{
 				gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
-				{
-					if (kickoffState != KickoffStates::started)return;
-					//LOG("On reset parce qu'il a touché la balle :)");
-					this->reset();
-				}, this->timeAfterBackToNormal);
+					{
+						if (kickoffState != KickoffState::started) return;
+						this->reset();
+					},
+					this->timeAfterBackToNormal
+				);
 			}
 		});
 
 	gameWrapper->HookEvent("Function Engine.Actor.SpawnInstance",
 		[this](std::string eventName) {
-			if (!gameWrapper->IsInFreeplay())return;
+			if (!gameWrapper->IsInFreeplay()) return;
 			ServerWrapper server = gameWrapper->GetGameEventAsServer();
-			if (!server)return;
-			if (!this->botJustSpawned)return;
+			if (!server) return;
+			if (!this->botJustSpawned) return;
 			ArrayWrapper<CarWrapper> tutures = server.GetCars();
-			//cvarManager->log("nb voiture : " + std::to_std::string(tutures.Count()));
-			for (int i = 0; i < tutures.Count();i++)
+
+			for (int i = 0; i < tutures.Count(); i++)
 			{
-				//cvarManager->log(!tutures.Get(i).GetPRI().GetbBot() ? "bot" : "humain");
 				if (tutures.Get(i).GetPRI().GetbBot())
 				{
 					tutures.Get(i).SetCarRotation(this->rotationBot);
-					tutures.Get(i).SetLocation(this->locationBot);			//même tarif pour le bot
+					tutures.Get(i).SetLocation(this->locationBot);
 					tutures.Get(i).SetVelocity(Vector(0, 0, 0));
-					AIControllerWrapper cerveau = tutures.Get(i).GetAIController();
-					if (!cerveau)continue;
-					cerveau.DoNothing();
+					AIControllerWrapper controller = tutures.Get(i).GetAIController();
+					if (!controller)continue;
+					controller.DoNothing();
 				}
 			}
 			this->botJustSpawned = false;
@@ -157,7 +152,6 @@ void kickoffPractice::onLoad()
 	gameWrapper->HookEventWithCallerPost<CarWrapper>("Function TAGame.Ball_TA.OnHitGoal",
 		[this](CarWrapper caller, void* params, std::string eventname)
 		{
-			//LOG("in replay");
 			this->isInReplay = true;
 		});
 	gameWrapper->HookEventWithCallerPost<CarWrapper>("Function TAGame.CarComponent_Boost_TA.SetUnlimitedBoost",
@@ -169,20 +163,19 @@ void kickoffPractice::onLoad()
 	gameWrapper->HookEventWithCallerPost<CarWrapper>("Function GameEvent_Soccar_TA.ReplayPlayback.EndState",
 		[this](CarWrapper caller, void* params, std::string eventname)
 		{
-			//LOG("Not in replay");
 			this->isInReplay = false;
 		});
 
 	gameWrapper->HookEventWithCallerPost<CarWrapper>("Function GameEvent_Soccar_TA.Countdown.BeginState",
-	[this](CarWrapper caller, void* params, std::string eventname)
-	{
-		recordBoost();
-		this->reset();
-	});
+		[this](CarWrapper caller, void* params, std::string eventname)
+		{
+			recordBoost();
+			this->reset();
+		});
 }
 void kickoffPractice::onUnload()
 {
-	for (int i = 0; i < nbCarBody;i++)
+	for (int i = 0; i < nbCarBody; i++)
 	{
 		delete[] carNames[i];
 	}
@@ -199,12 +192,11 @@ void kickoffPractice::SetImGuiContext(uintptr_t ctx)
 	ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(ctx));
 }
 
-
 void kickoffPractice::start(std::vector<std::string> args)
 {
-	if (!pluginEnabled)return;
+	if (!pluginEnabled) return;
 	gameWrapper->SetTimeout([this, args](GameWrapper* gameWrapper)
-	{
+		{
 			if (!gameWrapper->IsInFreeplay())return;
 			ServerWrapper server = gameWrapper->GetGameEventAsServer();
 			if (!server)return;
@@ -225,9 +217,9 @@ void kickoffPractice::start(std::vector<std::string> args)
 				const int kickoffNb = stoi(args[1]);
 				if (kickoffNb >= 1 && kickoffNb <= 5)
 				{
-					this->currrentKickoffIndex = kickoffNb - 1;
-					auto it = std::find(kickoffDispo.begin(), kickoffDispo.end(), currrentKickoffIndex);
-					if (it == kickoffDispo.end() && !isRecording)//si on l'a pas trouvé
+					this->currentKickoffIndex = kickoffNb - 1;
+					auto it = std::find(kickoffDispo.begin(), kickoffDispo.end(), currentKickoffIndex);
+					if (it == kickoffDispo.end() && !isRecording)
 					{
 						LOG("No input found for this kickoff");
 						return;
@@ -248,57 +240,51 @@ void kickoffPractice::start(std::vector<std::string> args)
 					return;
 				}
 				int iKickoffNb = (rand() % kickoffDispo.size());
-				currrentKickoffIndex = kickoffDispo[iKickoffNb];
+				currentKickoffIndex = kickoffDispo[iKickoffNb];
 			}
 
-			currentInputIndex = getRandomKickoffForId(currrentKickoffIndex);
+			currentInputIndex = getRandomKickoffForId(currentKickoffIndex);
 			if (currentInputIndex == -1 && (!isRecording))
 			{
 				LOG("Error, no input found for this kickoff");
 				return;
 			}
-			//cvarManager->executeCommand("clear");
 
-			LOG("{}", isRecording);
+			LOG("isRecording: {}", isRecording);
 
-			//cvarManager->log("Kickoff numero : " + std::to_string(currrentKickoffIndex));
-			Vector locationJoueur = getKickoffLocation(this->currrentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE : KICKOFF_BLUE_SIDE);
-			Rotator rotationJoueur = Rotator(0, getKickoffYaw(this->currrentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE : KICKOFF_BLUE_SIDE) * CONST_RadToUnrRot, 0);
-			this->locationBot = getKickoffLocation(this->currrentKickoffIndex, KICKOFF_ORANGE_SIDE);
-			this->rotationBot = Rotator(0, getKickoffYaw(this->currrentKickoffIndex, KICKOFF_ORANGE_SIDE) * CONST_RadToUnrRot, 0);
+			Vector locationPlayer = getKickoffLocation(this->currentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE : KICKOFF_BLUE_SIDE);
+			Rotator rotationPlayer = Rotator(0, getKickoffYaw(this->currentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE : KICKOFF_BLUE_SIDE) * CONST_RadToUnrRot, 0);
+			this->locationBot = getKickoffLocation(this->currentKickoffIndex, KICKOFF_ORANGE_SIDE);
+			this->rotationBot = Rotator(0, getKickoffYaw(this->currentKickoffIndex, KICKOFF_ORANGE_SIDE) * CONST_RadToUnrRot, 0);
 			if (!isRecording)
 			{
-				server.SpawnBot(botCarID, "Kickoff Bot");//on spawn un bot en sachant qu'il est le seul
-
-				//cvarManager->log("On spawn un bot");
+				server.SpawnBot(botCarID, "Kickoff Bot"); // spawn a bot knowing that it is the only one
 
 				this->botJustSpawned = true;
 			}
-			ArrayWrapper<CarWrapper> tutures = server.GetCars();
+			ArrayWrapper<CarWrapper> cars = server.GetCars();
 
-			int nbTutures = tutures.Count();
-			if (nbTutures != 2 && !(isRecording))//si on a pas spawn la voiture ou qu'on a pas pu
+			int nbCars = cars.Count();
+			if (nbCars != 2 && !(isRecording))
 			{
-				LOG("ERROR ! Wrong amount of car on the field");
+				LOG("ERROR ! Wrong amount of cars on the field");
 				return;
 			}
-			const bool botIsFirst = tutures.Get(0).GetPRI().GetbBot();
-			CarWrapper joueur = botIsFirst ? tutures.Get(1) : tutures.Get(0);
-			CarWrapper bot = botIsFirst ? tutures.Get(0) : tutures.Get(1);
+			const bool botIsFirst = cars.Get(0).GetPRI().GetbBot();
+			CarWrapper player = botIsFirst ? cars.Get(1) : cars.Get(0);
+			CarWrapper bot = botIsFirst ? cars.Get(0) : cars.Get(1);
 
-			joueur.SetLocation(locationJoueur);
-			joueur.SetRotation(rotationJoueur);
-			joueur.SetVelocity(Vector(0, 0, 0));
+			player.SetLocation(locationPlayer);
+			player.SetRotation(rotationPlayer);
+			player.SetVelocity(Vector(0, 0, 0));
 
-			BoostWrapper boost = joueur.GetBoostComponent();
-			if (!boost)return;
-			//LOG("Unlimited boost setting : {}, consumption rate : {}", boost.GetUnlimitedBoostRefCount(),boost.GetBoostConsumptionRate());
-
-			boost.SetUnlimitedBoostRefCount(0);			//on limite le boost du joueur (TODO: voir si c'ests utile pour le bot)
+			BoostWrapper boost = player.GetBoostComponent();
+			if (!boost) return;
+			boost.SetUnlimitedBoostRefCount(0); // limit the player's boost (TODO: see if it's relevant for the bot)
 			boost.SetCurrentBoostAmount(0.333f);
 
 			// Reset boost pickups, because moving the player can cause picking up boost.
-			gameWrapper->SetTimeout([this](GameWrapper* gameWrapper) 
+			gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
 				{
 					if (!gameWrapper->IsInFreeplay()) return;
 					ServerWrapper server = gameWrapper->GetGameEventAsServer();
@@ -317,27 +303,28 @@ void kickoffPractice::start(std::vector<std::string> args)
 			server.SendCountdownMessage(3, gameWrapper->GetPlayerController());
 			gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
 				{
-					if (!gameWrapper->IsInFreeplay())return;
+					if (!gameWrapper->IsInFreeplay()) return;
 					ServerWrapper server = gameWrapper->GetGameEventAsServer();
-					if (!server)return;
+					if (!server) return;
 					server.SendCountdownMessage(2, gameWrapper->GetPlayerController());
 				}, 1);
 			gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
 				{
-					if (!gameWrapper->IsInFreeplay())return;
+					if (!gameWrapper->IsInFreeplay()) return;
 					ServerWrapper server = gameWrapper->GetGameEventAsServer();
-					if (!server)return;
+					if (!server) return;
 					server.SendCountdownMessage(1, gameWrapper->GetPlayerController());
 				}, 2);
 			gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
 				{
-					if (!gameWrapper->IsInFreeplay())return;
+					if (!gameWrapper->IsInFreeplay()) return;
 					ServerWrapper server = gameWrapper->GetGameEventAsServer();
-					if (!server)return;
+					if (!server) return;
 					server.SendGoMessage(gameWrapper->GetPlayerController());
-					this->kickoffState = KickoffStates::started;
+					this->kickoffState = KickoffState::started;
 				}, 3);
-			this->kickoffState = KickoffStates::waitingToStart;
+
+			this->kickoffState = KickoffState::waitingToStart;
 
 			if (isRecording)
 			{
@@ -349,44 +336,40 @@ void kickoffPractice::start(std::vector<std::string> args)
 
 void kickoffPractice::tick(std::string eventName)
 {
-	if (!pluginEnabled)return;
-	if (!gameWrapper->IsInFreeplay())return;
+	if (!pluginEnabled) return;
+	if (!gameWrapper->IsInFreeplay()) return;
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
-	if (!server)return;
-	if (this->kickoffState == KickoffStates::nothing)
-	{
-		return;
-	}
+	if (!server) return;
+	if (this->kickoffState == KickoffState::nothing) return;
 
-	ArrayWrapper<CarWrapper> tutures = server.GetCars();
-	CarWrapper *joueur = nullptr;
+	ArrayWrapper<CarWrapper> cars = server.GetCars();
+	CarWrapper* player = nullptr;
 	CarWrapper* bot = nullptr;
-	int nbTutures = tutures.Count();
-	if (nbTutures == 1)
+	int nbCars = cars.Count();
+	if (nbCars == 1)
 	{
-		joueur = new CarWrapper(tutures.Get(0));
+		player = new CarWrapper(cars.Get(0));
 	}
-	else if (nbTutures == 2)
+	else if (nbCars == 2)
 	{
-
-		const bool botIsFirst = tutures.Get(0).GetPRI().GetbBot();
-		joueur = new CarWrapper(botIsFirst ? tutures.Get(1) : tutures.Get(0));
-		bot = new CarWrapper(botIsFirst ? tutures.Get(0) : tutures.Get(1));
+		const bool botIsFirst = cars.Get(0).GetPRI().GetbBot();
+		player = new CarWrapper(botIsFirst ? cars.Get(1) : cars.Get(0));
+		bot = new CarWrapper(botIsFirst ? cars.Get(0) : cars.Get(1));
 	}
 	else return;
 
-	if (this->kickoffState == KickoffStates::started )
+	if (this->kickoffState == KickoffState::started)
 	{
-		ControllerInput iddle;
-		if (nbTutures == 2)
+		ControllerInput idle;
+		if (nbCars == 2)
 		{
-			if (this->tickCompteur >= this->loadedInputs[this->currentInputIndex].inputs.size())
+			if (this->tickCounter >= this->loadedInputs[this->currentInputIndex].inputs.size())
 			{
-				bot->SetInput(iddle);
+				bot->SetInput(idle);
 			}
 			else
 			{
-				carState state = this->loadedInputs[this->currentInputIndex].inputs[++(this->tickCompteur)];
+				CarState state = this->loadedInputs[this->currentInputIndex].inputs[++(this->tickCounter)];
 				bot->SetLocation(state.location);
 				bot->SetVelocity(state.velocity);
 				bot->SetRotation(state.rotation);
@@ -398,30 +381,30 @@ void kickoffPractice::tick(std::string eventName)
 		}
 		if (isRecording)
 		{
-			carState CarTemp;
-			CarTemp.location = joueur->GetLocation();
-			CarTemp.velocity = joueur->GetVelocity();
-			CarTemp.rotation = joueur->GetRotation();
-			CarTemp.angularVelocity= joueur->GetAngularVelocity();
-			CarTemp.steer = joueur->GetReplicatedSteer();
-			CarTemp.throttle = joueur->GetReplicatedThrottle();
-			CarTemp.handbrakeOn = joueur->GetbReplicatedHandbrake();
-			CarTemp.boostAmount = joueur->GetBoostComponent().IsNull() ? 0 : joueur->GetBoostComponent().GetCurrentBoostAmount();
-			CarTemp.isBoosting = joueur->IsBoostCheap();
+			CarState CarTemp;
+			CarTemp.location = player->GetLocation();
+			CarTemp.velocity = player->GetVelocity();
+			CarTemp.rotation = player->GetRotation();
+			CarTemp.angularVelocity = player->GetAngularVelocity();
+			CarTemp.steer = player->GetReplicatedSteer();
+			CarTemp.throttle = player->GetReplicatedThrottle();
+			CarTemp.handbrakeOn = player->GetbReplicatedHandbrake();
+			CarTemp.boostAmount = player->GetBoostComponent().IsNull() ? 0 : player->GetBoostComponent().GetCurrentBoostAmount();
+			CarTemp.isBoosting = player->IsBoostCheap();
 			recordedInputs.push_back(CarTemp);
 		}
 	}
 	else
 	{
-		joueur->SetLocation(getKickoffLocation(this->currrentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE: KICKOFF_BLUE_SIDE));
-		joueur->SetRotation(Rotator(0, getKickoffYaw(this->currrentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE : KICKOFF_BLUE_SIDE) * CONST_RadToUnrRot, 0));
-		joueur->SetVelocity(Vector(0, 0, 0));
-		BoostWrapper boost = joueur->GetBoostComponent();
+		player->SetLocation(getKickoffLocation(this->currentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE : KICKOFF_BLUE_SIDE));
+		player->SetRotation(Rotator(0, getKickoffYaw(this->currentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE : KICKOFF_BLUE_SIDE) * CONST_RadToUnrRot, 0));
+		player->SetVelocity(Vector(0, 0, 0));
+		BoostWrapper boost = player->GetBoostComponent();
 		if (!boost)return;
 		boost.SetBoostAmount(0.333f);
 	}
 	delete bot;
-	delete joueur;
+	delete player;
 }
 
 
@@ -444,19 +427,14 @@ Vector kickoffPractice::getKickoffLocation(int kickoff, bool side)
 	{
 		if (kickoff == KICKOFF_RIGHT_CORNER)
 			return Vector(2048, 2560, 20);
-
 		if (kickoff == KICKOFF_LEFT_CORNER)
 			return Vector(-2048, 2560, 20);
-
 		if (kickoff == KICKOFF_BACK_RIGHT)
 			return Vector(256.0, 3840, 20);
-
 		if (kickoff == KICKOFF_BACK_LEFT)
 			return Vector(-256.0, 3840, 20);
-
 		if (kickoff == KICKOFF_FAR_BACK_CENTER)
 			return Vector(0.0, 4608, 20);
-
 	}
 }
 
@@ -493,7 +471,7 @@ float kickoffPractice::getKickoffYaw(int kickoff, bool side)
 int kickoffPractice::getRandomKickoffForId(int kickoffId)
 {
 	std::vector<int> indices;
-	for (int i = 0; i < loadedInputs.size();i++)
+	for (int i = 0; i < loadedInputs.size(); i++)
 	{
 		if (states[i] - 1 == kickoffId)
 		{
@@ -510,21 +488,20 @@ void kickoffPractice::removeBots()
 	if (!gameWrapper->IsInFreeplay())return;
 	ServerWrapper server = gameWrapper->GetGameEventAsServer();
 	if (!server)return;
-	ArrayWrapper<CarWrapper> tutures = server.GetCars();
+	ArrayWrapper<CarWrapper> cars = server.GetCars();
 
-	for (int i = 0; i < tutures.Count();i++)
+	for (int i = 0; i < cars.Count(); i++)
 	{
-		if (tutures.Get(i).GetPRI().GetbBot())
+		if (cars.Get(i).GetPRI().GetbBot())
 		{
-			tutures.Get(i).GetPRI().Unregister();
-			tutures.Get(i).Destroy();
+			cars.Get(i).GetPRI().Unregister();
+			cars.Get(i).Destroy();
 		}
 	}
 }
 
 void kickoffPractice::storeBodyIndex()
 {
-	
 	auto items = gameWrapper->GetItemsWrapper();
 	if (!items) return;
 	for (auto item : items.GetAllProducts())
@@ -539,10 +516,9 @@ void kickoffPractice::storeBodyIndex()
 			continue;
 		}
 		carBodyIDs.push_back(item.GetID());
-		
+
 	}
 }
-
 
 void kickoffPractice::reset()
 {
@@ -552,40 +528,40 @@ void kickoffPractice::reset()
 	{
 		cvarManager->log("Recording ends");
 		const int nbInputs = recordedInputs.size();
-		LOG("Ticks recorded : {}",nbInputs);
+		LOG("Ticks recorded : {}", nbInputs);
 		auto t = std::time(nullptr);
 		auto tm = *std::localtime(&t);
-		
+
 		std::ostringstream oss;
 		oss << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
 		auto str = oss.str();
 		str = "\\recordedInput" + str + ".kstates";
-		std::ofstream inputFile(recordedKickoffFolder  + str);
+		std::ofstream inputFile(recordedKickoffFolder + str);
 		if (!inputFile.is_open())
 		{
 			LOG("ERROR : can't create recording file");
 			return;
 		}
-		for (int i = 0;i < nbInputs;i++)
+		for (int i = 0; i < nbInputs; i++)
 		{
-			const carState mvtJoueur = recordedInputs[i];
-			inputFile << mvtJoueur.location.X << ", " << mvtJoueur.location.Y << ", " << mvtJoueur.location.Z 
-			  << ", " << mvtJoueur.velocity.X << ", " << mvtJoueur.velocity.Y << ", " << mvtJoueur.velocity.Z 
-			  << ", " << mvtJoueur.rotation.Pitch << ", " << mvtJoueur.rotation.Roll << ", " << mvtJoueur.rotation.Yaw
-			  << ", " << mvtJoueur.angularVelocity.X << ", " << mvtJoueur.angularVelocity.Y << ", " << mvtJoueur.angularVelocity.Z
-			  << ", " << mvtJoueur.steer
-			  << ", " << mvtJoueur.throttle
-			  << ", " << mvtJoueur.handbrakeOn
-			  <<", " << mvtJoueur.boostAmount 
-			  << ", " << mvtJoueur.isBoosting << "\n";
+			const CarState mvtPlayer = recordedInputs[i];
+			inputFile << mvtPlayer.location.X << ", " << mvtPlayer.location.Y << ", " << mvtPlayer.location.Z
+				<< ", " << mvtPlayer.velocity.X << ", " << mvtPlayer.velocity.Y << ", " << mvtPlayer.velocity.Z
+				<< ", " << mvtPlayer.rotation.Pitch << ", " << mvtPlayer.rotation.Roll << ", " << mvtPlayer.rotation.Yaw
+				<< ", " << mvtPlayer.angularVelocity.X << ", " << mvtPlayer.angularVelocity.Y << ", " << mvtPlayer.angularVelocity.Z
+				<< ", " << mvtPlayer.steer
+				<< ", " << mvtPlayer.throttle
+				<< ", " << mvtPlayer.handbrakeOn
+				<< ", " << mvtPlayer.boostAmount
+				<< ", " << mvtPlayer.isBoosting << "\n";
 		}
 		inputFile.close();
-		this->recordedInputs = std::vector<carState>();
+		this->recordedInputs = std::vector<CarState>();
 	}
 
-	this->kickoffState= KickoffStates::nothing;
-	this->tickCompteur = 0;
-	this->currrentKickoffIndex = 0;
+	this->kickoffState = KickoffState::nothing;
+	this->tickCounter = 0;
+	this->currentKickoffIndex = 0;
 	this->resetBoost();
 	this->isInReplay = false;
 	this->isRecording = false;
@@ -593,28 +569,26 @@ void kickoffPractice::reset()
 
 void kickoffPractice::recordBoost()
 {
-	
-	if (!gameWrapper->IsInFreeplay())return;
+	if (!gameWrapper->IsInFreeplay()) return;
 	ServerWrapper server = gameWrapper->GetGameEventAsServer();
-	if (!server)return;
-	if (this->isInReplay)return;
-	auto joueur = gameWrapper->GetLocalCar();
-	if (!joueur)return;
-	auto boost = joueur.GetBoostComponent();
-	if (!boost)return;
-	this->unlimitedBoostDefaultSetting = boost.GetUnlimitedBoostRefCount();// /§\buggé
-	//LOG("Boost settings recorded as {}",unlimitedBoostDefaultSetting);
+	if (!server) return;
+	if (this->isInReplay) return;
+	auto player = gameWrapper->GetLocalCar();
+	if (!player) return;
+	auto boost = player.GetBoostComponent();
+	if (!boost) return;
+	this->unlimitedBoostDefaultSetting = boost.GetUnlimitedBoostRefCount();// /§\bugged
 }
 
 void kickoffPractice::checkForKickoffDispo()
 {
 	kickoffDispo = std::vector<int>();
-	for (int i = 0; i < states.size();i++)
+	for (int i = 0; i < states.size(); i++)
 	{
 		if (states[i] == 0)continue;
 		int vraiIndex = states[i] - 1;
 		auto it = std::find(kickoffDispo.begin(), kickoffDispo.end(), vraiIndex);
-		if (it == kickoffDispo.end())//si on l'a pas trouvé
+		if (it == kickoffDispo.end()) // if we haven't found it
 		{
 			kickoffDispo.push_back(vraiIndex);
 		}
@@ -624,7 +598,7 @@ void kickoffPractice::checkForKickoffDispo()
 
 void kickoffPractice::loadInputFiles()
 {
-	loadedInputs = std::vector<kickoffStates>();
+	loadedInputs = std::vector<RecordedKickoff>();
 	states = std::vector<int>();
 
 	try
@@ -652,10 +626,10 @@ void kickoffPractice::resetBoost()
 	if (!gameWrapper->IsInFreeplay())return;
 	ServerWrapper server = gameWrapper->GetGameEventAsServer();
 	if (!server)return;
-	
-	CarWrapper joueur = gameWrapper->GetLocalCar();
-	if (!joueur)return;
-	BoostWrapper boost = joueur.GetBoostComponent();
+
+	CarWrapper player = gameWrapper->GetLocalCar();
+	if (!player)return;
+	BoostWrapper boost = player.GetBoostComponent();
 	if (!boost)return;
 	//LOG("set unlimited boost settings as : {} ", unlimitedBoostDefaultSetting);
 	boost.SetUnlimitedBoostRefCount(this->unlimitedBoostDefaultSetting);//TODO: ça remet toujours unlimited boost donc c buggé
@@ -669,27 +643,27 @@ std::string kickoffPractice::getKickoffName(int kickoffId)
 {
 	switch (kickoffId)
 	{
-		case 0:
-			return "Right Corner";
-		case 1:
-			return "Left Corner";
-		case 2:
-			return "Back Right Corner";
-		case 3:
-			return "Back Left Corner";
-		case 4:
-			return "Far Back";
+	case 0:
+		return "Right Corner";
+	case 1:
+		return "Left Corner";
+	case 2:
+		return "Back Right Corner";
+	case 3:
+		return "Back Left Corner";
+	case 4:
+		return "Far Back";
 	default:
 		return "Unknown";
 	}
 }
 
 
-kickoffStates kickoffPractice::readKickoffFile(std::string fileName, std::string kickoffName)
+RecordedKickoff kickoffPractice::readKickoffFile(std::string fileName, std::string kickoffName)
 {
 	std::vector<std::string> row;
 	std::string line, word;
-	std::vector<carState> currentInputs;
+	std::vector<CarState> currentInputs;
 
 	std::fstream file(fileName, std::ios::in);
 	if (file.is_open())
@@ -706,37 +680,31 @@ kickoffStates kickoffPractice::readKickoffFile(std::string fileName, std::string
 			{
 				row.push_back(word);
 			}
-			//stockage dans la structure adéquate
-			carState state;
+			// store in the appropriate structure
+			CarState state;
 			if (row.size() != 17)
 			{
-				LOG("Error on line {} : size of {} instead of 17",i,row.size());
-				//LOG(line);
-
+				LOG("Error on line {} : size of {} instead of 17", i, row.size());
 				continue;
 			}
-			/*for (int j = 0; j < row.size();j++)
-			{
-			cvarManager->log(row[j]);
-			}*/
 			try
 			{
 				state.location.X = std::stof(row[0]);
 				state.location.Y = std::stof(row[1]);
 				state.location.Z = std::stof(row[2]);
-			
+
 				state.velocity.X = std::stof(row[3]);
 				state.velocity.Y = std::stof(row[4]);
 				state.velocity.Z = std::stof(row[5]);
-				
+
 				state.rotation.Pitch = std::stoi(row[6]);
-				state.rotation.Roll= std::stoi(row[7]);
+				state.rotation.Roll = std::stoi(row[7]);
 				state.rotation.Yaw = std::stoi(row[8]);
-			
-				state.angularVelocity.X= std::stof(row[9]);
+
+				state.angularVelocity.X = std::stof(row[9]);
 				state.angularVelocity.Y = std::stof(row[10]);
 				state.angularVelocity.Z = std::stof(row[11]);
-			
+
 				state.steer = std::stof(row[12]);
 				state.throttle = std::stof(row[13]);
 				state.handbrakeOn = std::stoul(row[14]);
@@ -747,19 +715,19 @@ kickoffStates kickoffPractice::readKickoffFile(std::string fileName, std::string
 			}
 			catch (std::invalid_argument exception)
 			{
-				LOG("ERROR : invalid argument in input file {}\n{}",fileName, exception.what());
+				LOG("ERROR : invalid argument in input file {}\n{}", fileName, exception.what());
 			}
 			catch (std::out_of_range exception)
 			{
-				LOG("ERROR : number too big in file {} \n{}",fileName, exception.what());
+				LOG("ERROR : number too big in file {} \n{}", fileName, exception.what());
 			}
 		}
 	}
 	else
-		LOG("Can't open {}",fileName);
+		LOG("Can't open {}", fileName);
 
-	LOG("{} : {} lines loaded", fileName,currentInputs.size());
-	kickoffStates a;
+	LOG("{} : {} lines loaded", fileName, currentInputs.size());
+	RecordedKickoff a;
 	a.name = kickoffName;
 	a.inputs = currentInputs;
 	return a;
@@ -799,16 +767,12 @@ void kickoffPractice::readConfigFile(std::wstring fileName)
 				cvarManager->log("Error on line " + std::to_string(i));
 				continue;
 			}
-			/*for (int j = 0; j < row.size();j++)
-			{
-			cvarManager->log(row[j]);
-			}*/
 			try
 			{
 				std::string name = row[1];
 				int state = std::stoi(row[0]);
 				if (state < 0 || state > 5)continue;
-				for (int j = 0; j < loadedInputs.size();j++)
+				for (int j = 0; j < loadedInputs.size(); j++)
 				{
 					if (loadedInputs[j].name == name)
 					{
@@ -823,7 +787,7 @@ void kickoffPractice::readConfigFile(std::wstring fileName)
 			}
 			catch (std::out_of_range exception)
 			{
-				LOG("ERROR : number too big in config file \n{}",  exception.what());
+				LOG("ERROR : number too big in config file \n{}", exception.what());
 			}
 		}
 	}
@@ -832,7 +796,7 @@ void kickoffPractice::readConfigFile(std::wstring fileName)
 
 	if (botFolder.size() < 128 && botFolder.size() > 0)
 	{
-		strcpy(this->botKickoffFolder,botFolder.c_str());
+		strcpy(this->botKickoffFolder, botFolder.c_str());
 	}
 	else if (botFolder.size() < 128)
 	{
@@ -860,9 +824,9 @@ void kickoffPractice::writeConfigFile(std::wstring fileName)
 	inputFile << botKickoffFolder << "\n";
 	inputFile << botKickoffFolder << "\n";
 
-	for (int i = 0;i < states.size() ;i++)
+	for (int i = 0; i < states.size(); i++)
 	{
-		inputFile << states[i]<< "," << this->loadedInputs[i].name << "\n";
+		inputFile << states[i] << "," << this->loadedInputs[i].name << "\n";
 	}
 	inputFile.close();
 }
@@ -875,7 +839,7 @@ void kickoffPractice::RenderSettings()
 		ImGui::SetTooltip("Enable or disable the plugin");
 	}
 	ImGui::NewLine();
-	ImGui::SliderFloat("Time before back to normal", &this->timeAfterBackToNormal, 0.0f, 3.0f,"%.3f seconds");
+	ImGui::SliderFloat("Time before back to normal", &this->timeAfterBackToNormal, 0.0f, 3.0f, "%.3f seconds");
 	if (ImGui::IsItemHovered())
 	{
 		ImGui::SetTooltip("How long you stay in \"kickoff mode\" after someone hit the ball");
@@ -904,31 +868,31 @@ void kickoffPractice::RenderSettings()
 		{
 			if (selPath.size() < 128)
 			{
-				//LOG(selPath);
+				//LOG(inputPath);
 				strcpy(recordedKickoffFolder, selPath.c_str());
 			}
 			ImGui::CloseCurrentPopup();
 		}
 		ImGui::EndPopup();
 	}
-	ImGui::PushID(42);//sinon ImGui confond les textboxs sans labels
+	ImGui::PushID(42); // otherwise ImGui confuses textboxes without labels
 	ImGui::InputText("", recordedKickoffFolder, IM_ARRAYSIZE(recordedKickoffFolder));
 	ImGui::PopID();
 
 #pragma endregion
-	for (int i = 0; i < 5;i++)
+	for (int i = 0; i < 5; i++)
 	{
 		if (ImGui::Button(("Record " + getKickoffName(i)).c_str()))
 		{
-			gameWrapper->Execute([this,i](GameWrapper* gw) {
-				cvarManager->executeCommand("kickoff_train " + std::to_string(i+1) + " true;closemenu settings");
+			gameWrapper->Execute([this, i](GameWrapper* gw) {
+				cvarManager->executeCommand("kickoff_train " + std::to_string(i + 1) + " true;closemenu settings");
 				});
 		}
 		if (ImGui::IsItemHovered())
 		{
 			ImGui::SetTooltip(("Record input for the " + getKickoffName(i) + " kickoff").c_str());
 		}
-		if(i != 4)ImGui::SameLine();
+		if (i != 4)ImGui::SameLine();
 	}
 
 	ImGui::Separator();
@@ -939,7 +903,6 @@ void kickoffPractice::RenderSettings()
 	ImGui::SameLine();
 	if (ImGui::Button("..."))
 	{
-
 		ImGui::OpenPopup("browseKickoff");
 	}
 
@@ -948,19 +911,19 @@ void kickoffPractice::RenderSettings()
 
 	if (ImGui::BeginPopup("browseKickoff", ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoScrollbar))
 	{
-		std::string selPath = recordMenu.main();
-		if (selPath != "")
+		std::string inputPath = recordMenu.main();
+		if (inputPath != "")
 		{
-			if (selPath.size() < 128)
+			if (inputPath.size() < 128)
 			{
-				//LOG(selPath);
-				strcpy(botKickoffFolder, selPath.c_str());
+				//LOG(inputPath);
+				strcpy(botKickoffFolder, inputPath.c_str());
 			}
 			ImGui::CloseCurrentPopup();
 		}
 		ImGui::EndPopup();
 	}
-	ImGui::PushID(69);//sinon ImGui confond les textboxs sans labels
+	ImGui::PushID(69); // otherwise ImGui confuses textboxes without labels
 	ImGui::InputText("", botKickoffFolder, IM_ARRAYSIZE(botKickoffFolder));
 	ImGui::PopID();
 
@@ -990,20 +953,20 @@ void kickoffPractice::RenderSettings()
 	const ImGuiID child_id = ImGui::GetID((void*)(intptr_t)0);
 	const bool child_is_visible = ImGui::BeginChild(child_id, ImGui::GetContentRegionAvail(), true, child_flags);
 
-	int taille = loadedInputs.size();
-	const char* items[] = { "Unused", "Right Corner", "Left Corner", "Back Right", "Back Left", "Far Back Center"};
+	int count = loadedInputs.size();
+	const char* items[] = { "Unused", "Right Corner", "Left Corner", "Back Right", "Back Left", "Far Back Center" };
 	bool isChanged = false;
-	if (child_is_visible) 
+	if (child_is_visible)
 	{
 		ImGui::Indent(5);
-		for(int i = 0; i < taille;i ++)
+		for (int i = 0; i < count; i++)
 		{
 			ImGui::PushID(i);
 			isChanged = isChanged || ImGui::Combo(loadedInputs[i].name.c_str(), &states[i], items, IM_ARRAYSIZE(items));
 			ImGui::PopID();
 		}
 	}
-	
+
 	float scroll_y = ImGui::GetScrollY();
 	float scroll_max_y = ImGui::GetScrollMaxY();
 	ImGui::EndChild();
@@ -1022,6 +985,5 @@ void kickoffPractice::RenderSettings()
 	{
 		this->botCarID = carBodyIDs[selectedCarUI];
 	}
-	
 }
 

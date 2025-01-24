@@ -20,10 +20,16 @@ constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_M
 #define KICKOFF_BLUE_SIDE true
 #define KICKOFF_ORANGE_SIDE false
 
-enum class KickoffStates{ nothing,waitingToStart, started};
+enum class KickoffState {
+	nothing,
+	// Countdown is active, not moving.
+	waitingToStart,
+	// 
+	started
+};
 
 
-typedef struct carState
+typedef struct CarState
 {
 	Vector location;
 	Vector velocity;
@@ -36,42 +42,42 @@ typedef struct carState
 	bool isBoosting;
 };
 
-typedef struct kickoffStates 
+typedef struct RecordedKickoff
 {
 	std::string name;
-	std::vector<carState> inputs;
+	std::vector<CarState> inputs;
 };
 
 
 
-class kickoffPractice: public BakkesMod::Plugin::BakkesModPlugin, public BakkesMod::Plugin::PluginSettingsWindow/*, public BakkesMod::Plugin::PluginWindow*/
+class kickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public BakkesMod::Plugin::PluginSettingsWindow/*, public BakkesMod::Plugin::PluginWindow*/
 {
 private:
 	void start(std::vector<std::string> args);
 	void tick(std::string eventName);
-	Vector getKickoffLocation(int kickoff,bool side);
-	float getKickoffYaw(int kickoff,bool side);
-	kickoffStates currentInputs;
-	std::vector<kickoffStates> loadedInputs;
+	Vector getKickoffLocation(int kickoff, bool side);
+	float getKickoffYaw(int kickoff, bool side);
+	RecordedKickoff currentInputs;
+	std::vector<RecordedKickoff> loadedInputs;
 	std::vector<int> states;
-	std::vector<carState> recordedInputs;
+	std::vector<CarState> recordedInputs;
 	int getRandomKickoffForId(int kickoffId);
 	void removeBots();
 	void storeBodyIndex();
 	void readConfigFile(std::wstring fileName);
 	void writeConfigFile(std::wstring fileName);
 	void reset();
-	kickoffStates readKickoffFile(std::string fileName, std::string kickoffName);
+	RecordedKickoff readKickoffFile(std::string fileName, std::string kickoffName);
 	void recordBoost();
 	void loadInputFiles();
 	void resetBoost();
 	std::string getKickoffName(int kickoffId);
 	void checkForKickoffDispo();
 	std::vector<int> kickoffDispo;
-	int tickCompteur;
-	int currrentKickoffIndex;
+	int tickCounter;
+	int currentKickoffIndex;
 	int currentInputIndex;
-	KickoffStates kickoffState;
+	KickoffState kickoffState;
 	bool botJustSpawned;
 	Vector locationBot;
 	Rotator rotationBot;
@@ -84,9 +90,9 @@ private:
 	bool spawnBotDuringRecord;
 	float timeAfterBackToNormal = 0.5;
 	int botCarID;
-	char ** carNames;
+	char** carNames;
 	std::vector<int> carBodyIDs;
-	int nbCarBody =  -1;
+	int nbCarBody = -1;
 	int selectedCarUI;
 
 	char botKickoffFolder[128] = "";
@@ -98,5 +104,5 @@ public:
 	void RenderSettings() override;
 	std::string GetPluginName() override;
 	void SetImGuiContext(uintptr_t ctx) override;
-	
+
 };
