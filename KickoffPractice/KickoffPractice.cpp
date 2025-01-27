@@ -419,9 +419,12 @@ void KickoffPractice::removeBots()
 	for (auto car : server.GetCars()) {
 		if (car.GetPRI().GetbBot())
 		{
-			car.GetPRI().Unregister();
+			// To avoid the lightning that shows on `server.RemovePlayer()` we call `car.Destory()` first.
+			// After `car.Destory()` `car.GetAIController()` wouldn't work, so we have to store it beforehand.
+			// If we don't call `server.RemovePlayer()`, the bots will respawn on "Reset Ball".
+			auto controller = car.GetAIController();
 			car.Destroy();
-			server.RemoveCar(car);
+			server.RemovePlayer(controller);
 		}
 	}
 }
