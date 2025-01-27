@@ -504,15 +504,16 @@ void kickoffPractice::reset()
 	{
 		cvarManager->log("Recording ends");
 		const int numberOfInputs = recordedInputs.size();
-		LOG("Ticks recorded : {}", numberOfInputs);
-		auto t = std::time(nullptr);
-		auto tm = *std::localtime(&t);
+		LOG("Recording ends. Ticks recorded : {}", numberOfInputs);
 
+		auto time = std::time(nullptr);
 		std::ostringstream oss;
-		oss << std::put_time(&tm, "%Y-%m-%d %H-%M-%S");
-		auto str = oss.str();
-		str = "\\recordedInput" + str + ".kinputs";
-		std::ofstream inputFile(recordedKickoffFolder + str);
+		oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H-%M-%S");
+		auto timestamp = oss.str();
+
+		auto name = this->getKickoffName(this->currentKickoffIndex);
+		auto filename = "\\" + name + " " + timestamp + ".kinputs";
+		std::ofstream inputFile(recordedKickoffFolder + filename);
 		if (!inputFile.is_open())
 		{
 			LOG("ERROR : can't create recording file");
@@ -850,7 +851,7 @@ void kickoffPractice::RenderSettings()
 	ImGui::SliderFloat("Time before back to normal", &this->timeAfterBackToNormal, 0.0f, 3.0f, "%.3f seconds");
 	if (ImGui::IsItemHovered())
 	{
-		ImGui::SetTooltip("How long you stay in \"kickoff mode\" after someone hit the ball");
+		ImGui::SetTooltip("How long you stay in \"kickoff mode\" after someone hit the ball. This also affects how long the recording lasts after hitting the ball.");
 	}
 	ImGui::NewLine();
 	if (ImGui::IsItemHovered())
