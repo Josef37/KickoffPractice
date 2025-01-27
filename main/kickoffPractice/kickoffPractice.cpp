@@ -222,7 +222,7 @@ void kickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	}
 
 	LOG("isRecording: {}", isRecording);
-	
+
 	KickoffSide playerSide = isRecording ? KickoffSide::Orange : KickoffSide::Blue;
 	Vector locationPlayer = getKickoffLocation(this->currentKickoffIndex, playerSide);
 	Rotator rotationPlayer = Rotator(0, getKickoffYaw(this->currentKickoffIndex, playerSide) * CONST_RadToUnrRot, 0);
@@ -327,7 +327,7 @@ void kickoffPractice::tick()
 		player = botIsFirst ? cars.Get(1) : cars.Get(0);
 		bot = botIsFirst ? cars.Get(0) : cars.Get(1);
 	}
-	else 
+	else
 	{
 		LOG("Number of cars has to be 1 or 2!");
 		return;
@@ -363,31 +363,24 @@ void kickoffPractice::tick()
 
 Vector kickoffPractice::getKickoffLocation(int kickoff, KickoffSide side)
 {
+	const Vector heightOffset = Vector(0, 0, 20);
+
 	if (side == KickoffSide::Blue)
 	{
 		if (kickoff == KickoffPosition::CornerRight)
-			return Vector(-2048, -2560, 20);
+			return Vector(-2048, -2560, 0) + heightOffset;
 		if (kickoff == KickoffPosition::CornerLeft)
-			return Vector(2048, -2560, 20);
+			return Vector(2048, -2560, 0) + heightOffset;
 		if (kickoff == KickoffPosition::BackRight)
-			return Vector(-256, -3840, 20);
+			return Vector(-256, -3840, 0) + heightOffset;
 		if (kickoff == KickoffPosition::BackLeft)
-			return Vector(256.0, -3840, 20);
+			return Vector(256.0, -3840, 0) + heightOffset;
 		if (kickoff == KickoffPosition::BackCenter)
-			return Vector(0.0, -4608, 20);
+			return Vector(0.0, -4608, 0) + heightOffset;
 	}
 	else
 	{
-		if (kickoff == KickoffPosition::CornerRight)
-			return Vector(2048, 2560, 20);
-		if (kickoff == KickoffPosition::CornerLeft)
-			return Vector(-2048, 2560, 20);
-		if (kickoff == KickoffPosition::BackRight)
-			return Vector(256.0, 3840, 20);
-		if (kickoff == KickoffPosition::BackLeft)
-			return Vector(-256.0, 3840, 20);
-		if (kickoff == KickoffPosition::BackCenter)
-			return Vector(0.0, 4608, 20);
+		return -1 * getKickoffLocation(kickoff, KickoffSide::Blue) + heightOffset;
 	}
 }
 
@@ -408,16 +401,7 @@ float kickoffPractice::getKickoffYaw(int kickoff, KickoffSide side)
 	}
 	else
 	{
-		if (kickoff == KickoffPosition::CornerRight)
-			return -0.75 * M_PI;
-		if (kickoff == KickoffPosition::CornerLeft)
-			return -0.25 * M_PI;
-		if (kickoff == KickoffPosition::BackRight)
-			return -0.5 * M_PI;
-		if (kickoff == KickoffPosition::BackLeft)
-			return -0.5 * M_PI;
-		if (kickoff == KickoffPosition::BackCenter)
-			return -0.5 * M_PI;
+		return M_PI + getKickoffYaw(kickoff, KickoffSide::Blue);
 	}
 }
 
