@@ -249,6 +249,7 @@ void kickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	player.SetLocation(locationPlayer);
 	player.SetRotation(rotationPlayer);
 	player.SetVelocity(Vector(0, 0, 0));
+	player.SetbDriving(false);
 
 	BoostWrapper boost = player.GetBoostComponent();
 	if (!boost) return;
@@ -334,6 +335,8 @@ void kickoffPractice::tick()
 
 	if (this->kickoffState == KickoffState::started)
 	{
+		player.SetbDriving(true);
+
 		if (numberOfCars == 2)
 		{
 			if (this->tickCounter >= this->loadedInputs[this->currentInputIndex].inputs.size())
@@ -354,16 +357,6 @@ void kickoffPractice::tick()
 		{
 			recordedInputs.push_back(player.GetInput());
 		}
-	}
-	else
-	{
-		KickoffSide playerSide = isRecording ? KickoffSide::Orange : KickoffSide::Blue;
-		player.SetLocation(getKickoffLocation(this->currentKickoffIndex, playerSide));
-		player.SetRotation(Rotator(0, getKickoffYaw(this->currentKickoffIndex, playerSide) * CONST_RadToUnrRot, 0));
-		player.SetVelocity(Vector(0, 0, 0));
-		BoostWrapper boost = player.GetBoostComponent();
-		if (!boost) return;
-		boost.SetBoostAmount(0.333f);
 	}
 }
 
