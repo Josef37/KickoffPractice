@@ -12,12 +12,6 @@ Then when you want to practice,the plugin will spawn a bot in freeplay (and tele
 That's the core of the plugin, the rest is just UI and little features.
 If you don't know how to code plugins and want to learn please visit https://wiki.bakkesplugins.com/plugin_tutorial/getting_started/ and join the [BakkesMod programming discord](https://discord.gg/s97RgrgkxE).
 
-## The reason I published the code
-I'm publishing this code because there is still work to do on this plugin but I currently don't have time to do it myself. 
-I'm hoping that the community can use what I did to create the ultimate kickoff practice tool.
-The things left to do are :
+## The things left to do
   - code a way to record a kickoff from a replay. That way you could theoretically face anyone's kickoff (for example the kickoff from a pro player recorded from an RLCS replay file).
   - code a better UI : add more options/make the current ones less ugly ...
-
-Finally I hope the code is easy enough to understand on your own (english is not my main language so some names in the code may be a mix of french and english 😅). 
-As I said I don't have enough time to work on this project anymore so I don't have time to make good documentation. 
