@@ -8,7 +8,7 @@ For more information on how to use or install this plugin go to : https://bakkes
 
 ## How it works
 The plugin works by recording at every game tick the position and velocity of your car (when you're in record mode) and storing them in a file.
-Then when you want to practice,the plugin will spawn a bot in freeplay (and teleport you, limit your boost, set up a countdown etc.) and will then, at every tick, set the position and velocity of the bot to those pre-recorded.
+Then when you want to practice,the plugin will spawn a bot in freeplay (and teleport you, limit your boost, set up a countdown etc.) and will then, at every tick, replay the pre-recorded inputs with the bot.
 That's the core of the plugin, the rest is just UI and little features.
 If you don't know how to code plugins and want to learn please visit https://wiki.bakkesplugins.com/plugin_tutorial/getting_started/ and join the [BakkesMod programming discord](https://discord.gg/s97RgrgkxE).
 
@@ -16,12 +16,7 @@ If you don't know how to code plugins and want to learn please visit https://wik
 I'm publishing this code because there is still work to do on this plugin but I currently don't have time to do it myself. 
 I'm hoping that the community can use what I did to create the ultimate kickoff practice tool.
 The things left to do are :
-  - change the way the plugin records a kickoff, from recording "states of the game" (position velocity etc.) to recording inputs and then playing them back as the bot.
-  The reason this is not implemented already is that it seems to cause compatibility issues : inputs recorded on one computer would not play the same on a different one.
-  The problem with the current approach is that the bot will not respect physics when colliding with the ball (as he's position and velocity are pre recorded and not calculated in real time) which is a major problem for a tool aiming to be as close as reality as possible.
-  
   - code a way to record a kickoff from a replay. That way you could theoretically face anyone's kickoff (for example the kickoff from a pro player recorded from an RLCS replay file).
-  
   - code a better UI : add more options/make the current ones less ugly ...
 
 Finally I hope the code is easy enough to understand on your own (english is not my main language so some names in the code may be a mix of french and english 😅). 

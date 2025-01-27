@@ -24,46 +24,31 @@ enum class KickoffState {
 	nothing,
 	// Countdown is active, not moving.
 	waitingToStart,
-	// 
+	// Countdown is over, bot and player moving.
 	started
-};
-
-
-typedef struct CarState
-{
-	Vector location;
-	Vector velocity;
-	Rotator rotation;
-	Vector angularVelocity;
-	float steer;
-	float throttle;
-	unsigned long handbrakeOn;
-	float boostAmount;
-	bool isBoosting;
 };
 
 typedef struct RecordedKickoff
 {
 	std::string name;
-	std::vector<CarState> inputs;
+	GamepadSettings settings;
+	std::vector<ControllerInput> inputs;
 };
-
 
 
 class kickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public BakkesMod::Plugin::PluginSettingsWindow/*, public BakkesMod::Plugin::PluginWindow*/
 {
 private:
-	void start(std::vector<std::string> args);
-	void tick(std::string eventName);
+	void start(std::vector<std::string> args, GameWrapper* gameWrapper);
+	void tick();
 	Vector getKickoffLocation(int kickoff, bool side);
 	float getKickoffYaw(int kickoff, bool side);
-	RecordedKickoff currentInputs;
 	std::vector<RecordedKickoff> loadedInputs;
 	std::vector<int> states;
-	std::vector<CarState> recordedInputs;
+	std::vector<ControllerInput> recordedInputs;
 	int getRandomKickoffForId(int kickoffId);
 	void removeBots();
-	void storeBodyIndex();
+	void storeCarBodies();
 	void readConfigFile(std::wstring fileName);
 	void writeConfigFile(std::wstring fileName);
 	void reset();
@@ -72,8 +57,8 @@ private:
 	void loadInputFiles();
 	void resetBoost();
 	std::string getKickoffName(int kickoffId);
-	void checkForKickoffDispo();
-	std::vector<int> kickoffDispo;
+	void updateLoadedKickoffIndices();
+	std::vector<int> loadedKickoffIndices;
 	int tickCounter;
 	int currentKickoffIndex;
 	int currentInputIndex;
