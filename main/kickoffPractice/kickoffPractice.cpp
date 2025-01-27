@@ -222,11 +222,12 @@ void kickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	}
 
 	LOG("isRecording: {}", isRecording);
-
-	Vector locationPlayer = getKickoffLocation(this->currentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE : KICKOFF_BLUE_SIDE);
-	Rotator rotationPlayer = Rotator(0, getKickoffYaw(this->currentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE : KICKOFF_BLUE_SIDE) * CONST_RadToUnrRot, 0);
-	this->locationBot = getKickoffLocation(this->currentKickoffIndex, KICKOFF_ORANGE_SIDE);
-	this->rotationBot = Rotator(0, getKickoffYaw(this->currentKickoffIndex, KICKOFF_ORANGE_SIDE) * CONST_RadToUnrRot, 0);
+	
+	KickoffSide playerSide = isRecording ? KickoffSide::Orange : KickoffSide::Blue;
+	Vector locationPlayer = getKickoffLocation(this->currentKickoffIndex, playerSide);
+	Rotator rotationPlayer = Rotator(0, getKickoffYaw(this->currentKickoffIndex, playerSide) * CONST_RadToUnrRot, 0);
+	this->locationBot = getKickoffLocation(this->currentKickoffIndex, KickoffSide::Orange);
+	this->rotationBot = Rotator(0, getKickoffYaw(this->currentKickoffIndex, KickoffSide::Orange) * CONST_RadToUnrRot, 0);
 	if (!isRecording)
 	{
 		server.SpawnBot(botCarID, "Kickoff Bot"); // spawn a bot knowing that it is the only one
@@ -312,29 +313,33 @@ void kickoffPractice::tick()
 	if (this->kickoffState == KickoffState::nothing) return;
 
 	ArrayWrapper<CarWrapper> cars = server.GetCars();
-	CarWrapper* player = nullptr;
-	CarWrapper* bot = nullptr;
-	int nbCars = cars.Count();
-	if (nbCars == 1)
+	CarWrapper player = NULL;
+	CarWrapper bot = NULL;
+	int numberOfCars = cars.Count();
+	if (numberOfCars == 1)
 	{
-		player = new CarWrapper(cars.Get(0));
+		player = cars.Get(0);
 	}
-	else if (nbCars == 2)
+	else if (numberOfCars == 2)
 	{
 		const bool botIsFirst = cars.Get(0).GetPRI().GetbBot();
-		player = new CarWrapper(botIsFirst ? cars.Get(1) : cars.Get(0));
-		bot = new CarWrapper(botIsFirst ? cars.Get(0) : cars.Get(1));
+		player = botIsFirst ? cars.Get(1) : cars.Get(0);
+		bot = botIsFirst ? cars.Get(0) : cars.Get(1);
 	}
-	else return;
+	else 
+	{
+		LOG("Number of cars has to be 1 or 2!");
+		return;
+	}
 
 	if (this->kickoffState == KickoffState::started)
 	{
-		if (nbCars == 2)
+		if (numberOfCars == 2)
 		{
 			if (this->tickCounter >= this->loadedInputs[this->currentInputIndex].inputs.size())
 			{
 				ControllerInput input;
-				bot->SetInput(input);
+				bot.SetInput(input);
 			}
 			else
 			{
@@ -342,84 +347,83 @@ void kickoffPractice::tick()
 				ControllerInput input = this->loadedInputs[this->currentInputIndex].inputs[++(this->tickCounter)];
 				// TODO: Could be improved according to https://wiki.bakkesplugins.com/functions/set_vehicle_input/
 				// But the bot has no `PlayerController`!
-				bot->SetInput(input);
+				bot.SetInput(input);
 			}
 		}
-		if (isRecording)
+		if (this->isRecording)
 		{
-			recordedInputs.push_back(player->GetInput());
+			recordedInputs.push_back(player.GetInput());
 		}
 	}
 	else
 	{
-		player->SetLocation(getKickoffLocation(this->currentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE : KICKOFF_BLUE_SIDE));
-		player->SetRotation(Rotator(0, getKickoffYaw(this->currentKickoffIndex, isRecording ? KICKOFF_ORANGE_SIDE : KICKOFF_BLUE_SIDE) * CONST_RadToUnrRot, 0));
-		player->SetVelocity(Vector(0, 0, 0));
-		BoostWrapper boost = player->GetBoostComponent();
-		if (!boost)return;
+		KickoffSide playerSide = isRecording ? KickoffSide::Orange : KickoffSide::Blue;
+		player.SetLocation(getKickoffLocation(this->currentKickoffIndex, playerSide));
+		player.SetRotation(Rotator(0, getKickoffYaw(this->currentKickoffIndex, playerSide) * CONST_RadToUnrRot, 0));
+		player.SetVelocity(Vector(0, 0, 0));
+		BoostWrapper boost = player.GetBoostComponent();
+		if (!boost) return;
 		boost.SetBoostAmount(0.333f);
 	}
-	delete bot;
-	delete player;
 }
 
 
-Vector kickoffPractice::getKickoffLocation(int kickoff, bool side)
+Vector kickoffPractice::getKickoffLocation(int kickoff, KickoffSide side)
 {
-	if (side == KICKOFF_BLUE_SIDE)
+	if (side == KickoffSide::Blue)
 	{
-		if (kickoff == KICKOFF_RIGHT_CORNER)
+		if (kickoff == KickoffPosition::CornerRight)
 			return Vector(-2048, -2560, 20);
-		if (kickoff == KICKOFF_LEFT_CORNER)
+		if (kickoff == KickoffPosition::CornerLeft)
 			return Vector(2048, -2560, 20);
-		if (kickoff == KICKOFF_BACK_RIGHT)
+		if (kickoff == KickoffPosition::BackRight)
 			return Vector(-256, -3840, 20);
-		if (kickoff == KICKOFF_BACK_LEFT)
+		if (kickoff == KickoffPosition::BackLeft)
 			return Vector(256.0, -3840, 20);
-		if (kickoff == KICKOFF_FAR_BACK_CENTER)
+		if (kickoff == KickoffPosition::BackCenter)
 			return Vector(0.0, -4608, 20);
 	}
 	else
 	{
-		if (kickoff == KICKOFF_RIGHT_CORNER)
+		if (kickoff == KickoffPosition::CornerRight)
 			return Vector(2048, 2560, 20);
-		if (kickoff == KICKOFF_LEFT_CORNER)
+		if (kickoff == KickoffPosition::CornerLeft)
 			return Vector(-2048, 2560, 20);
-		if (kickoff == KICKOFF_BACK_RIGHT)
+		if (kickoff == KickoffPosition::BackRight)
 			return Vector(256.0, 3840, 20);
-		if (kickoff == KICKOFF_BACK_LEFT)
+		if (kickoff == KickoffPosition::BackLeft)
 			return Vector(-256.0, 3840, 20);
-		if (kickoff == KICKOFF_FAR_BACK_CENTER)
+		if (kickoff == KickoffPosition::BackCenter)
 			return Vector(0.0, 4608, 20);
 	}
 }
 
-float kickoffPractice::getKickoffYaw(int kickoff, bool side)
+float kickoffPractice::getKickoffYaw(int kickoff, KickoffSide side)
 {
-	if (side == KICKOFF_BLUE_SIDE)
+	if (side == KickoffSide::Blue)
 	{
-		if (kickoff == KICKOFF_RIGHT_CORNER)
+		if (kickoff == KickoffPosition::CornerRight)
 			return 0.25 * M_PI;
-		if (kickoff == KICKOFF_LEFT_CORNER)
+		if (kickoff == KickoffPosition::CornerLeft)
 			return 0.75 * M_PI;
-		if (kickoff == KICKOFF_BACK_RIGHT)
+		if (kickoff == KickoffPosition::BackRight)
 			return 0.5 * M_PI;
-		if (kickoff == KICKOFF_BACK_LEFT)
+		if (kickoff == KickoffPosition::BackLeft)
 			return 0.5 * M_PI;
-		if (kickoff == KICKOFF_FAR_BACK_CENTER)
+		if (kickoff == KickoffPosition::BackCenter)
 			return 0.5 * M_PI;
 	}
 	else
 	{
-		if (kickoff == KICKOFF_RIGHT_CORNER)
+		if (kickoff == KickoffPosition::CornerRight)
 			return -0.75 * M_PI;
-		if (kickoff == KICKOFF_LEFT_CORNER)
+		if (kickoff == KickoffPosition::CornerLeft)
 			return -0.25 * M_PI;
-		if (kickoff == KICKOFF_BACK_RIGHT)
+		if (kickoff == KickoffPosition::BackRight)
 			return -0.5 * M_PI;
-		if (kickoff == KICKOFF_BACK_LEFT)
+		if (kickoff == KickoffPosition::BackLeft)
 			return -0.5 * M_PI;
-		if (kickoff == KICKOFF_FAR_BACK_CENTER)
+		if (kickoff == KickoffPosition::BackCenter)
 			return -0.5 * M_PI;
 	}
 }
@@ -502,7 +506,6 @@ void kickoffPractice::reset()
 
 	if (isRecording)
 	{
-		cvarManager->log("Recording ends");
 		const int numberOfInputs = recordedInputs.size();
 		LOG("Recording ends. Ticks recorded : {}", numberOfInputs);
 
@@ -686,7 +689,7 @@ RecordedKickoff kickoffPractice::readKickoffFile(std::string fileName, std::stri
 
 					continue;
 				}
-				else 
+				else
 				{
 					LOG("Error on line {} : size of {} instead of 4", i, row.size());
 					LOG("Assuming old format without settings in first line...");

@@ -11,14 +11,18 @@
 
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
-#define KICKOFF_RIGHT_CORNER 0
-#define KICKOFF_LEFT_CORNER 1
-#define KICKOFF_BACK_RIGHT 2
-#define KICKOFF_BACK_LEFT 3
-#define KICKOFF_FAR_BACK_CENTER 4
+enum KickoffPosition {
+	CornerRight = 0,
+	CornerLeft = 1,
+	BackRight = 2,
+	BackLeft = 3,
+	BackCenter = 4,
+};
 
-#define KICKOFF_BLUE_SIDE true
-#define KICKOFF_ORANGE_SIDE false
+enum KickoffSide {
+	Blue = true,
+	Orange = false,
+};
 
 enum class KickoffState {
 	nothing,
@@ -41,8 +45,8 @@ class kickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public Bakkes
 private:
 	void start(std::vector<std::string> args, GameWrapper* gameWrapper);
 	void tick();
-	Vector getKickoffLocation(int kickoff, bool side);
-	float getKickoffYaw(int kickoff, bool side);
+	Vector getKickoffLocation(int kickoff, KickoffSide side);
+	float getKickoffYaw(int kickoff, KickoffSide side);
 	std::vector<RecordedKickoff> loadedInputs;
 	std::vector<int> states;
 	std::vector<ControllerInput> recordedInputs;
