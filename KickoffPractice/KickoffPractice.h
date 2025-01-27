@@ -1,5 +1,6 @@
 #pragma once
 
+#include "GuiBase.h"
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 #include "bakkesmod/plugin/pluginwindow.h"
 #include "bakkesmod/plugin/PluginSettingsWindow.h"
@@ -40,7 +41,7 @@ typedef struct RecordedKickoff
 };
 
 
-class kickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public BakkesMod::Plugin::PluginSettingsWindow/*, public BakkesMod::Plugin::PluginWindow*/
+class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public SettingsWindowBase
 {
 private:
 	void start(std::vector<std::string> args, GameWrapper* gameWrapper);
@@ -88,10 +89,7 @@ private:
 	char recordedKickoffFolder[128] = "";
 	std::wstring configPath;
 public:
-	virtual void onLoad();
-	virtual void onUnload();
+	void onLoad();
+	void onUnload();
 	void RenderSettings() override;
-	std::string GetPluginName() override;
-	void SetImGuiContext(uintptr_t ctx) override;
-
 };

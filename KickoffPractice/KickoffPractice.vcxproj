@@ -8,15 +8,15 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{01cd5e89-f066-44a4-acc6-66de3f6a4fa9}</ProjectGuid>
-    <RootNamespace>kickoffPractice</RootNamespace>
+    <ProjectGuid>{260a23ed-9f0f-48c8-b790-0627f01d2838}</ProjectGuid>
+    <RootNamespace>KickoffPractice</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -49,7 +49,6 @@
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)plugins\</OutDir>
     <IntDir>$(SolutionDir)build\.intermediates\$(Configuration)\</IntDir>
-    <IncludePath>$(ProjectDir)ImGuiFileDialog;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -77,9 +76,9 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>$(ProjectDir)fmt\include;$(ProjectDir)ImGuiFileDialog;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -92,8 +91,6 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="fmt\src\format.cc" />
-    <ClCompile Include="fmt\src\os.cc" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imguivariouscontrols.cpp" />
     <ClCompile Include="imgui\imgui_additions.cpp" />
@@ -103,17 +100,18 @@
     <ClCompile Include="imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="imgui\imgui_rangeslider.cpp" />
     <ClCompile Include="imgui\imgui_searchablecombo.cpp" />
+    <ClCompile Include="IMGUI\imgui_stdlib.cpp" />
     <ClCompile Include="imgui\imgui_timeline.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
+    <ClCompile Include="pathInput.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="kickoffPractice.cpp" />
-    <ClCompile Include="pathInput.cpp" />
+    <ClCompile Include="KickoffPractice.cpp" />
+    <ClCompile Include="GuiBase.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="pathInput.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
     <ClInclude Include="imgui\imguivariouscontrols.h" />
@@ -123,16 +121,20 @@
     <ClInclude Include="imgui\imgui_internal.h" />
     <ClInclude Include="imgui\imgui_rangeslider.h" />
     <ClInclude Include="imgui\imgui_searchablecombo.h" />
+    <ClInclude Include="IMGUI\imgui_stdlib.h" />
     <ClInclude Include="imgui\imgui_timeline.h" />
     <ClInclude Include="imgui\imstb_rectpack.h" />
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
+    <ClInclude Include="logging.h" />
+    <ClInclude Include="pathInput.h" />
     <ClInclude Include="pch.h" />
-    <ClInclude Include="kickoffPractice.h" />
+    <ClInclude Include="GuiBase.h" />
+    <ClInclude Include="KickoffPractice.h" />
     <ClInclude Include="version.h" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="kickoffPractice.rc" />
+    <ResourceCompile Include="KickoffPractice.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

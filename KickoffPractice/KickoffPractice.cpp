@@ -1,8 +1,7 @@
 #include "pch.h"
-#include "kickoffPractice.h"
+#include "KickoffPractice.h"
 #include "pathInput.h"
 #define _USE_MATH_DEFINES
-
 #include <math.h>
 #include <cstdlib>
 #include <ctime>
@@ -11,12 +10,12 @@
 #include <algorithm>
 #include <stdlib.h>
 
-BAKKESMOD_PLUGIN(kickoffPractice, "Kickoff Practice", plugin_version, PERMISSION_ALL)
+BAKKESMOD_PLUGIN(KickoffPractice, "Kickoff Practice", plugin_version, PLUGINTYPE_FREEPLAY);
 
 std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 namespace fs = std::filesystem;
 
-void kickoffPractice::onLoad()
+void KickoffPractice::onLoad()
 {
 	this->pluginEnabled = true;
 	this->isInReplay = false;
@@ -148,7 +147,7 @@ void kickoffPractice::onLoad()
 			this->reset();
 		});
 }
-void kickoffPractice::onUnload()
+void KickoffPractice::onUnload()
 {
 	for (int i = 0; i < nbCarBody; i++)
 	{
@@ -157,19 +156,10 @@ void kickoffPractice::onUnload()
 	delete[] carNames;
 }
 
-std::string kickoffPractice::GetPluginName()
-{
-	return "Kickoff Practice";
-}
-
-void kickoffPractice::SetImGuiContext(uintptr_t ctx)
-{
-	ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(ctx));
-}
 
 /// args[1] = kickoff location (1-5)
 /// args[2] = is recording? (bool or 0/1)
-void kickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrapper)
+void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrapper)
 {
 	if (!gameWrapper->IsInFreeplay()) return;
 	ServerWrapper server = gameWrapper->GetGameEventAsServer();
@@ -305,7 +295,7 @@ void kickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	}
 }
 
-void kickoffPractice::tick()
+void KickoffPractice::tick()
 {
 	if (!pluginEnabled) return;
 	if (!gameWrapper->IsInFreeplay()) return;
@@ -361,7 +351,7 @@ void kickoffPractice::tick()
 }
 
 
-Vector kickoffPractice::getKickoffLocation(int kickoff, KickoffSide side)
+Vector KickoffPractice::getKickoffLocation(int kickoff, KickoffSide side)
 {
 	const Vector heightOffset = Vector(0, 0, 20);
 
@@ -384,7 +374,7 @@ Vector kickoffPractice::getKickoffLocation(int kickoff, KickoffSide side)
 	}
 }
 
-float kickoffPractice::getKickoffYaw(int kickoff, KickoffSide side)
+float KickoffPractice::getKickoffYaw(int kickoff, KickoffSide side)
 {
 	if (side == KickoffSide::Blue)
 	{
@@ -405,7 +395,7 @@ float kickoffPractice::getKickoffYaw(int kickoff, KickoffSide side)
 	}
 }
 
-int kickoffPractice::getRandomKickoffForId(int kickoffId)
+int KickoffPractice::getRandomKickoffForId(int kickoffId)
 {
 	std::vector<int> indices;
 	for (int i = 0; i < loadedInputs.size(); i++)
@@ -420,7 +410,7 @@ int kickoffPractice::getRandomKickoffForId(int kickoffId)
 	return indices[(rand() % indices.size())];
 }
 
-void kickoffPractice::removeBots()
+void KickoffPractice::removeBots()
 {
 	if (!gameWrapper->IsInFreeplay()) return;
 	ServerWrapper server = gameWrapper->GetGameEventAsServer();
@@ -436,7 +426,7 @@ void kickoffPractice::removeBots()
 	}
 }
 
-void kickoffPractice::storeCarBodies()
+void KickoffPractice::storeCarBodies()
 {
 	auto items = gameWrapper->GetItemsWrapper();
 
@@ -477,7 +467,7 @@ void kickoffPractice::storeCarBodies()
 	}
 }
 
-void kickoffPractice::reset()
+void KickoffPractice::reset()
 {
 	this->removeBots();
 
@@ -538,7 +528,7 @@ void kickoffPractice::reset()
 	this->isRecording = false;
 }
 
-void kickoffPractice::recordBoost()
+void KickoffPractice::recordBoost()
 {
 	if (!gameWrapper->IsInFreeplay()) return;
 	ServerWrapper server = gameWrapper->GetGameEventAsServer();
@@ -551,7 +541,7 @@ void kickoffPractice::recordBoost()
 	this->unlimitedBoostDefaultSetting = boost.GetUnlimitedBoostRefCount(); // bugged
 }
 
-void kickoffPractice::updateLoadedKickoffIndices()
+void KickoffPractice::updateLoadedKickoffIndices()
 {
 	loadedKickoffIndices = std::vector<int>();
 	for (int i = 0; i < states.size(); i++)
@@ -567,7 +557,7 @@ void kickoffPractice::updateLoadedKickoffIndices()
 }
 
 
-void kickoffPractice::loadInputFiles()
+void KickoffPractice::loadInputFiles()
 {
 	loadedInputs = std::vector<RecordedKickoff>();
 	states = std::vector<int>();
@@ -591,7 +581,7 @@ void kickoffPractice::loadInputFiles()
 	updateLoadedKickoffIndices();
 }
 
-void kickoffPractice::resetBoost()
+void KickoffPractice::resetBoost()
 {
 	if (!gameWrapper->IsInFreeplay())return;
 	ServerWrapper server = gameWrapper->GetGameEventAsServer();
@@ -608,7 +598,7 @@ void kickoffPractice::resetBoost()
 	}
 }
 
-std::string kickoffPractice::getKickoffName(int kickoffId)
+std::string KickoffPractice::getKickoffName(int kickoffId)
 {
 	switch (kickoffId)
 	{
@@ -627,7 +617,7 @@ std::string kickoffPractice::getKickoffName(int kickoffId)
 	}
 }
 
-RecordedKickoff kickoffPractice::readKickoffFile(std::string fileName, std::string kickoffName)
+RecordedKickoff KickoffPractice::readKickoffFile(std::string fileName, std::string kickoffName)
 {
 	RecordedKickoff kickoff;
 	kickoff.name = kickoffName;
@@ -724,7 +714,7 @@ RecordedKickoff kickoffPractice::readKickoffFile(std::string fileName, std::stri
 	return kickoff;
 }
 
-void kickoffPractice::readConfigFile(std::wstring fileName)
+void KickoffPractice::readConfigFile(std::wstring fileName)
 {
 	std::vector<std::string> row;
 	std::string line, word;
@@ -802,7 +792,7 @@ void kickoffPractice::readConfigFile(std::wstring fileName)
 	}
 }
 
-void kickoffPractice::writeConfigFile(std::wstring fileName)
+void KickoffPractice::writeConfigFile(std::wstring fileName)
 {
 	std::ofstream inputFile(fileName);
 	if (!inputFile.is_open())
@@ -820,7 +810,7 @@ void kickoffPractice::writeConfigFile(std::wstring fileName)
 	inputFile.close();
 }
 
-void kickoffPractice::RenderSettings()
+void KickoffPractice::RenderSettings()
 {
 	ImGui::Checkbox("Enable plugin", &pluginEnabled);
 	if (ImGui::IsItemHovered())
