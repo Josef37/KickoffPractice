@@ -361,7 +361,7 @@ Vector KickoffPractice::getKickoffLocation(int kickoff, KickoffSide side)
 	}
 	else
 	{
-		return -1 * getKickoffLocation(kickoff, KickoffSide::Blue) + heightOffset;
+		return -1 * getKickoffLocation(kickoff, KickoffSide::Blue) + (2 * heightOffset);
 	}
 }
 
@@ -382,7 +382,7 @@ float KickoffPractice::getKickoffYaw(int kickoff, KickoffSide side)
 	}
 	else
 	{
-		return M_PI + getKickoffYaw(kickoff, KickoffSide::Blue);
+		return getKickoffYaw(kickoff, KickoffSide::Blue) - M_PI;
 	}
 }
 
