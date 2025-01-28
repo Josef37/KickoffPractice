@@ -34,26 +34,26 @@ void KickoffPractice::onLoad()
 	_globalCvarManager = cvarManager;
 
 	this->configPath = gameWrapper->GetDataFolder() / PLUGIN_FOLDER;
-	if (!fs::exists(configPath) || !fs::is_directory(configPath))
+	if (!fs::exists(this->configPath) || !fs::is_directory(this->configPath))
 	{
 		LOG("Creating directory");
-		if (!fs::create_directory(configPath))
+		if (!fs::create_directory(this->configPath))
 		{
 			LOG("Can't create config directory in bakkesmod data folder");
 		}
 	}
 
-	this->readConfigFile(configPath / CONFIG_FILE);
+	this->readConfigFile(this->configPath / CONFIG_FILE);
 
 	// TODO: Extract creating folders.
-	if (botKickoffFolder.empty()) botKickoffFolder = configPath / DEFAULT_BOT_FOLDER;
-	if (!fs::exists(botKickoffFolder) || !fs::is_directory(botKickoffFolder))
-		if (!fs::create_directory(botKickoffFolder))
+	if (this->botKickoffFolder.empty()) this->botKickoffFolder = this->configPath / DEFAULT_BOT_FOLDER;
+	if (!fs::exists(this->botKickoffFolder) || !fs::is_directory(this->botKickoffFolder))
+		if (!fs::create_directory(this->botKickoffFolder))
 			LOG("Can't create bot kickoff input directory in bakkesmod data folder");
 
-	if (recordedKickoffFolder.empty()) recordedKickoffFolder = configPath / DEFAULT_RECORDING_FOLDER;
-	if (!fs::exists(recordedKickoffFolder) || !fs::is_directory(recordedKickoffFolder))
-		if (!fs::create_directory(recordedKickoffFolder))
+	if (this->recordedKickoffFolder.empty()) this->recordedKickoffFolder = this->configPath / DEFAULT_RECORDING_FOLDER;
+	if (!fs::exists(this->recordedKickoffFolder) || !fs::is_directory(this->recordedKickoffFolder))
+		if (!fs::create_directory(this->recordedKickoffFolder))
 			LOG("Can't create recorded inputs directory in bakkesmod data folder");
 
 	this->readKickoffFiles();
@@ -63,7 +63,7 @@ void KickoffPractice::onLoad()
 	cvarManager->registerNotifier("kickoff_train",
 		[this](std::vector<std::string> args)
 		{
-			if (!pluginEnabled) return;
+			if (!this->pluginEnabled) return;
 			// Use a timeout to start after other commands bound to the same button.
 			gameWrapper->SetTimeout([this, args](GameWrapper* gameWrapper)
 				{
@@ -92,7 +92,7 @@ void KickoffPractice::onLoad()
 			{
 				gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
 					{
-						if (kickoffState != KickoffState::started) return;
+						if (this->kickoffState != KickoffState::started) return;
 						this->reset();
 					},
 					this->timeAfterBackToNormal
@@ -142,7 +142,7 @@ void KickoffPractice::onLoad()
 		"Function TAGame.CarComponent_Boost_TA.SetUnlimitedBoost",
 		[this](CarWrapper caller, void* params, std::string eventname)
 		{
-			recordBoost();
+			this->recordBoost();
 		}
 	);
 	gameWrapper->HookEventWithCallerPost<CarWrapper>(
@@ -156,7 +156,7 @@ void KickoffPractice::onLoad()
 		"Function GameEvent_Soccar_TA.Countdown.BeginState",
 		[this](CarWrapper caller, void* params, std::string eventname)
 		{
-			recordBoost();
+			this->recordBoost();
 			this->reset();
 		}
 	);
@@ -164,11 +164,11 @@ void KickoffPractice::onLoad()
 
 void KickoffPractice::onUnload()
 {
-	for (int i = 0; i < nbCarBody; i++)
+	for (int i = 0; i < this->nbCarBody; i++)
 	{
-		delete[] carNames[i];
+		delete[] this->carNames[i];
 	}
-	delete[] carNames;
+	delete[] this->carNames;
 }
 
 /// args[1] = kickoff location (1-5)
@@ -185,9 +185,9 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 
 	if (args.size() >= 3)
 	{
-		isRecording = (args[2] == "1" || args[2] == "true");
+		this->isRecording = (args[2] == "1" || args[2] == "true");
 	}
-	if (!isRecording && loadedKickoffIndices.size() == 0)
+	if (!this->isRecording && this->loadedKickoffIndices.size() == 0)
 	{
 		LOG("No inputs selected");
 		return;
@@ -203,8 +203,8 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 			return;
 		}
 		this->currentKickoffIndex = kickoffNumber - 1;
-		auto it = std::find(loadedKickoffIndices.begin(), loadedKickoffIndices.end(), currentKickoffIndex);
-		if (it == loadedKickoffIndices.end() && !isRecording)
+		auto it = std::find(this->loadedKickoffIndices.begin(), this->loadedKickoffIndices.end(), this->currentKickoffIndex);
+		if (it == this->loadedKickoffIndices.end() && !this->isRecording)
 		{
 			LOG("No input found for this kickoff");
 			return;
@@ -212,32 +212,32 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	}
 	else
 	{
-		if (loadedKickoffIndices.size() == 0)
+		if (this->loadedKickoffIndices.size() == 0)
 		{
 			LOG("No inputs selected");
 			return;
 		}
-		int kickoffNumber = (rand() % loadedKickoffIndices.size());
-		this->currentKickoffIndex = loadedKickoffIndices[kickoffNumber];
+		int kickoffNumber = (rand() % this->loadedKickoffIndices.size());
+		this->currentKickoffIndex = this->loadedKickoffIndices[kickoffNumber];
 	}
 
-	currentInputIndex = getRandomKickoffForId(currentKickoffIndex);
-	if (currentInputIndex == -1 && (!isRecording))
+	this->currentInputIndex = this->getRandomKickoffForId(this->currentKickoffIndex);
+	if (this->currentInputIndex == -1 && (!this->isRecording))
 	{
 		LOG("Error, no input found for this kickoff");
 		return;
 	}
 
-	LOG("isRecording: {}", isRecording);
+	LOG("isRecording: {}", this->isRecording);
 
-	KickoffSide playerSide = isRecording ? KickoffSide::Orange : KickoffSide::Blue;
-	Vector locationPlayer = getKickoffLocation(this->currentKickoffIndex, playerSide);
-	Rotator rotationPlayer = Rotator(0, std::lroundf(getKickoffYaw(this->currentKickoffIndex, playerSide) * CONST_RadToUnrRot), 0);
-	this->locationBot = getKickoffLocation(this->currentKickoffIndex, KickoffSide::Orange);
-	this->rotationBot = Rotator(0, std::lroundf(getKickoffYaw(this->currentKickoffIndex, KickoffSide::Orange) * CONST_RadToUnrRot), 0);
-	if (!isRecording)
+	KickoffSide playerSide = this->isRecording ? KickoffSide::Orange : KickoffSide::Blue;
+	Vector locationPlayer = KickoffPractice::getKickoffLocation(this->currentKickoffIndex, playerSide);
+	Rotator rotationPlayer = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffIndex, playerSide) * CONST_RadToUnrRot), 0);
+	this->locationBot = KickoffPractice::getKickoffLocation(this->currentKickoffIndex, KickoffSide::Orange);
+	this->rotationBot = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffIndex, KickoffSide::Orange) * CONST_RadToUnrRot), 0);
+	if (!this->isRecording)
 	{
-		server.SpawnBot(botCarID, BOT_CAR_NAME);
+		server.SpawnBot(this->botCarID, BOT_CAR_NAME);
 		this->botJustSpawned = true;
 	}
 
@@ -277,7 +277,7 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 		[this]() { this->kickoffState = KickoffState::started; }
 	);
 
-	if (isRecording)
+	if (this->isRecording)
 	{
 		LOG("Recording begins");
 	}
@@ -285,7 +285,7 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 
 void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 {
-	if (!pluginEnabled) return;
+	if (!this->pluginEnabled) return;
 	if (!gameWrapper->IsInFreeplay()) return;
 
 	if (this->kickoffState == KickoffState::waitingToStart)
@@ -332,7 +332,7 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 		if (this->isRecording)
 		{
-			recordedInputs.push_back(*input);
+			this->recordedInputs.push_back(*input);
 		}
 	}
 }
@@ -341,9 +341,9 @@ void KickoffPractice::reset()
 {
 	this->removeBots();
 
-	if (isRecording)
+	if (this->isRecording)
 	{
-		const size_t numberOfInputs = recordedInputs.size();
+		const size_t numberOfInputs = this->recordedInputs.size();
 		LOG("Recording ends. Ticks recorded : {}", numberOfInputs);
 
 		auto time = std::time(nullptr);
@@ -351,10 +351,10 @@ void KickoffPractice::reset()
 		oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H-%M-%S");
 		std::string timestamp = oss.str();
 
-		std::string name = this->getKickoffName(this->currentKickoffIndex);
+		std::string name = KickoffPractice::getKickoffName(this->currentKickoffIndex);
 		std::string filename = name + " " + timestamp + FILE_EXT;
 
-		std::ofstream inputFile(recordedKickoffFolder / filename);
+		std::ofstream inputFile(this->recordedKickoffFolder / filename);
 		if (!inputFile.is_open())
 		{
 			LOG("ERROR : can't create recording file");
@@ -371,7 +371,7 @@ void KickoffPractice::reset()
 
 		for (int i = 0; i < numberOfInputs; i++)
 		{
-			const ControllerInput input = recordedInputs[i];
+			const ControllerInput input = this->recordedInputs[i];
 
 			inputFile << input.Throttle
 				<< "," << input.Steer
@@ -402,9 +402,9 @@ void KickoffPractice::reset()
 int KickoffPractice::getRandomKickoffForId(int kickoffId)
 {
 	std::vector<int> indices;
-	for (int i = 0; i < loadedInputs.size(); i++)
+	for (int i = 0; i < this->loadedInputs.size(); i++)
 	{
-		if (states[i] - 1 == kickoffId)
+		if (this->states[i] - 1 == kickoffId)
 		{
 			indices.push_back(i);
 		}
@@ -442,12 +442,12 @@ void KickoffPractice::writeConfigFile(std::wstring fileName)
 		LOG("ERROR : can't create config file");
 		return;
 	}
-	inputFile << botKickoffFolder.string() << "\n";
-	inputFile << recordedKickoffFolder.string() << "\n";
+	inputFile << this->botKickoffFolder.string() << "\n";
+	inputFile << this->recordedKickoffFolder.string() << "\n";
 
-	for (int i = 0; i < states.size(); i++)
+	for (int i = 0; i < this->states.size(); i++)
 	{
-		inputFile << states[i] << "," << this->loadedInputs[i].name << "\n";
+		inputFile << this->states[i] << "," << this->loadedInputs[i].name << "\n";
 	}
 	inputFile.close();
 }
@@ -491,11 +491,11 @@ void KickoffPractice::readConfigFile(std::wstring fileName)
 				std::string name = row[1];
 				int state = std::stoi(row[0]);
 				if (state < 0 || state > 5) continue;
-				for (int j = 0; j < loadedInputs.size(); j++)
+				for (int j = 0; j < this->loadedInputs.size(); j++)
 				{
-					if (loadedInputs[j].name == name)
+					if (this->loadedInputs[j].name == name)
 					{
-						states[j] = state;
+						this->states[j] = state;
 					}
 				}
 			}
@@ -513,29 +513,29 @@ void KickoffPractice::readConfigFile(std::wstring fileName)
 		cvarManager->log("Can't open the config file");
 
 	if (botFolder.empty())
-		botKickoffFolder = configPath / DEFAULT_BOT_FOLDER;
+		this->botKickoffFolder = this->configPath / DEFAULT_BOT_FOLDER;
 	else
-		botKickoffFolder = botFolder;
+		this->botKickoffFolder = botFolder;
 
 	if (recordFolder.empty())
-		recordedKickoffFolder = configPath / DEFAULT_RECORDING_FOLDER;
+		this->recordedKickoffFolder = this->configPath / DEFAULT_RECORDING_FOLDER;
 	else
-		recordedKickoffFolder = recordFolder;
+		this->recordedKickoffFolder = recordFolder;
 }
 
 void KickoffPractice::readKickoffFiles()
 {
-	loadedInputs = std::vector<RecordedKickoff>();
-	states = std::vector<int>();
+	this->loadedInputs = std::vector<RecordedKickoff>();
+	this->states = std::vector<int>();
 
 	try
 	{
-		for (const auto& entry : fs::directory_iterator(botKickoffFolder))
+		for (const auto& entry : fs::directory_iterator(this->botKickoffFolder))
 		{
 			if (entry.is_regular_file() && entry.path().extension() == FILE_EXT)
 			{
-				loadedInputs.push_back(readKickoffFile(entry.path().string(), entry.path().filename().string()));
-				states.push_back(0);
+				this->loadedInputs.push_back(this->readKickoffFile(entry.path().string(), entry.path().filename().string()));
+				this->states.push_back(0);
 			}
 		}
 	}
@@ -543,8 +543,8 @@ void KickoffPractice::readKickoffFiles()
 	{
 		LOG("ERROR : {}", ex.code().message());
 	}
-	this->readConfigFile(configPath / CONFIG_FILE);
-	updateLoadedKickoffIndices();
+	this->readConfigFile(this->configPath / CONFIG_FILE);
+	this->updateLoadedKickoffIndices();
 }
 
 RecordedKickoff KickoffPractice::readKickoffFile(std::string fileName, std::string kickoffName)
@@ -647,15 +647,15 @@ RecordedKickoff KickoffPractice::readKickoffFile(std::string fileName, std::stri
 
 void KickoffPractice::updateLoadedKickoffIndices()
 {
-	loadedKickoffIndices = std::vector<int>();
-	for (int i = 0; i < states.size(); i++)
+	this->loadedKickoffIndices = std::vector<int>();
+	for (int i = 0; i < this->states.size(); i++)
 	{
-		if (states[i] == 0) continue;
-		int index = states[i] - 1;
-		auto it = std::find(loadedKickoffIndices.begin(), loadedKickoffIndices.end(), index);
-		if (it == loadedKickoffIndices.end()) // if we haven't found it
+		if (this->states[i] == 0) continue;
+		int index = this->states[i] - 1;
+		auto it = std::find(this->loadedKickoffIndices.begin(), this->loadedKickoffIndices.end(), index);
+		if (it == this->loadedKickoffIndices.end()) // if we haven't found it
 		{
-			loadedKickoffIndices.push_back(index);
+			this->loadedKickoffIndices.push_back(index);
 		}
 	}
 }
@@ -684,7 +684,7 @@ void KickoffPractice::resetBoost()
 	BoostWrapper boost = player.GetBoostComponent();
 	if (!boost) return;
 	boost.SetUnlimitedBoostRefCount(this->unlimitedBoostDefaultSetting); // TODO: it always gives unlimited boost so it's buggy
-	if (unlimitedBoostDefaultSetting > 0)
+	if (this->unlimitedBoostDefaultSetting > 0)
 	{
 		boost.SetBoostAmount(1.0);
 	}
@@ -696,10 +696,10 @@ void KickoffPractice::storeCarBodies()
 
 	if (!items)
 	{
-		nbCarBody = 1;
-		carNames = new char* [1];
-		carNames[0] = new char[14];
-		strcpy(carNames[0], "No car found");
+		this->nbCarBody = 1;
+		this->carNames = new char* [1];
+		this->carNames[0] = new char[14];
+		strcpy(this->carNames[0], "No car found");
 
 		return;
 	}
@@ -718,17 +718,17 @@ void KickoffPractice::storeCarBodies()
 		std::string label = item.GetLabel().ToString();
 		itemLabels.push_back(label);
 
-		carBodyIDs.push_back(item.GetID());
+		this->carBodyIDs.push_back(item.GetID());
 	}
-	nbCarBody = static_cast<int>(itemLabels.size());
-	carNames = new char* [nbCarBody];
-	for (int i = 0; i < nbCarBody; i++)
+	this->nbCarBody = static_cast<int>(itemLabels.size());
+	this->carNames = new char* [this->nbCarBody];
+	for (int i = 0; i < this->nbCarBody; i++)
 	{
-		carNames[i] = new char[128];
+		this->carNames[i] = new char[128];
 		if (itemLabels[i].size() < 128)
-			strcpy(carNames[i], itemLabels[i].c_str());
+			strcpy(this->carNames[i], itemLabels[i].c_str());
 		else
-			strcpy(carNames[i], "Too long name :D");
+			strcpy(this->carNames[i], "Too long name :D");
 	}
 }
 
@@ -778,7 +778,7 @@ Vector KickoffPractice::getKickoffLocation(int kickoff, KickoffSide side)
 	}
 	else
 	{
-		return -1 * getKickoffLocation(kickoff, KickoffSide::Blue) + (2 * heightOffset);
+		return -1 * KickoffPractice::getKickoffLocation(kickoff, KickoffSide::Blue) + (2 * heightOffset);
 	}
 }
 
@@ -799,7 +799,7 @@ float KickoffPractice::getKickoffYaw(int kickoff, KickoffSide side)
 	}
 	else
 	{
-		return getKickoffYaw(kickoff, KickoffSide::Blue) - CONST_PI_F;
+		return KickoffPractice::getKickoffYaw(kickoff, KickoffSide::Blue) - CONST_PI_F;
 	}
 }
 
