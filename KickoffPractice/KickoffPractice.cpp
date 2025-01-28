@@ -7,6 +7,12 @@ std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 namespace fs = std::filesystem;
 
 static const float INITIAL_BOOST_AMOUNT = 0.333f;
+static const std::string PLUGIN_FOLDER = "kickoffPractice";
+static const std::string CONFIG_FILE = "config.cfg";
+static const std::string DEFAULT_BOT_FOLDER = "bot";
+static const std::string DEFAULT_RECORDING_FOLDER = "recorded";
+static const std::string FILE_EXT = ".kinputs";
+static const std::string BOT_CAR_NAME = "Kickoff Bot";
 
 void KickoffPractice::onLoad()
 {
@@ -27,7 +33,7 @@ void KickoffPractice::onLoad()
 
 	_globalCvarManager = cvarManager;
 
-	this->configPath = gameWrapper->GetDataFolderW() + L"/kickoffPractice";
+	this->configPath = gameWrapper->GetDataFolder() / PLUGIN_FOLDER;
 	if (!fs::exists(configPath) || !fs::is_directory(configPath))
 	{
 		LOG("Creating directory");
@@ -37,26 +43,18 @@ void KickoffPractice::onLoad()
 		}
 	}
 
-	this->readConfigFile(configPath + L"/config.cfg");
+	this->readConfigFile(configPath / CONFIG_FILE);
+
 	// TODO: Extract creating folders.
-	if (strlen(botKickoffFolder) == 0)
-	{
-		wcstombs(botKickoffFolder, (configPath + L"/bot").c_str(), sizeof(botKickoffFolder));
-	}
-	if (strlen(recordedKickoffFolder) == 0)
-	{
-		wcstombs(recordedKickoffFolder, (configPath + L"/recorded").c_str(), sizeof(recordedKickoffFolder));
-	}
-	if (!fs::exists(configPath + L"/bot") || !fs::is_directory(configPath + L"/bot"))
-	{
-		if (!fs::create_directory(configPath + L"/bot"))
+	if (botKickoffFolder.empty()) botKickoffFolder = configPath / DEFAULT_BOT_FOLDER;
+	if (!fs::exists(botKickoffFolder) || !fs::is_directory(botKickoffFolder))
+		if (!fs::create_directory(botKickoffFolder))
 			LOG("Can't create bot kickoff input directory in bakkesmod data folder");
-	}
-	if (!fs::exists(configPath + L"/recorded") || !fs::is_directory(configPath + L"/recorded"))
-	{
-		if (!fs::create_directory(configPath + L"/recorded"))
+
+	if (recordedKickoffFolder.empty()) recordedKickoffFolder = configPath / DEFAULT_RECORDING_FOLDER;
+	if (!fs::exists(recordedKickoffFolder) || !fs::is_directory(recordedKickoffFolder))
+		if (!fs::create_directory(recordedKickoffFolder))
 			LOG("Can't create recorded inputs directory in bakkesmod data folder");
-	}
 
 	this->readKickoffFiles();
 
@@ -239,7 +237,7 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	this->rotationBot = Rotator(0, std::lroundf(getKickoffYaw(this->currentKickoffIndex, KickoffSide::Orange) * CONST_RadToUnrRot), 0);
 	if (!isRecording)
 	{
-		server.SpawnBot(botCarID, "Kickoff Bot");
+		server.SpawnBot(botCarID, BOT_CAR_NAME);
 		this->botJustSpawned = true;
 	}
 
@@ -351,11 +349,12 @@ void KickoffPractice::reset()
 		auto time = std::time(nullptr);
 		std::ostringstream oss;
 		oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H-%M-%S");
-		auto timestamp = oss.str();
+		std::string timestamp = oss.str();
 
-		auto name = this->getKickoffName(this->currentKickoffIndex);
-		auto filename = "\\" + name + " " + timestamp + ".kinputs";
-		std::ofstream inputFile(recordedKickoffFolder + filename);
+		std::string name = this->getKickoffName(this->currentKickoffIndex);
+		std::string filename = name + " " + timestamp + FILE_EXT;
+
+		std::ofstream inputFile(recordedKickoffFolder / filename);
 		if (!inputFile.is_open())
 		{
 			LOG("ERROR : can't create recording file");
@@ -443,8 +442,8 @@ void KickoffPractice::writeConfigFile(std::wstring fileName)
 		LOG("ERROR : can't create config file");
 		return;
 	}
-	inputFile << botKickoffFolder << "\n";
-	inputFile << recordedKickoffFolder << "\n";
+	inputFile << botKickoffFolder.string() << "\n";
+	inputFile << recordedKickoffFolder.string() << "\n";
 
 	for (int i = 0; i < states.size(); i++)
 	{
@@ -513,22 +512,15 @@ void KickoffPractice::readConfigFile(std::wstring fileName)
 	else
 		cvarManager->log("Can't open the config file");
 
-	if (botFolder.size() < 128 && botFolder.size() > 0)
-	{
-		strcpy(this->botKickoffFolder, botFolder.c_str());
-	}
-	else if (botFolder.size() < 128)
-	{
-		wcstombs(botKickoffFolder, (configPath + L"/bot").c_str(), sizeof(botKickoffFolder));
-	}
-	if (recordFolder.size() < 128 && recordFolder.size() > 0)
-	{
-		strcpy(this->recordedKickoffFolder, recordFolder.c_str());
-	}
-	else if (recordFolder.size() < 128)
-	{
-		wcstombs(recordedKickoffFolder, (configPath + L"/recorded").c_str(), sizeof(recordedKickoffFolder));
-	}
+	if (botFolder.empty())
+		botKickoffFolder = configPath / DEFAULT_BOT_FOLDER;
+	else
+		botKickoffFolder = botFolder;
+
+	if (recordFolder.empty())
+		recordedKickoffFolder = configPath / DEFAULT_RECORDING_FOLDER;
+	else
+		recordedKickoffFolder = recordFolder;
 }
 
 void KickoffPractice::readKickoffFiles()
@@ -540,7 +532,7 @@ void KickoffPractice::readKickoffFiles()
 	{
 		for (const auto& entry : fs::directory_iterator(botKickoffFolder))
 		{
-			if (entry.is_regular_file() && entry.path().extension() == ".kinputs")
+			if (entry.is_regular_file() && entry.path().extension() == FILE_EXT)
 			{
 				loadedInputs.push_back(readKickoffFile(entry.path().string(), entry.path().filename().string()));
 				states.push_back(0);
@@ -551,7 +543,7 @@ void KickoffPractice::readKickoffFiles()
 	{
 		LOG("ERROR : {}", ex.code().message());
 	}
-	this->readConfigFile(configPath + L"/config.cfg");
+	this->readConfigFile(configPath / CONFIG_FILE);
 	updateLoadedKickoffIndices();
 }
 

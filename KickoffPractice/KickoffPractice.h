@@ -90,9 +90,9 @@ private:
 	int selectedCarUI;
 	void storeCarBodies();
 
-	char botKickoffFolder[128] = "";
-	char recordedKickoffFolder[128] = "";
-	std::wstring configPath;
+	std::filesystem::path configPath;
+	std::filesystem::path botKickoffFolder;
+	std::filesystem::path recordedKickoffFolder;
 
 	static void startCountdown(GameWrapper* gameWrapper, int seconds, std::function<void()> onCompleted);
 

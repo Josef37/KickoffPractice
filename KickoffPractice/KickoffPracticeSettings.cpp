@@ -33,21 +33,18 @@ void KickoffPractice::RenderSettings()
 
 	if (ImGui::BeginPopup("browseRecord", ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoScrollbar))
 	{
-		std::string selPath = botMenu.main();
-		if (selPath != "")
+		std::string inputPath = botMenu.main();
+		if (inputPath != "")
 		{
-			if (selPath.size() < 128)
-			{
-				//LOG(inputPath);
-				strcpy(recordedKickoffFolder, selPath.c_str());
-			}
+			recordedKickoffFolder = inputPath;
 			ImGui::CloseCurrentPopup();
 		}
 		ImGui::EndPopup();
 	}
-	ImGui::PushID(42); // otherwise ImGui confuses textboxes without labels
-	ImGui::InputText("", recordedKickoffFolder, IM_ARRAYSIZE(recordedKickoffFolder));
-	ImGui::PopID();
+
+	std::string recordedKickoffFolder_str = recordedKickoffFolder.string();
+	if (ImGui::InputText("##recordedKickoffFolder", &recordedKickoffFolder_str))
+		recordedKickoffFolder = recordedKickoffFolder_str;
 
 #pragma endregion
 	for (int i = 0; i < 5; i++)
@@ -85,17 +82,16 @@ void KickoffPractice::RenderSettings()
 		std::string inputPath = recordMenu.main();
 		if (inputPath != "")
 		{
-			if (inputPath.size() < 128)
-			{
-				strcpy(botKickoffFolder, inputPath.c_str());
-			}
+			botKickoffFolder = inputPath;
+
 			ImGui::CloseCurrentPopup();
 		}
 		ImGui::EndPopup();
 	}
-	ImGui::PushID(69); // otherwise ImGui confuses textboxes without labels
-	ImGui::InputText("", botKickoffFolder, IM_ARRAYSIZE(botKickoffFolder));
-	ImGui::PopID();
+
+	std::string botKickoffFolder_str = botKickoffFolder.string();
+	if (ImGui::InputText("##botKickoffFolder", &botKickoffFolder_str))
+		botKickoffFolder = botKickoffFolder_str;
 
 
 	if (ImGui::Button("Validate"))
@@ -123,7 +119,8 @@ void KickoffPractice::RenderSettings()
 	const bool child_is_visible = ImGui::BeginChild(child_id, ImGui::GetContentRegionAvail(), true, child_flags);
 
 	size_t count = loadedInputs.size();
-	const char* items[] = { "Unused", "Right Corner", "Left Corner", "Back Right", "Back Left", "Far Back Center" };
+	// TODO: Duplication
+	const char* items[] = { "Unused", "Right Corner", "Left Corner", "Back Right", "Back Left", "Back Center" };
 	bool isChanged = false;
 	if (child_is_visible)
 	{
@@ -144,7 +141,7 @@ void KickoffPractice::RenderSettings()
 	if (isChanged)
 	{
 		updateLoadedKickoffIndices();
-		writeConfigFile(configPath + L"/config.cfg");
+		writeConfigFile(configPath / "config.cfg");
 	}
 
 	if (nbCarBody == -1)
