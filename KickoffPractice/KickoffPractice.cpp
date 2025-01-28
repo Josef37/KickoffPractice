@@ -78,9 +78,12 @@ void KickoffPractice::onLoad()
 
 		},
 		"Practice kickoff", PERMISSION_FREEPLAY);
-	gameWrapper->HookEvent("Function TAGame.EngineShare_TA.EventPostPhysicsStep",
-		[this](std::string eventName) {
-			this->tick();
+
+	gameWrapper->HookEventWithCaller<CarWrapper>(
+		"Function TAGame.Car_TA.SetVehicleInput",
+		[this](CarWrapper car, void* params, std::string eventName) {
+			ControllerInput* input = static_cast<ControllerInput*>(params);
+			this->onVehicleInput(car, input);
 		});
 
 	gameWrapper->HookEventWithCallerPost<CarWrapper>("Function TAGame.Car_TA.OnHitBall",
@@ -103,21 +106,22 @@ void KickoffPractice::onLoad()
 			if (!gameWrapper->IsInFreeplay()) return;
 			ServerWrapper server = gameWrapper->GetGameEventAsServer();
 			if (!server) return;
+			// `SpawnInstance` gets called multiple times for the same car.
+			// We make sure to execute the following code only once.
 			if (!this->botJustSpawned) return;
 
 			for (auto car : server.GetCars())
 			{
 				if (car.GetPRI().GetbBot())
 				{
-					car.SetCarRotation(this->rotationBot);
 					car.SetLocation(this->locationBot);
-					car.SetVelocity(Vector(0, 0, 0));
-					AIControllerWrapper controller = car.GetAIController();
-					if (!controller) continue;
-					controller.DoNothing();
+					car.SetCarRotation(this->rotationBot);
+					car.Stop();
+					// To disable the bot moving by itself we would call `car.GetAIController().DoNothing()` here.
+					// But then the `SetVehicleInput` hook would not fire for the bot.
+					// So we don't disable the controller, but overwrite the inputs inside the hook.
 
 					auto settings = this->loadedInputs[this->currentInputIndex].settings;
-					// Bots don't have an `AirControlComponent`, so we have to set it this way.
 					car.GetPRI().SetUserCarPreferences(settings.DodgeInputThreshold, settings.SteeringSensitivity, settings.AirControlSensitivity);
 				}
 			}
@@ -220,26 +224,15 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	this->rotationBot = Rotator(0, getKickoffYaw(this->currentKickoffIndex, KickoffSide::Orange) * CONST_RadToUnrRot, 0);
 	if (!isRecording)
 	{
-		server.SpawnBot(botCarID, "Kickoff Bot"); // spawn a bot knowing that it is the only one
-
+		server.SpawnBot(botCarID, "Kickoff Bot");
 		this->botJustSpawned = true;
 	}
-	ArrayWrapper<CarWrapper> cars = server.GetCars();
 
-	int nbCars = cars.Count();
-	if (nbCars != 2 && !(isRecording))
-	{
-		LOG("ERROR ! Wrong amount of cars on the field");
-		return;
-	}
-	const bool botIsFirst = cars.Get(0).GetPRI().GetbBot();
-	CarWrapper player = botIsFirst ? cars.Get(1) : cars.Get(0);
-	CarWrapper bot = botIsFirst ? cars.Get(0) : cars.Get(1);
-
+	CarWrapper player = gameWrapper->GetLocalCar();
+	// TODO: Duplication
 	player.SetLocation(locationPlayer);
 	player.SetRotation(rotationPlayer);
-	player.SetVelocity(Vector(0, 0, 0));
-	player.SetbDriving(false);
+	player.Stop();
 
 	BoostWrapper boost = player.GetBoostComponent();
 	if (!boost) return;
@@ -258,10 +251,10 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	);
 
 	BallWrapper ball = server.GetBall();
-	if (!ball)return;
-	ball.SetLocation(Vector(0, 0, 0));
-	ball.SetAngularVelocity(Vector(0, 0, 0), false);
+	if (!ball) return;
+	ball.SetLocation(Vector(0, 0, ball.GetRadius()));
 	ball.SetVelocity(Vector(0, 0, 0));
+	ball.SetAngularVelocity(Vector(0, 0, 0), false);
 
 	server.SendCountdownMessage(3, gameWrapper->GetPlayerController());
 	gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
@@ -295,57 +288,55 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	}
 }
 
-void KickoffPractice::tick()
+void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 {
 	if (!pluginEnabled) return;
 	if (!gameWrapper->IsInFreeplay()) return;
-	ServerWrapper server = gameWrapper->GetCurrentGameState();
-	if (!server) return;
-	if (this->kickoffState == KickoffState::nothing) return;
 
-	ArrayWrapper<CarWrapper> cars = server.GetCars();
-	CarWrapper player = NULL;
-	CarWrapper bot = NULL;
-	int numberOfCars = cars.Count();
-	if (numberOfCars == 1)
-	{
-		player = cars.Get(0);
+	if (this->kickoffState == KickoffState::waitingToStart) {
+		// Inputting steer when the car falls to the ground initially changes the yaw slightly (about 0.05 degrees).
+		// This also works in-game! But we try to be as consistent as possible (also makes testing easier).
+		// The side-effect is that the player can't wiggle his wheels when waiting... :(
+		input->Steer = 0;
 	}
-	else if (numberOfCars == 2)
+		 
+	bool isBot = car.GetPRI().GetbBot();
+
+	if (isBot)
 	{
-		const bool botIsFirst = cars.Get(0).GetPRI().GetbBot();
-		player = botIsFirst ? cars.Get(1) : cars.Get(0);
-		bot = botIsFirst ? cars.Get(0) : cars.Get(1);
-	}
-	else
-	{
-		LOG("Number of cars has to be 1 or 2!");
+		auto& bot = car;
+
+		bot.SetbDriving(this->kickoffState == KickoffState::started);
+
+		if (this->kickoffState != KickoffState::started)
 		return;
-	}
 
-	if (this->kickoffState == KickoffState::started)
-	{
-		player.SetbDriving(true);
+		auto& inputs = this->loadedInputs[this->currentInputIndex].inputs;
 
-		if (numberOfCars == 2)
+		// The Bot AI Controller somehow calls this functions twice per tick.
+		// For now we just set the same input twice, the `tickCounter` incrementing twice per tick.
+		auto tick = this->tickCounter / 2;
+
+		if (tick < inputs.size())
 		{
-			if (this->tickCounter >= this->loadedInputs[this->currentInputIndex].inputs.size())
-			{
-				ControllerInput input;
-				bot.SetInput(input);
+			ControllerInput loadedInput = inputs[tick];
+			*input = loadedInput;
+		}
+
+		this->tickCounter += 1;
 			}
 			else
 			{
-				// TODO: Check if the tick counter starts at 0
-				ControllerInput input = this->loadedInputs[this->currentInputIndex].inputs[++(this->tickCounter)];
-				// TODO: Could be improved according to https://wiki.bakkesplugins.com/functions/set_vehicle_input/
-				// But the bot has no `PlayerController`!
-				bot.SetInput(input);
-			}
-		}
+		auto& player = car;
+
+		player.SetbDriving(this->kickoffState != KickoffState::waitingToStart);
+
+		if (this->kickoffState != KickoffState::started)
+			return;
+
 		if (this->isRecording)
 		{
-			recordedInputs.push_back(player.GetInput());
+			recordedInputs.push_back(*input);
 		}
 	}
 }

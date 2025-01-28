@@ -45,7 +45,7 @@ class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public Settin
 {
 private:
 	void start(std::vector<std::string> args, GameWrapper* gameWrapper);
-	void tick();
+	void onVehicleInput(CarWrapper car, ControllerInput* input);
 	Vector getKickoffLocation(int kickoff, KickoffSide side);
 	float getKickoffYaw(int kickoff, KickoffSide side);
 	std::vector<RecordedKickoff> loadedInputs;
