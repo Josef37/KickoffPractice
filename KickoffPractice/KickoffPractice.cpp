@@ -1,14 +1,5 @@
 #include "pch.h"
 #include "KickoffPractice.h"
-#include "pathInput.h"
-#define _USE_MATH_DEFINES
-#include <math.h>
-#include <cstdlib>
-#include <ctime>
-#include <sstream>
-#include <filesystem>
-#include <algorithm>
-#include <stdlib.h>
 
 BAKKESMOD_PLUGIN(KickoffPractice, "Kickoff Practice", plugin_version, PLUGINTYPE_FREEPLAY);
 
@@ -74,7 +65,7 @@ void KickoffPractice::onLoad()
 			// Use a timeout to start after other commands bound to the same button.
 			gameWrapper->SetTimeout([this, args](GameWrapper* gameWrapper) {
 				this->start(args, gameWrapper);
-				}, 0.1);
+				}, 0.1f);
 
 		},
 		"Practice kickoff", PERMISSION_FREEPLAY);
@@ -219,9 +210,9 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 
 	KickoffSide playerSide = isRecording ? KickoffSide::Orange : KickoffSide::Blue;
 	Vector locationPlayer = getKickoffLocation(this->currentKickoffIndex, playerSide);
-	Rotator rotationPlayer = Rotator(0, getKickoffYaw(this->currentKickoffIndex, playerSide) * CONST_RadToUnrRot, 0);
+	Rotator rotationPlayer = Rotator(0, std::lroundf(getKickoffYaw(this->currentKickoffIndex, playerSide) * CONST_RadToUnrRot), 0);
 	this->locationBot = getKickoffLocation(this->currentKickoffIndex, KickoffSide::Orange);
-	this->rotationBot = Rotator(0, getKickoffYaw(this->currentKickoffIndex, KickoffSide::Orange) * CONST_RadToUnrRot, 0);
+	this->rotationBot = Rotator(0, std::lroundf(getKickoffYaw(this->currentKickoffIndex, KickoffSide::Orange) * CONST_RadToUnrRot), 0);
 	if (!isRecording)
 	{
 		server.SpawnBot(botCarID, "Kickoff Bot");
@@ -299,7 +290,7 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 		// The side-effect is that the player can't wiggle his wheels when waiting... :(
 		input->Steer = 0;
 	}
-		 
+
 	bool isBot = car.GetPRI().GetbBot();
 
 	if (isBot)
@@ -309,7 +300,7 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 		bot.SetbDriving(this->kickoffState == KickoffState::started);
 
 		if (this->kickoffState != KickoffState::started)
-		return;
+			return;
 
 		auto& inputs = this->loadedInputs[this->currentInputIndex].inputs;
 
@@ -324,9 +315,9 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 		}
 
 		this->tickCounter += 1;
-			}
-			else
-			{
+	}
+	else
+	{
 		auto& player = car;
 
 		player.SetbDriving(this->kickoffState != KickoffState::waitingToStart);
@@ -370,19 +361,19 @@ float KickoffPractice::getKickoffYaw(int kickoff, KickoffSide side)
 	if (side == KickoffSide::Blue)
 	{
 		if (kickoff == KickoffPosition::CornerRight)
-			return 0.25 * M_PI;
+			return 0.25f * CONST_PI_F;
 		if (kickoff == KickoffPosition::CornerLeft)
-			return 0.75 * M_PI;
+			return 0.75f * CONST_PI_F;
 		if (kickoff == KickoffPosition::BackRight)
-			return 0.5 * M_PI;
+			return 0.5f * CONST_PI_F;
 		if (kickoff == KickoffPosition::BackLeft)
-			return 0.5 * M_PI;
+			return 0.5f * CONST_PI_F;
 		if (kickoff == KickoffPosition::BackCenter)
-			return 0.5 * M_PI;
+			return 0.5f * CONST_PI_F;
 	}
 	else
 	{
-		return getKickoffYaw(kickoff, KickoffSide::Blue) - M_PI;
+		return getKickoffYaw(kickoff, KickoffSide::Blue) - CONST_PI_F;
 	}
 }
 
@@ -449,7 +440,7 @@ void KickoffPractice::storeCarBodies()
 
 		carBodyIDs.push_back(item.GetID());
 	}
-	nbCarBody = itemLabels.size();
+	nbCarBody = static_cast<int>(itemLabels.size());
 	carNames = new char* [nbCarBody];
 	for (int i = 0; i < nbCarBody; i++)
 	{
@@ -467,7 +458,7 @@ void KickoffPractice::reset()
 
 	if (isRecording)
 	{
-		const int numberOfInputs = recordedInputs.size();
+		const size_t numberOfInputs = recordedInputs.size();
 		LOG("Recording ends. Ticks recorded : {}", numberOfInputs);
 
 		auto time = std::time(nullptr);
@@ -910,8 +901,7 @@ void KickoffPractice::RenderSettings()
 		ImGui::SetTooltip("Validate changes");
 	}
 
-	int nbPossible = loadedKickoffIndices.size();
-	if (nbPossible == 0)
+	if (loadedKickoffIndices.size() == 0)
 	{
 		ImGui::TextColored(ImVec4(255, 0, 0, 255), "No kickoff selected !");
 	}
@@ -925,7 +915,7 @@ void KickoffPractice::RenderSettings()
 	const ImGuiID child_id = ImGui::GetID((void*)(intptr_t)0);
 	const bool child_is_visible = ImGui::BeginChild(child_id, ImGui::GetContentRegionAvail(), true, child_flags);
 
-	int count = loadedInputs.size();
+	size_t count = loadedInputs.size();
 	const char* items[] = { "Unused", "Right Corner", "Left Corner", "Back Right", "Back Left", "Far Back Center" };
 	bool isChanged = false;
 	if (child_is_visible)

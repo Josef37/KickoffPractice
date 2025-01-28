@@ -6,7 +6,6 @@
 #include "bakkesmod/plugin/PluginSettingsWindow.h"
 
 #include "version.h"
-#include <vector>
 #include <fstream>
 #include "pathInput.h"
 
@@ -33,10 +32,10 @@ enum class KickoffState {
 	started
 };
 
-typedef struct RecordedKickoff
+struct RecordedKickoff
 {
 	std::string name;
-	GamepadSettings settings;
+	GamepadSettings settings = GamepadSettings();
 	std::vector<ControllerInput> inputs;
 };
 
@@ -77,7 +76,6 @@ private:
 	bool pluginEnabled;
 	InputPath recordMenu;
 	InputPath botMenu;
-	bool spawnBotDuringRecord;
 	float timeAfterBackToNormal = 0.5;
 	int botCarID;
 	char** carNames;
