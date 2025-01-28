@@ -271,31 +271,13 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	ball.SetVelocity(Vector(0, 0, 0));
 	ball.SetAngularVelocity(Vector(0, 0, 0), false);
 
-	server.SendCountdownMessage(3, gameWrapper->GetPlayerController());
-	gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
-		{
-			if (!gameWrapper->IsInFreeplay()) return;
-			ServerWrapper server = gameWrapper->GetGameEventAsServer();
-			if (!server) return;
-			server.SendCountdownMessage(2, gameWrapper->GetPlayerController());
-		}, 1);
-	gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
-		{
-			if (!gameWrapper->IsInFreeplay()) return;
-			ServerWrapper server = gameWrapper->GetGameEventAsServer();
-			if (!server) return;
-			server.SendCountdownMessage(1, gameWrapper->GetPlayerController());
-		}, 2);
-	gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
-		{
-			if (!gameWrapper->IsInFreeplay()) return;
-			ServerWrapper server = gameWrapper->GetGameEventAsServer();
-			if (!server) return;
-			server.SendGoMessage(gameWrapper->GetPlayerController());
-			this->kickoffState = KickoffState::started;
-		}, 3);
-
 	this->kickoffState = KickoffState::waitingToStart;
+
+	startCountdown(
+		gameWrapper,
+		3,
+		[this]() { this->kickoffState = KickoffState::started; }
+	);
 
 	if (isRecording)
 	{
@@ -755,6 +737,33 @@ void KickoffPractice::storeCarBodies()
 			strcpy(carNames[i], itemLabels[i].c_str());
 		else
 			strcpy(carNames[i], "Too long name :D");
+	}
+}
+
+void KickoffPractice::startCountdown(GameWrapper* gameWrapper, int seconds, std::function<void()> onCompleted)
+{
+	// TODO: Use generic "should execute" check.
+	if (!gameWrapper->IsInFreeplay()) return;
+	ServerWrapper server = gameWrapper->GetGameEventAsServer();
+	if (!server) return;
+
+	if (seconds <= 0)
+	{
+		server.SendGoMessage(gameWrapper->GetPlayerController());
+		onCompleted();
+	}
+	else
+	{
+		server.SendCountdownMessage(seconds, gameWrapper->GetPlayerController());
+
+		// TODO: Verify the countdown is not delayed too much because the timeout might only be a lower bound.
+		gameWrapper->SetTimeout(
+			[seconds, onCompleted](GameWrapper* gameWrapper)
+			{
+				startCountdown(gameWrapper, seconds - 1, onCompleted);
+			},
+			1.0f
+		);
 	}
 }
 

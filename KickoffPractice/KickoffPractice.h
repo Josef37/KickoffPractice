@@ -94,6 +94,8 @@ private:
 	char recordedKickoffFolder[128] = "";
 	std::wstring configPath;
 
+	static void startCountdown(GameWrapper* gameWrapper, int seconds, std::function<void()> onCompleted);
+
 	static Vector getKickoffLocation(int kickoff, KickoffSide side);
 	static float getKickoffYaw(int kickoff, KickoffSide side);
 	static std::string getKickoffName(int kickoffId);
