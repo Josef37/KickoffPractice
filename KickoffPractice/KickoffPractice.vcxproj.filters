@@ -84,6 +84,9 @@
     <ClCompile Include="pathInput.cpp">
       <Filter>Plugin\src</Filter>
     </ClCompile>
+    <ClCompile Include="KickoffPracticeSettings.cpp">
+      <Filter>Plugin\src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imgui_rangeslider.h">
