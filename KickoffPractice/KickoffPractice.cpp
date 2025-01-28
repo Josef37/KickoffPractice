@@ -795,7 +795,7 @@ void KickoffPractice::writeConfigFile(std::wstring fileName)
 		return;
 	}
 	inputFile << botKickoffFolder << "\n";
-	inputFile << botKickoffFolder << "\n";
+	inputFile << recordedKickoffFolder << "\n";
 
 	for (int i = 0; i < states.size(); i++)
 	{
