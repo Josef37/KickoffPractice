@@ -44,7 +44,6 @@ struct RecordedKickoff
 struct BoostSettings
 {
 	int UnlimitedBoostRefCount;
-	float CurrentBoostAmount;
 	unsigned long NoBoost;
 	float RechargeDelay;
 	float RechargeRate;
@@ -78,7 +77,7 @@ private:
 
 	void recordBoostSettings();
 	void resetBoostSettings();
-	static void applyBoostSettings(CarWrapper player, BoostSettings settings);
+	static void applyBoostSettings(BoostWrapper boost, BoostSettings settings);
 	BoostSettings boostSettings;
 
 	std::vector<int> loadedKickoffIndices;

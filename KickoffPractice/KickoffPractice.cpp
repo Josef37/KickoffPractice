@@ -6,9 +6,9 @@ BAKKESMOD_PLUGIN(KickoffPractice, "Kickoff Practice", plugin_version, PLUGINTYPE
 std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 namespace fs = std::filesystem;
 
+static const float INITIAL_BOOST_AMOUNT = 0.333f;
 static const BoostSettings INITIAL_BOOST_SETTINGS = BoostSettings{
 	.UnlimitedBoostRefCount = 0,
-	.CurrentBoostAmount = 0.333f,
 	.NoBoost = false,
 	.RechargeDelay = 0.f,
 	.RechargeRate = 0.f
@@ -116,7 +116,7 @@ void KickoffPractice::onLoad()
 
 			for (auto car : server.GetCars())
 			{
-				if (car.GetPRI().GetbBot())
+				if (car.GetPRI().GetbBot() && car.GetOwnerName() == BOT_CAR_NAME)
 				{
 					car.SetLocation(this->locationBot);
 					car.SetCarRotation(this->rotationBot);
@@ -261,7 +261,10 @@ void KickoffPractice::start(std::vector<std::string> args)
 	player.SetRotation(rotationPlayer);
 	player.Stop();
 
-	KickoffPractice::applyBoostSettings(player, INITIAL_BOOST_SETTINGS);
+	BoostWrapper boost = player.GetBoostComponent();
+	if (!boost) return;
+	KickoffPractice::applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
+	boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
 
 	// Reset boost pickups, because moving the player can cause picking up boost.
 	this->setTimeoutChecked(
@@ -703,7 +706,6 @@ void KickoffPractice::recordBoostSettings()
 
 	BoostSettings settings{};
 	settings.UnlimitedBoostRefCount = boost.GetUnlimitedBoostRefCount();
-	settings.CurrentBoostAmount = boost.GetCurrentBoostAmount();
 	settings.NoBoost = boost.GetbNoBoost();
 	settings.RechargeDelay = boost.GetRechargeDelay();
 	settings.RechargeRate = boost.GetRechargeRate();
@@ -714,17 +716,17 @@ void KickoffPractice::resetBoostSettings()
 {
 	CarWrapper player = gameWrapper->GetLocalCar();
 	if (!player) return;
-
-	KickoffPractice::applyBoostSettings(player, this->boostSettings);
-}
-
-void KickoffPractice::applyBoostSettings(CarWrapper player, BoostSettings settings)
-{
-	auto boost = player.GetBoostComponent();
+	BoostWrapper boost = player.GetBoostComponent();
 	if (!boost) return;
 
+	KickoffPractice::applyBoostSettings(boost, this->boostSettings);
+}
+
+void KickoffPractice::applyBoostSettings(BoostWrapper boost, BoostSettings settings)
+{
 	boost.SetUnlimitedBoostRefCount(settings.UnlimitedBoostRefCount);
-	boost.SetCurrentBoostAmount(settings.CurrentBoostAmount);
+	if (settings.UnlimitedBoostRefCount > 0)
+		boost.SetCurrentBoostAmount(1.0f);
 	boost.SetbNoBoost(settings.NoBoost);
 	boost.SetRechargeDelay(settings.RechargeDelay);
 	boost.SetRechargeRate(settings.RechargeRate);
