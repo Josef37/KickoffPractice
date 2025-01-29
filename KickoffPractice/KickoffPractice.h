@@ -44,7 +44,12 @@ struct RecordedKickoff
 class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public SettingsWindowBase
 {
 private:
-	void start(std::vector<std::string> args, GameWrapper* gameWrapper);
+	bool pluginEnabled;
+	bool shouldExecute();
+	void setTimeoutChecked(float seconds, std::function<void()> callback);
+
+	void start(std::vector<std::string> args);
+	void startCountdown(int seconds, std::function<void()> onCompleted);
 	void onVehicleInput(CarWrapper car, ControllerInput* input);
 	void reset();
 
@@ -77,7 +82,6 @@ private:
 	int unlimitedBoostDefaultSetting;
 	bool isInReplay;
 	bool isRecording;
-	bool pluginEnabled;
 
 	float timeAfterBackToNormal = 0.5;
 	InputPath recordMenu;
@@ -93,8 +97,6 @@ private:
 	std::filesystem::path configPath;
 	std::filesystem::path botKickoffFolder;
 	std::filesystem::path recordedKickoffFolder;
-
-	static void startCountdown(GameWrapper* gameWrapper, int seconds, std::function<void()> onCompleted);
 
 	static Vector getKickoffLocation(int kickoff, KickoffSide side);
 	static float getKickoffYaw(int kickoff, KickoffSide side);

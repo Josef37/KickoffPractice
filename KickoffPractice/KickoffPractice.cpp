@@ -35,13 +35,8 @@ void KickoffPractice::onLoad()
 
 	this->configPath = gameWrapper->GetDataFolder() / PLUGIN_FOLDER;
 	if (!fs::exists(this->configPath) || !fs::is_directory(this->configPath))
-	{
-		LOG("Creating directory");
 		if (!fs::create_directory(this->configPath))
-		{
 			LOG("Can't create config directory in bakkesmod data folder");
-		}
-	}
 
 	this->readConfigFile(this->configPath / CONFIG_FILE);
 
@@ -63,13 +58,8 @@ void KickoffPractice::onLoad()
 	cvarManager->registerNotifier("kickoff_train",
 		[this](std::vector<std::string> args)
 		{
-			if (!this->pluginEnabled) return;
 			// Use a timeout to start after other commands bound to the same button.
-			gameWrapper->SetTimeout([this, args](GameWrapper* gameWrapper)
-				{
-					this->start(args, gameWrapper);
-				}, 0.1f);
-
+			this->setTimeoutChecked(0.1f, [this, args]() { this->start(args); });
 		},
 		"Practice kickoff",
 		PERMISSION_FREEPLAY
@@ -79,6 +69,8 @@ void KickoffPractice::onLoad()
 		"Function TAGame.Car_TA.SetVehicleInput",
 		[this](CarWrapper car, void* params, std::string eventName)
 		{
+			if (!this->shouldExecute()) return;
+
 			ControllerInput* input = static_cast<ControllerInput*>(params);
 			this->onVehicleInput(car, input);
 		}
@@ -88,14 +80,18 @@ void KickoffPractice::onLoad()
 		"Function TAGame.Car_TA.OnHitBall",
 		[this](CarWrapper caller, void* params, std::string eventname)
 		{
+			if (!this->shouldExecute()) return;
+
 			if (this->kickoffState == KickoffState::started)
 			{
-				gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
+				this->setTimeoutChecked(
+					this->timeAfterBackToNormal,
+					[this]()
 					{
-						if (this->kickoffState != KickoffState::started) return;
+						if (this->kickoffState != KickoffState::started)
+							return;
 						this->reset();
-					},
-					this->timeAfterBackToNormal
+					}
 				);
 			}
 		}
@@ -105,8 +101,9 @@ void KickoffPractice::onLoad()
 		"Function Engine.Actor.SpawnInstance",
 		[this](std::string eventName)
 		{
-			if (!gameWrapper->IsInFreeplay()) return;
-			ServerWrapper server = gameWrapper->GetGameEventAsServer();
+			if (!this->shouldExecute()) return;
+
+			ServerWrapper server = gameWrapper->GetCurrentGameState();
 			if (!server) return;
 			// `SpawnInstance` gets called multiple times for the same car.
 			// We make sure to execute the following code only once.
@@ -139,13 +136,6 @@ void KickoffPractice::onLoad()
 		}
 	);
 	gameWrapper->HookEventWithCallerPost<CarWrapper>(
-		"Function TAGame.CarComponent_Boost_TA.SetUnlimitedBoost",
-		[this](CarWrapper caller, void* params, std::string eventname)
-		{
-			this->recordBoost();
-		}
-	);
-	gameWrapper->HookEventWithCallerPost<CarWrapper>(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.EndState",
 		[this](CarWrapper caller, void* params, std::string eventname)
 		{
@@ -153,9 +143,20 @@ void KickoffPractice::onLoad()
 		}
 	);
 	gameWrapper->HookEventWithCallerPost<CarWrapper>(
+		"Function TAGame.CarComponent_Boost_TA.SetUnlimitedBoost",
+		[this](CarWrapper caller, void* params, std::string eventname)
+		{
+			if (!this->shouldExecute()) return;
+
+			this->recordBoost();
+		}
+	);
+	gameWrapper->HookEventWithCallerPost<CarWrapper>(
 		"Function GameEvent_Soccar_TA.Countdown.BeginState",
 		[this](CarWrapper caller, void* params, std::string eventname)
 		{
+			if (!this->shouldExecute()) return;
+
 			this->recordBoost();
 			this->reset();
 		}
@@ -171,14 +172,31 @@ void KickoffPractice::onUnload()
 	delete[] this->carNames;
 }
 
+bool KickoffPractice::shouldExecute()
+{
+	return pluginEnabled && gameWrapper->IsInFreeplay() && !this->isInReplay;
+}
+
+void KickoffPractice::setTimeoutChecked(float seconds, std::function<void()> callback)
+{
+	gameWrapper->SetTimeout(
+		[this, callback](GameWrapper* _)
+		{
+			if (!this->shouldExecute()) 
+				return;
+
+			callback();
+		},
+		seconds
+	);
+}
+
 /// args[1] = kickoff location (1-5)
 /// args[2] = is recording? (bool or 0/1)
-void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrapper)
+void KickoffPractice::start(std::vector<std::string> args)
 {
-	if (!gameWrapper->IsInFreeplay()) return;
-	ServerWrapper server = gameWrapper->GetGameEventAsServer();
+	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
-	if (this->isInReplay) return;
 
 	this->recordBoost();
 	this->reset();
@@ -253,14 +271,13 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
 
 	// Reset boost pickups, because moving the player can cause picking up boost.
-	gameWrapper->SetTimeout([this](GameWrapper* gameWrapper)
+	this->setTimeoutChecked(
+		0.1f,
+		[this]()
 		{
-			if (!gameWrapper->IsInFreeplay()) return;
-			ServerWrapper server = gameWrapper->GetGameEventAsServer();
-			if (!server) return;
-			server.ResetPickups();
-		},
-		0.1f
+			if (auto server = gameWrapper->GetCurrentGameState())
+				server.ResetPickups();
+		}
 	);
 
 	BallWrapper ball = server.GetBall();
@@ -272,7 +289,6 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	this->kickoffState = KickoffState::waitingToStart;
 
 	startCountdown(
-		gameWrapper,
 		3,
 		[this]() { this->kickoffState = KickoffState::started; }
 	);
@@ -281,6 +297,31 @@ void KickoffPractice::start(std::vector<std::string> args, GameWrapper* gameWrap
 	{
 		LOG("Recording begins");
 	}
+}
+
+void KickoffPractice::startCountdown(int seconds, std::function<void()> onCompleted)
+{
+	ServerWrapper server = gameWrapper->GetCurrentGameState();
+	if (!server) return;
+
+	if (seconds <= 0)
+	{
+		server.SendGoMessage(gameWrapper->GetPlayerController());
+		onCompleted();
+
+		return;
+	}
+
+	server.SendCountdownMessage(seconds, gameWrapper->GetPlayerController());
+
+	// TODO: Verify the countdown is not delayed too much because the timeout might only be a lower bound.
+	this->setTimeoutChecked(
+		1.0f,
+		[this, seconds, onCompleted]()
+		{
+			this->startCountdown(seconds - 1, onCompleted);
+		}
+	);
 }
 
 void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
@@ -417,7 +458,7 @@ int KickoffPractice::getRandomKickoffForId(int kickoffId)
 void KickoffPractice::removeBots()
 {
 	if (!gameWrapper->IsInFreeplay()) return;
-	ServerWrapper server = gameWrapper->GetGameEventAsServer();
+	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
 
 	for (auto car : server.GetCars())
@@ -663,7 +704,7 @@ void KickoffPractice::updateLoadedKickoffIndices()
 void KickoffPractice::recordBoost()
 {
 	if (!gameWrapper->IsInFreeplay()) return;
-	ServerWrapper server = gameWrapper->GetGameEventAsServer();
+	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
 	if (this->isInReplay) return;
 	auto player = gameWrapper->GetLocalCar();
@@ -676,7 +717,7 @@ void KickoffPractice::recordBoost()
 void KickoffPractice::resetBoost()
 {
 	if (!gameWrapper->IsInFreeplay()) return;
-	ServerWrapper server = gameWrapper->GetGameEventAsServer();
+	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
 
 	CarWrapper player = gameWrapper->GetLocalCar();
@@ -729,33 +770,6 @@ void KickoffPractice::storeCarBodies()
 			strcpy(this->carNames[i], itemLabels[i].c_str());
 		else
 			strcpy(this->carNames[i], "Too long name :D");
-	}
-}
-
-void KickoffPractice::startCountdown(GameWrapper* gameWrapper, int seconds, std::function<void()> onCompleted)
-{
-	// TODO: Use generic "should execute" check.
-	if (!gameWrapper->IsInFreeplay()) return;
-	ServerWrapper server = gameWrapper->GetGameEventAsServer();
-	if (!server) return;
-
-	if (seconds <= 0)
-	{
-		server.SendGoMessage(gameWrapper->GetPlayerController());
-		onCompleted();
-	}
-	else
-	{
-		server.SendCountdownMessage(seconds, gameWrapper->GetPlayerController());
-
-		// TODO: Verify the countdown is not delayed too much because the timeout might only be a lower bound.
-		gameWrapper->SetTimeout(
-			[seconds, onCompleted](GameWrapper* gameWrapper)
-			{
-				startCountdown(gameWrapper, seconds - 1, onCompleted);
-			},
-			1.0f
-		);
 	}
 }
 
