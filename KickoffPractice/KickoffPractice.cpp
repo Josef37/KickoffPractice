@@ -6,7 +6,13 @@ BAKKESMOD_PLUGIN(KickoffPractice, "Kickoff Practice", plugin_version, PLUGINTYPE
 std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 namespace fs = std::filesystem;
 
-static const float INITIAL_BOOST_AMOUNT = 0.333f;
+static const BoostSettings INITIAL_BOOST_SETTINGS = BoostSettings{
+	.UnlimitedBoostRefCount = 0,
+	.CurrentBoostAmount = 0.333f,
+	.NoBoost = false,
+	.RechargeDelay = 0.f,
+	.RechargeRate = 0.f
+};
 static const std::string PLUGIN_FOLDER = "kickoffPractice";
 static const std::string CONFIG_FILE = "config.cfg";
 static const std::string DEFAULT_BOT_FOLDER = "bot";
@@ -16,11 +22,12 @@ static const std::string BOT_CAR_NAME = "Kickoff Bot";
 
 void KickoffPractice::onLoad()
 {
+	_globalCvarManager = cvarManager;
+
 	this->pluginEnabled = true;
 	this->isInReplay = false;
 	this->currentInputIndex = 0;
 	this->isRecording = false;
-	this->unlimitedBoostDefaultSetting = 1;
 	this->rotationBot = Rotator(0, 0, 0);
 	this->locationBot = Vector(0, 0, 0);
 	this->tickCounter = 0;
@@ -30,8 +37,6 @@ void KickoffPractice::onLoad()
 	this->botCarID = 0;
 	this->selectedCarUI = 0;
 	srand((int)time(0)); // initialize the random number generator seed
-
-	_globalCvarManager = cvarManager;
 
 	this->configPath = gameWrapper->GetDataFolder() / PLUGIN_FOLDER;
 	if (!fs::exists(this->configPath) || !fs::is_directory(this->configPath))
@@ -143,21 +148,11 @@ void KickoffPractice::onLoad()
 		}
 	);
 	gameWrapper->HookEventWithCallerPost<CarWrapper>(
-		"Function TAGame.CarComponent_Boost_TA.SetUnlimitedBoost",
+		"Function GameEvent_Soccar_TA.Countdown.EndState", // Called at the beginning/reset of freeplay.
 		[this](CarWrapper caller, void* params, std::string eventname)
 		{
 			if (!this->shouldExecute()) return;
 
-			this->recordBoost();
-		}
-	);
-	gameWrapper->HookEventWithCallerPost<CarWrapper>(
-		"Function GameEvent_Soccar_TA.Countdown.BeginState",
-		[this](CarWrapper caller, void* params, std::string eventname)
-		{
-			if (!this->shouldExecute()) return;
-
-			this->recordBoost();
 			this->reset();
 		}
 	);
@@ -182,7 +177,7 @@ void KickoffPractice::setTimeoutChecked(float seconds, std::function<void()> cal
 	gameWrapper->SetTimeout(
 		[this, callback](GameWrapper* _)
 		{
-			if (!this->shouldExecute()) 
+			if (!this->shouldExecute())
 				return;
 
 			callback();
@@ -198,7 +193,7 @@ void KickoffPractice::start(std::vector<std::string> args)
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
 
-	this->recordBoost();
+	this->recordBoostSettings();
 	this->reset();
 
 	if (args.size() >= 3)
@@ -260,15 +255,12 @@ void KickoffPractice::start(std::vector<std::string> args)
 	}
 
 	CarWrapper player = gameWrapper->GetLocalCar();
-	// TODO: Duplication
+	if (!player) return;
 	player.SetLocation(locationPlayer);
 	player.SetRotation(rotationPlayer);
 	player.Stop();
 
-	BoostWrapper boost = player.GetBoostComponent();
-	if (!boost) return;
-	boost.SetUnlimitedBoostRefCount(0); // limit the player's boost (TODO: see if it's relevant for the bot)
-	boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
+	KickoffPractice::applyBoostSettings(player, INITIAL_BOOST_SETTINGS);
 
 	// Reset boost pickups, because moving the player can cause picking up boost.
 	this->setTimeoutChecked(
@@ -294,15 +286,15 @@ void KickoffPractice::start(std::vector<std::string> args)
 	);
 
 	if (this->isRecording)
-	{
 		LOG("Recording begins");
-	}
 }
 
 void KickoffPractice::startCountdown(int seconds, std::function<void()> onCompleted)
 {
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
+
+	if (this->kickoffState != KickoffState::waitingToStart) return;
 
 	if (seconds <= 0)
 	{
@@ -326,9 +318,6 @@ void KickoffPractice::startCountdown(int seconds, std::function<void()> onComple
 
 void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 {
-	if (!this->pluginEnabled) return;
-	if (!gameWrapper->IsInFreeplay()) return;
-
 	if (this->kickoffState == KickoffState::waitingToStart)
 	{
 		// Inputting steer when the car falls to the ground initially changes the yaw slightly (about 0.05 degrees).
@@ -435,7 +424,7 @@ void KickoffPractice::reset()
 	this->kickoffState = KickoffState::nothing;
 	this->tickCounter = 0;
 	this->currentKickoffIndex = 0;
-	this->resetBoost();
+	this->resetBoostSettings();
 	this->isInReplay = false;
 	this->isRecording = false;
 }
@@ -457,7 +446,6 @@ int KickoffPractice::getRandomKickoffForId(int kickoffId)
 
 void KickoffPractice::removeBots()
 {
-	if (!gameWrapper->IsInFreeplay()) return;
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
 
@@ -701,34 +689,44 @@ void KickoffPractice::updateLoadedKickoffIndices()
 	}
 }
 
-void KickoffPractice::recordBoost()
+void KickoffPractice::recordBoostSettings()
 {
-	if (!gameWrapper->IsInFreeplay()) return;
-	ServerWrapper server = gameWrapper->GetCurrentGameState();
-	if (!server) return;
-	if (this->isInReplay) return;
+	// Starting a new kickoff without finishing the previous one
+	// would result in us storing our overwritten boost setting.
+	if (this->kickoffState != KickoffState::nothing) return;
+
 	auto player = gameWrapper->GetLocalCar();
 	if (!player) return;
 	auto boost = player.GetBoostComponent();
 	if (!boost) return;
-	this->unlimitedBoostDefaultSetting = boost.GetUnlimitedBoostRefCount(); // bugged
+
+	BoostSettings settings{};
+	settings.UnlimitedBoostRefCount = boost.GetUnlimitedBoostRefCount();
+	settings.CurrentBoostAmount = boost.GetCurrentBoostAmount();
+	settings.NoBoost = boost.GetbNoBoost();
+	settings.RechargeDelay = boost.GetRechargeDelay();
+	settings.RechargeRate = boost.GetRechargeRate();
+	this->boostSettings = settings;
 }
 
-void KickoffPractice::resetBoost()
+void KickoffPractice::resetBoostSettings()
 {
-	if (!gameWrapper->IsInFreeplay()) return;
-	ServerWrapper server = gameWrapper->GetCurrentGameState();
-	if (!server) return;
-
 	CarWrapper player = gameWrapper->GetLocalCar();
 	if (!player) return;
-	BoostWrapper boost = player.GetBoostComponent();
+
+	KickoffPractice::applyBoostSettings(player, this->boostSettings);
+}
+
+void KickoffPractice::applyBoostSettings(CarWrapper player, BoostSettings settings)
+{
+	auto boost = player.GetBoostComponent();
 	if (!boost) return;
-	boost.SetUnlimitedBoostRefCount(this->unlimitedBoostDefaultSetting); // TODO: it always gives unlimited boost so it's buggy
-	if (this->unlimitedBoostDefaultSetting > 0)
-	{
-		boost.SetBoostAmount(1.0);
-	}
+
+	boost.SetUnlimitedBoostRefCount(settings.UnlimitedBoostRefCount);
+	boost.SetCurrentBoostAmount(settings.CurrentBoostAmount);
+	boost.SetbNoBoost(settings.NoBoost);
+	boost.SetRechargeDelay(settings.RechargeDelay);
+	boost.SetRechargeRate(settings.RechargeRate);
 }
 
 void KickoffPractice::storeCarBodies()

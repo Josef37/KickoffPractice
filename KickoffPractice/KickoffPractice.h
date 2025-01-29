@@ -41,6 +41,15 @@ struct RecordedKickoff
 	std::vector<ControllerInput> inputs;
 };
 
+struct BoostSettings
+{
+	int UnlimitedBoostRefCount;
+	float CurrentBoostAmount;
+	unsigned long NoBoost;
+	float RechargeDelay;
+	float RechargeRate;
+};
+
 class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public SettingsWindowBase
 {
 private:
@@ -67,8 +76,10 @@ private:
 	RecordedKickoff readKickoffFile(std::string fileName, std::string kickoffName);
 	void updateLoadedKickoffIndices();
 
-	void recordBoost();
-	void resetBoost();
+	void recordBoostSettings();
+	void resetBoostSettings();
+	static void applyBoostSettings(CarWrapper player, BoostSettings settings);
+	BoostSettings boostSettings;
 
 	std::vector<int> loadedKickoffIndices;
 
@@ -79,7 +90,6 @@ private:
 	bool botJustSpawned;
 	Vector locationBot;
 	Rotator rotationBot;
-	int unlimitedBoostDefaultSetting;
 	bool isInReplay;
 	bool isRecording;
 
