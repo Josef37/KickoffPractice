@@ -153,6 +153,7 @@ void KickoffPractice::onLoad()
 		{
 			if (!this->shouldExecute()) return;
 
+			this->recordBoostSettings();
 			this->reset();
 		}
 	);
