@@ -68,8 +68,9 @@ private:
 	int getRandomKickoffForId(int kickoffId);
 	void removeBots();
 
-	void writeConfigFile(std::wstring fileName);
-	void readConfigFile(std::wstring fileName);
+	void writeConfigFile();
+	void readConfigFile();
+	std::filesystem::path configPath;
 
 	void readKickoffFiles();
 	RecordedKickoff readKickoffFile(std::string fileName, std::string kickoffName);
@@ -99,13 +100,10 @@ private:
 	int botCarID;
 	char** carNames;
 	std::vector<int> carBodyIDs;
-	int nbCarBody = -1;
+	int nbCarBody;
 	int selectedCarUI;
 	void storeCarBodies();
 
-	std::filesystem::path configPath;
-	std::filesystem::path botKickoffFolder;
-	std::filesystem::path recordedKickoffFolder;
 
 	static Vector getKickoffLocation(int kickoff, KickoffSide side);
 	static float getKickoffYaw(int kickoff, KickoffSide side);

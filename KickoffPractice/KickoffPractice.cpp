@@ -43,18 +43,7 @@ void KickoffPractice::onLoad()
 		if (!fs::create_directory(this->configPath))
 			LOG("Can't create config directory in bakkesmod data folder");
 
-	this->readConfigFile(this->configPath / CONFIG_FILE);
-
-	// TODO: Extract creating folders.
-	if (this->botKickoffFolder.empty()) this->botKickoffFolder = this->configPath / DEFAULT_BOT_FOLDER;
-	if (!fs::exists(this->botKickoffFolder) || !fs::is_directory(this->botKickoffFolder))
-		if (!fs::create_directory(this->botKickoffFolder))
-			LOG("Can't create bot kickoff input directory in bakkesmod data folder");
-
-	if (this->recordedKickoffFolder.empty()) this->recordedKickoffFolder = this->configPath / DEFAULT_RECORDING_FOLDER;
-	if (!fs::exists(this->recordedKickoffFolder) || !fs::is_directory(this->recordedKickoffFolder))
-		if (!fs::create_directory(this->recordedKickoffFolder))
-			LOG("Can't create recorded inputs directory in bakkesmod data folder");
+	this->readConfigFile();
 
 	this->readKickoffFiles();
 
@@ -388,7 +377,7 @@ void KickoffPractice::reset()
 		std::string name = KickoffPractice::getKickoffName(this->currentKickoffIndex);
 		std::string filename = name + " " + timestamp + FILE_EXT;
 
-		std::ofstream inputFile(this->recordedKickoffFolder / filename);
+		std::ofstream inputFile(this->configPath / filename);
 		if (!inputFile.is_open())
 		{
 			LOG("ERROR : can't create recording file");
@@ -467,32 +456,39 @@ void KickoffPractice::removeBots()
 	}
 }
 
-void KickoffPractice::writeConfigFile(std::wstring fileName)
+void KickoffPractice::writeConfigFile()
 {
-	std::ofstream inputFile(fileName);
+	auto filename = this->configPath / CONFIG_FILE;
+
+	std::ofstream inputFile(filename);
 	if (!inputFile.is_open())
 	{
 		LOG("ERROR : can't create config file");
 		return;
 	}
-	inputFile << this->botKickoffFolder.string() << "\n";
-	inputFile << this->recordedKickoffFolder.string() << "\n";
 
 	for (int i = 0; i < this->states.size(); i++)
 	{
+		if (this->states[i] == 0) continue;
 		inputFile << this->states[i] << "," << this->loadedInputs[i].name << "\n";
 	}
 	inputFile.close();
 }
 
-void KickoffPractice::readConfigFile(std::wstring fileName)
+void KickoffPractice::readConfigFile()
 {
-	std::vector<std::string> row;
-	std::string line, word;
-	std::string botFolder, recordFolder;
-	std::fstream file(fileName, std::ios::in);
+	auto filename = this->configPath / CONFIG_FILE;
+
+	if (!fs::exists(filename))
+		return;
+
+	std::fstream file(filename, std::ios::in);
+
 	if (file.is_open())
 	{
+		std::vector<std::string> row;
+		std::string line, word;
+
 		int i = 0;
 		while (getline(file, line))
 		{
@@ -500,23 +496,14 @@ void KickoffPractice::readConfigFile(std::wstring fileName)
 			row.clear();
 
 			std::stringstream str(line);
-			if (i == 1)
-			{
-				botFolder = line;
-				continue;
-			}
-			if (i == 2)
-			{
-				recordFolder = line;
-				continue;
-			}
+
 			while (getline(str, word, ','))
 			{
 				row.push_back(word);
 			}
 			if (row.size() != 2)
 			{
-				cvarManager->log("Error on line " + std::to_string(i));
+				LOG("Error on line {}", i);
 				continue;
 			}
 			try
@@ -543,17 +530,7 @@ void KickoffPractice::readConfigFile(std::wstring fileName)
 		}
 	}
 	else
-		cvarManager->log("Can't open the config file");
-
-	if (botFolder.empty())
-		this->botKickoffFolder = this->configPath / DEFAULT_BOT_FOLDER;
-	else
-		this->botKickoffFolder = botFolder;
-
-	if (recordFolder.empty())
-		this->recordedKickoffFolder = this->configPath / DEFAULT_RECORDING_FOLDER;
-	else
-		this->recordedKickoffFolder = recordFolder;
+		LOG("Can't open the config file");
 }
 
 void KickoffPractice::readKickoffFiles()
@@ -563,7 +540,7 @@ void KickoffPractice::readKickoffFiles()
 
 	try
 	{
-		for (const auto& entry : fs::directory_iterator(this->botKickoffFolder))
+		for (const auto& entry : fs::directory_iterator(this->configPath))
 		{
 			if (entry.is_regular_file() && entry.path().extension() == FILE_EXT)
 			{
@@ -576,7 +553,7 @@ void KickoffPractice::readKickoffFiles()
 	{
 		LOG("ERROR : {}", ex.code().message());
 	}
-	this->readConfigFile(this->configPath / CONFIG_FILE);
+	this->readConfigFile();
 	this->updateLoadedKickoffIndices();
 }
 
