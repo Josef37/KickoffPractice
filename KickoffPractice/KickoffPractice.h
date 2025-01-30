@@ -94,14 +94,6 @@ private:
 
 	float timeAfterBackToNormal = 0.5;
 
-	int botCarID;
-	char** carNames;
-	std::vector<int> carBodyIDs;
-	int nbCarBody;
-	int selectedCarUI;
-	void storeCarBodies();
-
-
 	static Vector getKickoffLocation(int kickoff, KickoffSide side);
 	static float getKickoffYaw(int kickoff, KickoffSide side);
 	static std::string getKickoffName(int kickoffId);

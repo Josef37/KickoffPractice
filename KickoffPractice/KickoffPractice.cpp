@@ -34,8 +34,6 @@ void KickoffPractice::onLoad()
 	this->kickoffState = KickoffState::nothing;
 	this->botJustSpawned = false;
 	this->currentKickoffIndex = 0;
-	this->botCarID = 0;
-	this->selectedCarUI = 0;
 	srand((int)time(0)); // initialize the random number generator seed
 
 	this->configPath = gameWrapper->GetDataFolder() / PLUGIN_FOLDER;
@@ -46,8 +44,6 @@ void KickoffPractice::onLoad()
 	this->readConfigFile();
 
 	this->readKickoffFiles();
-
-	this->storeCarBodies();
 
 	cvarManager->registerNotifier("kickoff_train",
 		[this](std::vector<std::string> args)
@@ -150,11 +146,7 @@ void KickoffPractice::onLoad()
 
 void KickoffPractice::onUnload()
 {
-	for (int i = 0; i < this->nbCarBody; i++)
-	{
-		delete[] this->carNames[i];
-	}
-	delete[] this->carNames;
+	// nothing to unload...
 }
 
 bool KickoffPractice::shouldExecute()
@@ -233,6 +225,9 @@ void KickoffPractice::start(std::vector<std::string> args)
 
 	LOG("isRecording: {}", this->isRecording);
 
+	CarWrapper player = gameWrapper->GetLocalCar();
+	if (!player) return;
+
 	KickoffSide playerSide = this->isRecording ? KickoffSide::Orange : KickoffSide::Blue;
 	Vector locationPlayer = KickoffPractice::getKickoffLocation(this->currentKickoffIndex, playerSide);
 	Rotator rotationPlayer = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffIndex, playerSide) * CONST_RadToUnrRot), 0);
@@ -240,12 +235,10 @@ void KickoffPractice::start(std::vector<std::string> args)
 	this->rotationBot = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffIndex, KickoffSide::Orange) * CONST_RadToUnrRot), 0);
 	if (!this->isRecording)
 	{
-		server.SpawnBot(this->botCarID, BOT_CAR_NAME);
+		server.SpawnBot(player.GetLoadoutBody(), BOT_CAR_NAME);
 		this->botJustSpawned = true;
 	}
 
-	CarWrapper player = gameWrapper->GetLocalCar();
-	if (!player) return;
 	player.SetLocation(locationPlayer);
 	player.SetRotation(rotationPlayer);
 	player.Stop();
@@ -707,48 +700,6 @@ void KickoffPractice::applyBoostSettings(BoostWrapper boost, BoostSettings setti
 	boost.SetbNoBoost(settings.NoBoost);
 	boost.SetRechargeDelay(settings.RechargeDelay);
 	boost.SetRechargeRate(settings.RechargeRate);
-}
-
-void KickoffPractice::storeCarBodies()
-{
-	auto items = gameWrapper->GetItemsWrapper();
-
-	if (!items)
-	{
-		this->nbCarBody = 1;
-		this->carNames = new char* [1];
-		this->carNames[0] = new char[14];
-		strcpy(this->carNames[0], "No car found");
-
-		return;
-	}
-
-	std::vector <std::string> itemLabels;
-	for (auto item : items.GetAllProducts())
-	{
-		if (!item)
-			continue;
-
-		auto slot = item.GetSlot();
-		// body slot has slot index 0
-		if (!slot || slot.GetSlotIndex() != 0)
-			continue;
-
-		std::string label = item.GetLabel().ToString();
-		itemLabels.push_back(label);
-
-		this->carBodyIDs.push_back(item.GetID());
-	}
-	this->nbCarBody = static_cast<int>(itemLabels.size());
-	this->carNames = new char* [this->nbCarBody];
-	for (int i = 0; i < this->nbCarBody; i++)
-	{
-		this->carNames[i] = new char[128];
-		if (itemLabels[i].size() < 128)
-			strcpy(this->carNames[i], itemLabels[i].c_str());
-		else
-			strcpy(this->carNames[i], "Too long name :D");
-	}
 }
 
 Vector KickoffPractice::getKickoffLocation(int kickoff, KickoffSide side)

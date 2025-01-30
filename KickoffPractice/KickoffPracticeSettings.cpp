@@ -18,7 +18,7 @@ void KickoffPractice::RenderSettings()
 	ImGui::SliderFloat("Time before back to normal", &this->timeAfterBackToNormal, 0.0f, 3.0f, "%.3f seconds");
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("How long you stay in \"kickoff mode\" after someone hit the ball. This also affects how long the recording lasts after hitting the ball.");
-	
+
 	SpacedSeparator();
 
 	for (int i = 0; i < 5; i++)
@@ -52,7 +52,7 @@ void KickoffPractice::RenderSettings()
 	// TODO: Duplication
 	const char* items[] = { "Unused", "Right Corner", "Left Corner", "Back Right", "Back Left", "Back Center" };
 	bool isChanged = false;
-	if (ImGui::BeginChild("LoadedFiles", ImVec2(0.0f, 250.0f), true))
+	if (ImGui::BeginChild("LoadedFiles", ImVec2(0, 0), true))
 	{
 		ImGui::Indent(5);
 		ImGui::PushItemWidth(ImGui::GetFontSize() * 15.f);
@@ -69,8 +69,4 @@ void KickoffPractice::RenderSettings()
 		updateLoadedKickoffIndices();
 		writeConfigFile();
 	}
-
-	ImGui::Spacing();
-	if (ImGui::Combo("Bot car body", &selectedCarUI, carNames, nbCarBody))
-		this->botCarID = carBodyIDs[selectedCarUI];
 }
