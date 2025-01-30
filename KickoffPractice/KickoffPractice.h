@@ -7,7 +7,6 @@
 
 #include "version.h"
 #include <fstream>
-#include "pathInput.h"
 
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
@@ -94,8 +93,6 @@ private:
 	bool isRecording;
 
 	float timeAfterBackToNormal = 0.5;
-	InputPath recordMenu;
-	InputPath botMenu;
 
 	int botCarID;
 	char** carNames;

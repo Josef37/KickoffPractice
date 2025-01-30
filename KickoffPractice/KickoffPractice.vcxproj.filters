@@ -81,9 +81,6 @@
     <ClCompile Include="GuiBase.cpp">
       <Filter>Plugin\src</Filter>
     </ClCompile>
-    <ClCompile Include="pathInput.cpp">
-      <Filter>Plugin\src</Filter>
-    </ClCompile>
     <ClCompile Include="KickoffPracticeSettings.cpp">
       <Filter>Plugin\src</Filter>
     </ClCompile>
@@ -144,9 +141,6 @@
       <Filter>Plugin\header</Filter>
     </ClInclude>
     <ClInclude Include="GuiBase.h">
-      <Filter>Plugin\header</Filter>
-    </ClInclude>
-    <ClInclude Include="pathInput.h">
       <Filter>Plugin\header</Filter>
     </ClInclude>
   </ItemGroup>
