@@ -217,19 +217,24 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 	this->recordBoostSettings();
 	this->reset();
 
-	if (!this->isRecording && this->loadedKickoffPositions.empty())
-	{
-		LOG("No inputs selected");
-		return;
-	}
-
 	// Determine current kickoff position.
 	if (kickoff.has_value())
 	{
 		this->currentKickoffPosition = *kickoff;
+
+		if (!this->loadedKickoffPositions.contains(*kickoff))
+		{
+			LOG("No recorded kickoff selected for this position... Switching to recording mode.");
+			this->isRecording = true;
+		}
 	}
 	else
 	{
+		if (this->loadedKickoffPositions.empty())
+		{
+			LOG("No recorded kickoff selected...");
+			return;
+		}
 		// Get random position from available ones.
 		int randomIndex = (rand() % this->loadedKickoffPositions.size());
 		auto it = this->loadedKickoffPositions.begin();
@@ -706,7 +711,7 @@ RecordedKickoff KickoffPractice::readKickoffFile(std::filesystem::path filePath)
 		kickoff.settings = *settings;
 	else
 		LOG("Header `settings` not found.");
-	
+
 	kickoff.inputs = inputs;
 	if (inputs.empty())
 		LOG("No inputs found.");
