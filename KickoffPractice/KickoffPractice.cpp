@@ -302,6 +302,7 @@ void KickoffPractice::setupKickoff()
 	ball.SetLocation(Vector(0, 0, ball.GetRadius()));
 	ball.SetVelocity(Vector(0, 0, 0));
 	ball.SetAngularVelocity(Vector(0, 0, 0), false);
+	ball.SetRotation(Rotator(0, 0, 0));
 
 	this->kickoffState = KickoffState::waitingToStart;
 
