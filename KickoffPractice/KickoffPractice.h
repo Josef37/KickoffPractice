@@ -59,6 +59,7 @@ private:
 	void setTimeoutChecked(float seconds, std::function<void()> callback);
 
 	void start(std::optional<KickoffPosition> kickoff);
+	void setupKickoff();
 	void startCountdown(int seconds, int kickoffCounterAtStart, std::function<void()> onCompleted);
 	void onVehicleInput(CarWrapper car, ControllerInput* input);
 	void reset();

@@ -56,7 +56,10 @@ void KickoffPractice::onLoad()
 				: std::nullopt;
 
 			// Use a timeout to start after other commands bound to the same button.
-			this->setTimeoutChecked(0.1f, [this, kickoff]() { this->start(kickoff); });
+			this->setTimeoutChecked(
+				gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
+				[this, kickoff]() { this->start(kickoff); }
+			);
 		},
 		"Practice kickoff. Without arguments: Random kickoff. With argument from 1 to 5: Specific kickoff position.",
 		PERMISSION_FREEPLAY
@@ -78,7 +81,10 @@ void KickoffPractice::onLoad()
 			}
 
 			// Use a timeout to start after other commands bound to the same button.
-			this->setTimeoutChecked(0.1f, [this, kickoff]() { this->start(kickoff); });
+			this->setTimeoutChecked(
+				gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
+				[this, kickoff]() { this->start(kickoff); }
+			);
 		},
 		"Record a kickoff. Specify kickoff position with index from 1 to 5.",
 		PERMISSION_FREEPLAY
@@ -213,9 +219,6 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 {
 	this->kickoffCounter++;
 
-	ServerWrapper server = gameWrapper->GetCurrentGameState();
-	if (!server) return;
-
 	this->recordBoostSettings();
 	this->reset();
 
@@ -248,8 +251,24 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 		return;
 	}
 
+	// We wait a little before updating the game state, because we want the reset to finish first.
+	// Otherwise `player.SetLocation()` won't not work properly, because `player.SetbDriving(false)` still affects it.
+	this->setTimeoutChecked(
+		gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
+		[this]() { this->setupKickoff(); }
+	);
+}
+
+void KickoffPractice::setupKickoff()
+{
+	ServerWrapper server = gameWrapper->GetCurrentGameState();
+	if (!server) return;
 	CarWrapper player = gameWrapper->GetLocalCar();
 	if (!player) return;
+	BoostWrapper boost = player.GetBoostComponent();
+	if (!boost) return;
+	BallWrapper ball = server.GetBall();
+	if (!ball) return;
 
 	KickoffSide playerSide = this->isRecording ? KickoffSide::Orange : KickoffSide::Blue;
 	Vector locationPlayer = KickoffPractice::getKickoffLocation(this->currentKickoffPosition, playerSide);
@@ -263,29 +282,16 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 		this->botJustSpawned = true;
 	}
 
-	player.SetbDriving(true);
 	player.SetLocation(locationPlayer);
 	player.SetRotation(rotationPlayer);
 	player.Stop();
-	// Setting `SetbDriving(false)` immediately will prevent the `SetLocation()` call from working.
-	// (The car will move half the way and snap back to where it stood. Kind of weird...)
-	// TODO: Disable player input for the first frame. The player can move slightly in this moment.
-	gameWrapper->SetTimeout([](GameWrapper* gameWrapper)
-		{
-			if(auto player = gameWrapper->GetLocalCar()) 
-				player.SetbDriving(false);
-		}, 
-		1.f/gameWrapper->GetEngine().GetPhysicsFramerate()
-	);
 
-	BoostWrapper boost = player.GetBoostComponent();
-	if (!boost) return;
 	KickoffPractice::applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
 	boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
 
 	// Reset boost pickups, because moving the player can cause picking up boost.
 	this->setTimeoutChecked(
-		0.1f,
+		gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
 		[this]()
 		{
 			if (auto server = gameWrapper->GetCurrentGameState())
@@ -293,8 +299,6 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 		}
 	);
 
-	BallWrapper ball = server.GetBall();
-	if (!ball) return;
 	ball.SetLocation(Vector(0, 0, ball.GetRadius()));
 	ball.SetVelocity(Vector(0, 0, 0));
 	ball.SetAngularVelocity(Vector(0, 0, 0), false);
@@ -385,8 +389,7 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 	{
 		auto& player = car;
 
-		if (this->kickoffState != KickoffState::waitingToStart)
-			player.SetbDriving(true);
+		player.SetbDriving(this->kickoffState != KickoffState::waitingToStart);
 
 		if (this->kickoffState != KickoffState::started)
 			return;
