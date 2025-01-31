@@ -73,10 +73,10 @@ private:
 	// If it is between `1` and `5` it is one of the `KickoffPosition`s.
 	// Watch out for the `-1` difference!
 	std::vector<int> states;
-	// All currently active kickoff positions.
-	std::set<KickoffPosition> loadedKickoffPositions;
 
-	int getRandomKickoffForPosition(int kickoffId);
+	std::optional<int> getRandomKickoff();
+	std::optional<int> getRandomKickoffForPosition(int kickoffId);
+	static std::optional<int> getRandomIndex(std::vector<int> vec, std::function<bool(int)> filter);
 
 	void removeBots();
 	void removeBot(CarWrapper car);
@@ -88,7 +88,6 @@ private:
 
 	void readKickoffFiles();
 	RecordedKickoff readKickoffFile(std::filesystem::path filePath);
-	void updateLoadedKickoffPositions();
 
 	void recordBoostSettings();
 	void resetBoostSettings();
@@ -97,7 +96,7 @@ private:
 
 	int tickCounter;
 	KickoffPosition currentKickoffPosition;
-	int currentInputIndex;
+	std::optional<int> currentInputIndex;
 	KickoffState kickoffState;
 	bool botJustSpawned;
 	Vector locationBot;

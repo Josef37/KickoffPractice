@@ -49,11 +49,6 @@ void KickoffPractice::RenderSettings()
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Reload recorded kickoffs");
 
-	if (loadedKickoffPositions.size() == 0)
-	{
-		ImGui::TextColored(ImVec4(255, 0, 0, 255), "No kickoff selected!");
-	}
-
 	ImGui::Spacing();
 	// TODO: Duplication
 	const char* items[] = { "Unused", "Right Corner", "Left Corner", "Back Right", "Back Left", "Back Center" };
@@ -72,7 +67,6 @@ void KickoffPractice::RenderSettings()
 
 	if (isChanged)
 	{
-		updateLoadedKickoffPositions();
 		writeConfigFile();
 	}
 }

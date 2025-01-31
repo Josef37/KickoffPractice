@@ -51,7 +51,7 @@ void KickoffPractice::onLoad()
 			this->isRecording = false;
 
 			std::optional<KickoffPosition> kickoff = args.size() >= 2
-				? KickoffPractice::parseKickoffArg(args[1])
+				? parseKickoffArg(args[1])
 				: std::nullopt;
 
 			// Use a timeout to start after other commands bound to the same button.
@@ -67,7 +67,7 @@ void KickoffPractice::onLoad()
 			this->isRecording = true;
 
 			std::optional<KickoffPosition> kickoff = args.size() >= 2
-				? KickoffPractice::parseKickoffArg(args[1])
+				? parseKickoffArg(args[1])
 				: std::nullopt;
 
 			if (kickoff == std::nullopt)
@@ -138,6 +138,7 @@ void KickoffPractice::onLoad()
 			// `SpawnInstance` gets called multiple times for the same car.
 			// We make sure to execute the following code only once.
 			if (!this->botJustSpawned) return;
+			if (this->currentInputIndex == std::nullopt) return;
 
 			for (auto car : server.GetCars())
 			{
@@ -150,7 +151,7 @@ void KickoffPractice::onLoad()
 				// But then the `SetVehicleInput` hook would not fire for the bot.
 				// So we don't disable the controller, but overwrite the inputs inside the hook.
 
-				auto settings = this->loadedKickoffs[this->currentInputIndex].settings;
+				auto settings = this->loadedKickoffs[*this->currentInputIndex].settings;
 				car.GetPRI().SetUserCarPreferences(settings.DodgeInputThreshold, settings.SteeringSensitivity, settings.AirControlSensitivity);
 			}
 			this->botJustSpawned = false;
@@ -222,28 +223,25 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 	{
 		this->currentKickoffPosition = *kickoff;
 
-		if (!this->loadedKickoffPositions.contains(*kickoff))
+		auto it = std::find(this->states.begin(), this->states.end(), *kickoff + 1);
+		bool positionSelected = it != this->states.end();
+		if (!positionSelected)
 		{
 			LOG("No recorded kickoff selected for this position... Switching to recording mode.");
 			this->isRecording = true;
 		}
+
+		this->currentInputIndex = this->getRandomKickoffForPosition(this->currentKickoffPosition);
 	}
 	else
 	{
-		if (this->loadedKickoffPositions.empty())
-		{
-			LOG("No recorded kickoff selected...");
-			return;
-		}
-		// Get random position from available ones.
-		int randomIndex = (rand() % this->loadedKickoffPositions.size());
-		auto it = this->loadedKickoffPositions.begin();
-		std::advance(it, randomIndex);
-		this->currentKickoffPosition = *it;
+		this->currentInputIndex = this->getRandomKickoff();
+
+		if (this->currentInputIndex.has_value())
+			this->currentKickoffPosition = this->loadedKickoffs[*this->currentInputIndex].position;
 	}
 
-	this->currentInputIndex = this->getRandomKickoffForPosition(this->currentKickoffPosition);
-	if (!this->isRecording && this->currentInputIndex == -1)
+	if (!this->isRecording && this->currentInputIndex == std::nullopt)
 	{
 		LOG("No active recording found for this kickoff!");
 		return;
@@ -259,7 +257,7 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 	this->rotationBot = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffPosition, KickoffSide::Orange) * CONST_RadToUnrRot), 0);
 	if (!this->isRecording)
 	{
-		auto carBody = this->loadedKickoffs[this->currentInputIndex].carBody;
+		auto carBody = this->loadedKickoffs[*this->currentInputIndex].carBody;
 		server.SpawnBot(carBody, BOT_CAR_NAME);
 		this->botJustSpawned = true;
 	}
@@ -346,8 +344,10 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 		if (this->kickoffState != KickoffState::started)
 			return;
+		if (this->currentInputIndex == std::nullopt)
+			return;
 
-		auto& inputs = this->loadedKickoffs[this->currentInputIndex].inputs;
+		auto& inputs = this->loadedKickoffs[*this->currentInputIndex].inputs;
 
 		// The Bot AI Controller somehow calls this functions twice per tick.
 		// For now we just set the same input twice, the `tickCounter` incrementing twice per tick.
@@ -454,23 +454,30 @@ std::string KickoffPractice::getRecordingFilename() const
 	std::string timestamp = oss.str();
 
 	std::string kickoffName = KickoffPractice::getKickoffName(this->currentKickoffPosition);
-	
+
 	return kickoffName + " " + timestamp + FILE_EXT;
 }
 
-int KickoffPractice::getRandomKickoffForPosition(int kickoffPosition)
+std::optional<int> KickoffPractice::getRandomKickoff()
+{
+	return getRandomIndex(this->states, [](int state) { return state != 0; });
+}
+
+std::optional<int> KickoffPractice::getRandomKickoffForPosition(int kickoffPosition)
+{
+	return getRandomIndex(this->states, [kickoffPosition](int state) { return state - 1 == kickoffPosition; });
+}
+
+std::optional<int> KickoffPractice::getRandomIndex(std::vector<int> vec, std::function<bool(int)> filter)
 {
 	std::vector<int> indices;
-	for (int i = 0; i < this->states.size(); i++)
-	{
-		if (this->states[i] - 1 == kickoffPosition)
-		{
-			indices.push_back(i);
-		}
-	}
-	if (indices.size() == 0)
-		return -1;
-	return indices[(rand() % indices.size())];
+
+	for (int i = 0; i < vec.size(); i++)
+		if (filter(vec[i])) indices.push_back(i);
+
+	if (indices.empty()) return std::nullopt;
+
+	return indices[rand() % indices.size()];
 }
 
 void KickoffPractice::removeBots()
@@ -601,7 +608,6 @@ void KickoffPractice::readKickoffFiles()
 		LOG("ERROR : {}", ex.code().message());
 	}
 	this->readConfigFile();
-	this->updateLoadedKickoffPositions();
 }
 
 RecordedKickoff KickoffPractice::readKickoffFile(std::filesystem::path filePath)
@@ -730,18 +736,6 @@ RecordedKickoff KickoffPractice::readKickoffFile(std::filesystem::path filePath)
 		LOG("No inputs found.");
 
 	return kickoff;
-}
-
-void KickoffPractice::updateLoadedKickoffPositions()
-{
-	this->loadedKickoffPositions.clear();
-
-	for (auto state : this->states)
-	{
-		if (state == 0) continue; // Kickoff not selected;
-		auto position = static_cast<KickoffPosition>(state - 1);
-		this->loadedKickoffPositions.insert(position);
-	}
 }
 
 void KickoffPractice::recordBoostSettings()
