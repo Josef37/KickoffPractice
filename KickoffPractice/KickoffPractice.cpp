@@ -51,7 +51,17 @@ void KickoffPractice::onLoad()
 			// Use a timeout to start after other commands bound to the same button.
 			this->setTimeoutChecked(0.1f, [this, args]() { this->start(args); });
 		},
-		"Practice kickoff",
+		"Practice kickoff. Without arguments: Random kickoff. With argument from 1 to 5: Specific kickoff position.",
+		PERMISSION_FREEPLAY
+	);
+
+	cvarManager->registerNotifier("kickoff_train_save",
+		[this](std::vector<std::string> args)
+		{
+			// Don't check `shouldExecute()`. We always allow saving.
+			this->saveRecording();
+		},
+		"Save the last kickoff. Recordings are saved automatically.",
 		PERMISSION_FREEPLAY
 	);
 
@@ -71,19 +81,17 @@ void KickoffPractice::onLoad()
 		[this](CarWrapper caller, void* params, std::string eventname)
 		{
 			if (!this->shouldExecute()) return;
+			if (this->kickoffState != KickoffState::started) return;
 
-			if (this->kickoffState == KickoffState::started)
-			{
-				this->setTimeoutChecked(
-					this->timeAfterBackToNormal,
-					[this]()
-					{
-						if (this->kickoffState != KickoffState::started)
-							return;
-						this->reset();
-					}
-				);
-			}
+			this->setTimeoutChecked(
+				this->timeAfterBackToNormal,
+				[this]()
+				{
+					if (this->kickoffState != KickoffState::started) return;
+					this->reset();
+				}
+			);
+
 		}
 	);
 
@@ -103,15 +111,15 @@ void KickoffPractice::onLoad()
 			{
 				if (car.GetPRI().GetbBot() && car.GetOwnerName() == BOT_CAR_NAME)
 				{
-					car.SetLocation(this->locationBot);
-					car.SetCarRotation(this->rotationBot);
-					car.Stop();
-					// To disable the bot moving by itself we would call `car.GetAIController().DoNothing()` here.
-					// But then the `SetVehicleInput` hook would not fire for the bot.
-					// So we don't disable the controller, but overwrite the inputs inside the hook.
+				car.SetLocation(this->locationBot);
+				car.SetCarRotation(this->rotationBot);
+				car.Stop();
+				// To disable the bot moving by itself we would call `car.GetAIController().DoNothing()` here.
+				// But then the `SetVehicleInput` hook would not fire for the bot.
+				// So we don't disable the controller, but overwrite the inputs inside the hook.
 
-					auto settings = this->loadedKickoffs[this->currentInputIndex].settings;
-					car.GetPRI().SetUserCarPreferences(settings.DodgeInputThreshold, settings.SteeringSensitivity, settings.AirControlSensitivity);
+				auto settings = this->loadedKickoffs[this->currentInputIndex].settings;
+				car.GetPRI().SetUserCarPreferences(settings.DodgeInputThreshold, settings.SteeringSensitivity, settings.AirControlSensitivity);
 				}
 			}
 			this->botJustSpawned = false;
@@ -270,7 +278,11 @@ void KickoffPractice::start(std::vector<std::string> args)
 
 	startCountdown(
 		3,
-		[this]() { this->kickoffState = KickoffState::started; }
+		[this]()
+		{
+			this->recordedInputs.clear();
+			this->kickoffState = KickoffState::started;
+		}
 	);
 
 	if (this->isRecording)
@@ -348,10 +360,7 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 		if (this->kickoffState != KickoffState::started)
 			return;
 
-		if (this->isRecording)
-		{
-			this->recordedInputs.push_back(*input);
-		}
+		this->recordedInputs.push_back(*input);
 	}
 }
 
@@ -360,52 +369,64 @@ void KickoffPractice::reset()
 	this->removeBots();
 
 	if (this->isRecording)
+		saveRecording();
+
+	this->kickoffState = KickoffState::nothing;
+	this->tickCounter = 0;
+	this->resetBoostSettings();
+	this->isInReplay = false;
+	this->isRecording = false;
+}
+
+void KickoffPractice::saveRecording()
+{
+	if (this->recordedInputs.empty())
 	{
-		const size_t numberOfInputs = this->recordedInputs.size();
-		LOG("Recording ends. Ticks recorded : {}", numberOfInputs);
+		LOG("Nothing recorded.");
+		return;
+	}
+	LOG("Saving... Ticks recorded: {}", this->recordedInputs.size());
 
-		auto time = std::time(nullptr);
-		std::ostringstream oss;
-		oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H-%M-%S");
-		std::string timestamp = oss.str();
+	auto time = std::time(nullptr);
+	std::ostringstream oss;
+	oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H-%M-%S");
+	std::string timestamp = oss.str();
 
-		std::string name = KickoffPractice::getKickoffName(this->currentKickoffPosition);
-		std::string filename = name + " " + timestamp + FILE_EXT;
+	std::string name = KickoffPractice::getKickoffName(this->currentKickoffPosition);
+	std::string filename = name + " " + timestamp + FILE_EXT;
 
-		std::ofstream inputFile(this->configPath / filename);
-		if (!inputFile.is_open())
-		{
-			LOG("ERROR : can't create recording file");
-			return;
-		}
+	std::ofstream inputFile(this->configPath / filename);
+	if (!inputFile.is_open())
+	{
+		LOG("ERROR : can't create recording file");
+		return;
+	}
 
-		const GamepadSettings settings = gameWrapper->GetSettings().GetGamepadSettings();
+	const GamepadSettings settings = gameWrapper->GetSettings().GetGamepadSettings();
 
-		inputFile << settings.ControllerDeadzone
-			<< "," << settings.DodgeInputThreshold
-			<< "," << settings.SteeringSensitivity
-			<< "," << settings.AirControlSensitivity
+	inputFile << settings.ControllerDeadzone
+		<< "," << settings.DodgeInputThreshold
+		<< "," << settings.SteeringSensitivity
+		<< "," << settings.AirControlSensitivity
+		<< "\n";
+
+	for (const ControllerInput& input : this->recordedInputs)
+	{
+		inputFile << input.Throttle
+			<< "," << input.Steer
+			<< "," << input.Pitch
+			<< "," << input.Yaw
+			<< "," << input.Roll
+			<< "," << input.DodgeForward
+			<< "," << input.DodgeStrafe
+			<< "," << input.Handbrake
+			<< "," << input.Jump
+			<< "," << input.ActivateBoost
+			<< "," << input.HoldingBoost
+			<< "," << input.Jumped
 			<< "\n";
-
-		for (int i = 0; i < numberOfInputs; i++)
-		{
-			const ControllerInput input = this->recordedInputs[i];
-
-			inputFile << input.Throttle
-				<< "," << input.Steer
-				<< "," << input.Pitch
-				<< "," << input.Yaw
-				<< "," << input.Roll
-				<< "," << input.DodgeForward
-				<< "," << input.DodgeStrafe
-				<< "," << input.Handbrake
-				<< "," << input.Jump
-				<< "," << input.ActivateBoost
-				<< "," << input.HoldingBoost
-				<< "," << input.Jumped
-				<< "\n";
-		}
-		inputFile.close();
+	}
+	inputFile.close();
 		this->recordedInputs.clear();
 	}
 
@@ -440,14 +461,14 @@ void KickoffPractice::removeBots()
 	for (auto car : server.GetCars())
 	{
 		if (car.GetPRI().GetbBot())
-		{
-			// To avoid the lightning that shows on `server.RemovePlayer()` we call `car.Destory()` first.
-			// After `car.Destory()` `car.GetAIController()` wouldn't work, so we have to store it beforehand.
-			// If we don't call `server.RemovePlayer()`, the bots will respawn on "Reset Ball".
-			auto controller = car.GetAIController();
-			car.Destroy();
-			server.RemovePlayer(controller);
-		}
+{
+	// To avoid the lightning that shows on `server.RemovePlayer()` we call `car.Destory()` first.
+	// After `car.Destory()` `car.GetAIController()` wouldn't work, so we have to store it beforehand.
+	// If we don't call `server.RemovePlayer()`, the bots will respawn on "Reset Ball".
+	auto controller = car.GetAIController();
+	car.Destroy();
+	server.RemovePlayer(controller);
+}
 	}
 }
 
@@ -539,7 +560,7 @@ void KickoffPractice::readKickoffFiles()
 		{
 			if (entry.is_regular_file() && entry.path().extension() == FILE_EXT)
 			{
-				this->loadedKickoffs.push_back(this->readKickoffFile(entry.path().string(), entry.path().filename().string()));
+				this->loadedKickoffs.push_back(this->readKickoffFile(entry.path()));
 				this->states.push_back(0);
 			}
 		}
@@ -552,16 +573,16 @@ void KickoffPractice::readKickoffFiles()
 	this->updateLoadedKickoffPositions();
 }
 
-RecordedKickoff KickoffPractice::readKickoffFile(std::string fileName, std::string kickoffName)
+RecordedKickoff KickoffPractice::readKickoffFile(std::filesystem::path filePath)
 {
 	RecordedKickoff kickoff;
-	kickoff.name = kickoffName;
+	kickoff.name = filePath.filename().string();
 
 	std::vector<std::string> row;
 	std::string line, word;
 	std::vector<ControllerInput> currentInputs;
 
-	std::fstream file(fileName, std::ios::in);
+	std::fstream file(filePath, std::ios::in);
 	if (file.is_open())
 	{
 		int i = 0;
@@ -631,19 +652,19 @@ RecordedKickoff KickoffPractice::readKickoffFile(std::string fileName, std::stri
 			}
 			catch (std::invalid_argument exception)
 			{
-				LOG("ERROR : invalid argument in input file {}\n{}", fileName, exception.what());
+				LOG("ERROR : invalid argument in input file {}\n{}", filePath.string(), exception.what());
 			}
 			catch (std::out_of_range exception)
 			{
-				LOG("ERROR : number too big in file {} \n{}", fileName, exception.what());
+				LOG("ERROR : number too big in file {} \n{}", filePath.string(), exception.what());
 			}
 		}
 	}
 	else
 	{
-		LOG("Can't open {}", fileName);
+		LOG("Can't open {}", filePath.string());
 	}
-	LOG("{} : {} lines loaded", fileName, currentInputs.size());
+	LOG("{}: {} lines loaded", filePath.string(), currentInputs.size());
 
 	kickoff.inputs = currentInputs;
 

@@ -60,6 +60,7 @@ private:
 	void startCountdown(int seconds, std::function<void()> onCompleted);
 	void onVehicleInput(CarWrapper car, ControllerInput* input);
 	void reset();
+	void saveRecording();
 
 	std::vector<RecordedKickoff> loadedKickoffs;
 	std::vector<ControllerInput> recordedInputs;
@@ -80,7 +81,7 @@ private:
 	std::filesystem::path configPath;
 
 	void readKickoffFiles();
-	RecordedKickoff readKickoffFile(std::string fileName, std::string kickoffName);
+	RecordedKickoff readKickoffFile(std::filesystem::path filePath);
 	void updateLoadedKickoffPositions();
 
 	void recordBoostSettings();

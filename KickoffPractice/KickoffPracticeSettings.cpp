@@ -24,17 +24,23 @@ void KickoffPractice::RenderSettings()
 	for (int i = 0; i < 5; i++)
 	{
 		if (ImGui::Button(("Record " + getKickoffName(i)).c_str()))
-		{
 			gameWrapper->Execute([this, i](GameWrapper* gw)
 				{
 					cvarManager->executeCommand("kickoff_train " + std::to_string(i + 1) + " true;closemenu settings");
 				});
-		}
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip(("Record input for the " + getKickoffName(i) + " kickoff").c_str());
 
 		if (i != 4)ImGui::SameLine();
 	}
+	ImGui::Spacing();
+	if (ImGui::Button("Save last attempt"))
+		gameWrapper->Execute([this](GameWrapper* gw)
+			{
+				cvarManager->executeCommand("kickoff_train_save");
+			});
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Save the last kickoff you made. When starting a recording it is saved automatically.");
 
 	SpacedSeparator();
 
