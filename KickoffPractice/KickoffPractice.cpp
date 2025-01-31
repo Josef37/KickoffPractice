@@ -254,7 +254,8 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 	this->rotationBot = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffPosition, KickoffSide::Orange) * CONST_RadToUnrRot), 0);
 	if (!this->isRecording)
 	{
-		server.SpawnBot(player.GetLoadoutBody(), BOT_CAR_NAME);
+		auto carBody = this->loadedKickoffs[this->currentInputIndex].carBody;
+		server.SpawnBot(carBody, BOT_CAR_NAME);
 		this->botJustSpawned = true;
 	}
 
