@@ -43,7 +43,7 @@ void KickoffPractice::RenderSettings()
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Reload recorded kickoffs");
 
-	if (loadedKickoffIndices.size() == 0)
+	if (loadedKickoffPositions.size() == 0)
 	{
 		ImGui::TextColored(ImVec4(255, 0, 0, 255), "No kickoff selected!");
 	}
@@ -57,16 +57,16 @@ void KickoffPractice::RenderSettings()
 		ImGui::Indent(5);
 		ImGui::PushItemWidth(ImGui::GetFontSize() * 15.f);
 
-		for (int i = 0; i < loadedInputs.size(); i++)
+		for (int i = 0; i < loadedKickoffs.size(); i++)
 		{
-			isChanged = isChanged || ImGui::Combo(loadedInputs[i].name.c_str(), &states[i], items, IM_ARRAYSIZE(items));
+			isChanged = isChanged || ImGui::Combo(loadedKickoffs[i].name.c_str(), &states[i], items, IM_ARRAYSIZE(items));
 		}
 	}
 	ImGui::EndChild();
 
 	if (isChanged)
 	{
-		updateLoadedKickoffIndices();
+		updateLoadedKickoffPositions();
 		writeConfigFile();
 	}
 }

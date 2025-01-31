@@ -7,6 +7,7 @@
 
 #include "version.h"
 #include <fstream>
+#include <set>
 
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
@@ -60,11 +61,18 @@ private:
 	void onVehicleInput(CarWrapper car, ControllerInput* input);
 	void reset();
 
-	std::vector<int> states; // TODO: Move in to `loadedInputs`.
-	std::vector<RecordedKickoff> loadedInputs;
+	std::vector<RecordedKickoff> loadedKickoffs;
 	std::vector<ControllerInput> recordedInputs;
+	// A list corresponding to `loadedInputs`.
+	// Each item represents which kickoff position is selected for a recording.
+	// If it is `0`, the kickoff isn't used in training.
+	// If it is between `1` and `5` it is one of the `KickoffPosition`s.
+	// Watch out for the `-1` difference!
+	std::vector<int> states;
+	// All currently active kickoff positions.
+	std::set<KickoffPosition> loadedKickoffPositions;
 
-	int getRandomKickoffForId(int kickoffId);
+	int getRandomKickoffForPosition(int kickoffId);
 	void removeBots();
 
 	void writeConfigFile();
@@ -73,17 +81,15 @@ private:
 
 	void readKickoffFiles();
 	RecordedKickoff readKickoffFile(std::string fileName, std::string kickoffName);
-	void updateLoadedKickoffIndices();
+	void updateLoadedKickoffPositions();
 
 	void recordBoostSettings();
 	void resetBoostSettings();
 	static void applyBoostSettings(BoostWrapper boost, BoostSettings settings);
 	BoostSettings boostSettings;
 
-	std::vector<int> loadedKickoffIndices;
-
 	int tickCounter;
-	int currentKickoffIndex;
+	KickoffPosition currentKickoffPosition;
 	int currentInputIndex;
 	KickoffState kickoffState;
 	bool botJustSpawned;
