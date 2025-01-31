@@ -48,10 +48,38 @@ void KickoffPractice::onLoad()
 	cvarManager->registerNotifier("kickoff_train",
 		[this](std::vector<std::string> args)
 		{
+			this->isRecording = false;
+
+			std::optional<KickoffPosition> kickoff = args.size() >= 2
+				? KickoffPractice::parseKickoffArg(args[1])
+				: std::nullopt;
+
 			// Use a timeout to start after other commands bound to the same button.
-			this->setTimeoutChecked(0.1f, [this, args]() { this->start(args); });
+			this->setTimeoutChecked(0.1f, [this, kickoff]() { this->start(kickoff); });
 		},
 		"Practice kickoff. Without arguments: Random kickoff. With argument from 1 to 5: Specific kickoff position.",
+		PERMISSION_FREEPLAY
+	);
+
+	cvarManager->registerNotifier("kickoff_train_record",
+		[this](std::vector<std::string> args)
+		{
+			this->isRecording = true;
+
+			std::optional<KickoffPosition> kickoff = args.size() >= 2
+				? KickoffPractice::parseKickoffArg(args[1])
+				: std::nullopt;
+
+			if (kickoff == std::nullopt)
+			{
+				LOG("Kickoff number argument expected for recordings.");
+				return;
+			}
+
+			// Use a timeout to start after other commands bound to the same button.
+			this->setTimeoutChecked(0.1f, [this, kickoff]() { this->start(kickoff); });
+		},
+		"Record a kickoff. Specify kickoff position with index from 1 to 5.",
 		PERMISSION_FREEPLAY
 	);
 
@@ -88,6 +116,10 @@ void KickoffPractice::onLoad()
 				[this]()
 				{
 					if (this->kickoffState != KickoffState::started) return;
+
+					if (this->isRecording)
+						this->saveRecording();
+
 					this->reset();
 				}
 			);
@@ -177,7 +209,7 @@ void KickoffPractice::setTimeoutChecked(float seconds, std::function<void()> cal
 
 /// args[1] = kickoff location (1-5)
 /// args[2] = is recording? (bool or 0/1)
-void KickoffPractice::start(std::vector<std::string> args)
+void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 {
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
@@ -185,40 +217,20 @@ void KickoffPractice::start(std::vector<std::string> args)
 	this->recordBoostSettings();
 	this->reset();
 
-	if (args.size() >= 3)
-	{
-		this->isRecording = (args[2] == "1" || args[2] == "true");
-	}
 	if (!this->isRecording && this->loadedKickoffPositions.empty())
 	{
 		LOG("No inputs selected");
 		return;
 	}
 
-	// Determine the current kickoff index.
-	if (args.size() >= 2)
+	// Determine current kickoff position.
+	if (kickoff.has_value())
 	{
-		const int kickoffNumber = stoi(args[1]);
-		if (kickoffNumber < 1 || kickoffNumber > 5)
-		{
-			LOG("The kickoff number argument should be between 1 and 5 (included).");
-			return;
-		}
-		this->currentKickoffPosition = static_cast<KickoffPosition>(kickoffNumber - 1);
-
-		if (!this->isRecording && !this->loadedKickoffPositions.contains(this->currentKickoffPosition))
-		{
-			LOG("No input found for this kickoff");
-			return;
-		}
+		this->currentKickoffPosition = *kickoff;
 	}
 	else
 	{
-		if (this->loadedKickoffPositions.empty())
-		{
-			LOG("No inputs selected");
-			return;
-		}
+		// Get random position from available ones.
 		int randomIndex = (rand() % this->loadedKickoffPositions.size());
 		auto it = this->loadedKickoffPositions.begin();
 		std::advance(it, randomIndex);
@@ -226,13 +238,11 @@ void KickoffPractice::start(std::vector<std::string> args)
 	}
 
 	this->currentInputIndex = this->getRandomKickoffForPosition(this->currentKickoffPosition);
-	if (this->currentInputIndex == -1 && (!this->isRecording))
+	if (!this->isRecording && this->currentInputIndex == -1)
 	{
-		LOG("Error, no input found for this kickoff");
+		LOG("No active recording found for this kickoff!");
 		return;
 	}
-
-	LOG("isRecording: {}", this->isRecording);
 
 	CarWrapper player = gameWrapper->GetLocalCar();
 	if (!player) return;
@@ -283,9 +293,6 @@ void KickoffPractice::start(std::vector<std::string> args)
 			this->kickoffState = KickoffState::started;
 		}
 	);
-
-	if (this->isRecording)
-		LOG("Recording begins");
 }
 
 void KickoffPractice::startCountdown(int seconds, std::function<void()> onCompleted)
@@ -368,15 +375,10 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 void KickoffPractice::reset()
 {
 	this->removeBots();
-
-	if (this->isRecording)
-		saveRecording();
-
 	this->kickoffState = KickoffState::nothing;
 	this->tickCounter = 0;
 	this->resetBoostSettings();
 	this->isInReplay = false;
-	this->isRecording = false;
 }
 
 void KickoffPractice::saveRecording()
@@ -772,9 +774,9 @@ float KickoffPractice::getKickoffYaw(int kickoff, KickoffSide side)
 	}
 }
 
-std::string KickoffPractice::getKickoffName(int kickoffId)
+std::string KickoffPractice::getKickoffName(int kickoff)
 {
-	switch (kickoffId)
+	switch (kickoff)
 	{
 	case 0:
 		return "Right Corner";
@@ -789,4 +791,15 @@ std::string KickoffPractice::getKickoffName(int kickoffId)
 	default:
 		return "Unknown";
 	}
+}
+
+std::optional<KickoffPosition> KickoffPractice::parseKickoffArg(std::string arg)
+{
+	const int kickoffNumber = stoi(arg);
+	if (kickoffNumber < 1 || kickoffNumber > 5)
+	{
+		LOG("The kickoff number argument should be between 1 and 5 (included).");
+		return std::nullopt;
+	}
+	return static_cast<KickoffPosition>(kickoffNumber - 1);
 }

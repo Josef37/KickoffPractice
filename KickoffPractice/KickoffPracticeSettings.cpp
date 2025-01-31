@@ -26,7 +26,7 @@ void KickoffPractice::RenderSettings()
 		if (ImGui::Button(("Record " + getKickoffName(i)).c_str()))
 			gameWrapper->Execute([this, i](GameWrapper* gw)
 				{
-					cvarManager->executeCommand("kickoff_train " + std::to_string(i + 1) + " true;closemenu settings");
+					cvarManager->executeCommand("kickoff_train_record " + std::to_string(i + 1) + ";closemenu settings");
 				});
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip(("Record input for the " + getKickoffName(i) + " kickoff").c_str());

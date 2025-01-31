@@ -56,7 +56,7 @@ private:
 	bool shouldExecute();
 	void setTimeoutChecked(float seconds, std::function<void()> callback);
 
-	void start(std::vector<std::string> args);
+	void start(std::optional<KickoffPosition> kickoff);
 	void startCountdown(int seconds, std::function<void()> onCompleted);
 	void onVehicleInput(CarWrapper car, ControllerInput* input);
 	void reset();
@@ -107,7 +107,7 @@ private:
 	static Vector getKickoffLocation(int kickoff, KickoffSide side);
 	static float getKickoffYaw(int kickoff, KickoffSide side);
 	static std::string getKickoffName(int kickoffId);
-
+	static std::optional<KickoffPosition> parseKickoffArg(std::string arg);
 public:
 	void onLoad() override;
 	void onUnload() override;
