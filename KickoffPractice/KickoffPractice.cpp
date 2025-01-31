@@ -427,15 +427,9 @@ void KickoffPractice::saveRecording()
 			<< "\n";
 	}
 	inputFile.close();
-		this->recordedInputs.clear();
-	}
 
-	this->kickoffState = KickoffState::nothing;
-	this->tickCounter = 0;
-	this->currentKickoffPosition = KickoffPosition::CornerRight;
-	this->resetBoostSettings();
-	this->isInReplay = false;
-	this->isRecording = false;
+	// TODO: Improve by only appending the current kickoff and not reading everything again.
+	this->readKickoffFiles();
 }
 
 int KickoffPractice::getRandomKickoffForPosition(int kickoffPosition)
