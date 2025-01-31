@@ -37,7 +37,9 @@ enum class KickoffState
 struct RecordedKickoff
 {
 	std::string name;
-	GamepadSettings settings = GamepadSettings();
+	KickoffPosition position = KickoffPosition::CornerLeft;
+	int carBody = 23; // Octane
+	GamepadSettings settings = GamepadSettings(0, 0.5, 1, 1);
 	std::vector<ControllerInput> inputs;
 };
 

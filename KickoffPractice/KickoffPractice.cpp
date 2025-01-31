@@ -405,14 +405,18 @@ void KickoffPractice::saveRecording()
 		return;
 	}
 
-	const GamepadSettings settings = gameWrapper->GetSettings().GetGamepadSettings();
+	// TODO: Improve by using the values from during the recording.
+	inputFile << "position:" << this->currentKickoffPosition << "\n";
+	inputFile << "carBody:" << gameWrapper->GetLocalCar().GetLoadoutBody() << "\n";
 
-	inputFile << settings.ControllerDeadzone
+	const GamepadSettings settings = gameWrapper->GetSettings().GetGamepadSettings();
+	inputFile << "settings:" << settings.ControllerDeadzone
 		<< "," << settings.DodgeInputThreshold
 		<< "," << settings.SteeringSensitivity
 		<< "," << settings.AirControlSensitivity
 		<< "\n";
 
+	inputFile << "inputs" << "\n";
 	for (const ControllerInput& input : this->recordedInputs)
 	{
 		inputFile << input.Throttle
@@ -583,17 +587,19 @@ void KickoffPractice::readKickoffFiles()
 
 RecordedKickoff KickoffPractice::readKickoffFile(std::filesystem::path filePath)
 {
-	RecordedKickoff kickoff;
-	kickoff.name = filePath.filename().string();
+	std::optional<KickoffPosition> position;
+	std::optional<int> carBody;
+	std::optional<GamepadSettings> settings;
+	std::vector<ControllerInput> inputs;
 
 	std::vector<std::string> row;
 	std::string line, word;
-	std::vector<ControllerInput> currentInputs;
 
 	std::fstream file(filePath, std::ios::in);
 	if (file.is_open())
 	{
 		int i = 0;
+		bool inHeader = true;
 		while (getline(file, line))
 		{
 			i++;
@@ -601,80 +607,108 @@ RecordedKickoff KickoffPractice::readKickoffFile(std::filesystem::path filePath)
 
 			std::stringstream str(line);
 
-			while (getline(str, word, ','))
+			if (inHeader)
 			{
-				row.push_back(word);
-			}
+				std::string header;
+				getline(str, header, ':');
 
-			if (i == 1)
-			{
-				GamepadSettings settings{};
+				while (getline(str, word, ','))
+					row.push_back(word);
 
-				if (row.size() == 4)
+				if (header == "inputs")
 				{
-					settings.ControllerDeadzone = std::stof(row[0]);
-					settings.DodgeInputThreshold = std::stof(row[1]);
-					settings.SteeringSensitivity = std::stof(row[2]);
-					settings.AirControlSensitivity = std::stof(row[3]);
-
-					kickoff.settings = settings;
-
+					inHeader = false;
 					continue;
+				}
+				else if (header == "carBody")
+				{
+					if (row.size() == 1)
+						carBody = std::stoi(row[0]);
+					else
+						LOG("Error on line {}: size of {} instead of 1", i, row.size());
+				}
+				else if (header == "position")
+				{
+					if (row.size() == 1)
+						position = static_cast<KickoffPosition>(std::stoi(row[0]));
+					else
+						LOG("Error on line {}: size of {} instead of 1", i, row.size());
+				}
+				else if (header == "settings")
+				{
+					if (row.size() == 4)
+					{
+						settings = GamepadSettings{};
+						settings->ControllerDeadzone = std::stof(row[0]);
+						settings->DodgeInputThreshold = std::stof(row[1]);
+						settings->SteeringSensitivity = std::stof(row[2]);
+						settings->AirControlSensitivity = std::stof(row[3]);
+					}
+					else
+						LOG("Error on line {}: size of {} instead of 4", i, row.size());
 				}
 				else
 				{
-					LOG("Error on line {} : size of {} instead of 4", i, row.size());
-					LOG("Assuming old format without settings in first line...");
-
-					settings.ControllerDeadzone = 0;
-					settings.DodgeInputThreshold = 0;
-					settings.SteeringSensitivity = 1;
-					settings.AirControlSensitivity = 1;
-
-					kickoff.settings = settings;
+					// Unknown header... Don't log it, because it could spam the console.
 				}
+
+				continue;
 			}
 
-			ControllerInput input;
+			while (getline(str, word, ','))
+				row.push_back(word);
+
 			if (row.size() != 12)
 			{
 				LOG("Error on line {} : size of {} instead of 12", i, row.size());
 				continue;
 			}
-			try
-			{
-				input.Throttle = std::stof(row[0]);
-				input.Steer = std::stof(row[1]);
-				input.Pitch = std::stof(row[2]);
-				input.Yaw = std::stof(row[3]);
-				input.Roll = std::stof(row[4]);
-				input.DodgeForward = std::stof(row[5]);
-				input.DodgeStrafe = std::stof(row[6]);
-				input.Handbrake = std::stoul(row[7]);
-				input.Jump = std::stoul(row[8]);
-				input.ActivateBoost = std::stoul(row[9]);
-				input.HoldingBoost = std::stoul(row[10]);
-				input.Jumped = std::stoul(row[11]);
 
-				currentInputs.push_back(input);
-			}
-			catch (std::invalid_argument exception)
-			{
-				LOG("ERROR : invalid argument in input file {}\n{}", filePath.string(), exception.what());
-			}
-			catch (std::out_of_range exception)
-			{
-				LOG("ERROR : number too big in file {} \n{}", filePath.string(), exception.what());
-			}
+			ControllerInput input;
+			input.Throttle = std::stof(row[0]);
+			input.Steer = std::stof(row[1]);
+			input.Pitch = std::stof(row[2]);
+			input.Yaw = std::stof(row[3]);
+			input.Roll = std::stof(row[4]);
+			input.DodgeForward = std::stof(row[5]);
+			input.DodgeStrafe = std::stof(row[6]);
+			input.Handbrake = std::stoul(row[7]);
+			input.Jump = std::stoul(row[8]);
+			input.ActivateBoost = std::stoul(row[9]);
+			input.HoldingBoost = std::stoul(row[10]);
+			input.Jumped = std::stoul(row[11]);
+
+			inputs.push_back(input);
 		}
 	}
 	else
 	{
 		LOG("Can't open {}", filePath.string());
 	}
-	LOG("{}: {} lines loaded", filePath.string(), currentInputs.size());
 
-	kickoff.inputs = currentInputs;
+	LOG("{}: {} inputs loaded", filePath.filename().string(), inputs.size());
+
+	RecordedKickoff kickoff;
+	kickoff.name = filePath.filename().string();
+
+	if (position.has_value())
+		kickoff.position = *position;
+	else
+		LOG("Header `position` not found.");
+
+	if (carBody.has_value())
+		kickoff.carBody = *carBody;
+	else
+		LOG("Header `carBody` not found.");
+
+	if (settings.has_value())
+		kickoff.settings = *settings;
+	else
+		LOG("Header `settings` not found.");
+	
+	kickoff.inputs = inputs;
+	if (inputs.empty())
+		LOG("No inputs found.");
 
 	return kickoff;
 }
