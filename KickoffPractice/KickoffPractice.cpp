@@ -30,7 +30,7 @@ void KickoffPractice::onLoad()
 	this->isRecording = false;
 	this->rotationBot = Rotator(0, 0, 0);
 	this->locationBot = Vector(0, 0, 0);
-	this->tickCounter = 0;
+	this->startingFrame = 0;
 	this->kickoffCounter = 0;
 	this->kickoffState = KickoffState::nothing;
 	this->botJustSpawned = false;
@@ -306,6 +306,7 @@ void KickoffPractice::setupKickoff()
 
 	this->kickoffState = KickoffState::waitingToStart;
 
+	// TODO: Align the countdown end with the physics frames for more consistency.
 	startCountdown(
 		3,
 		this->kickoffCounter,
@@ -313,6 +314,7 @@ void KickoffPractice::setupKickoff()
 		{
 			this->recordedInputs.clear();
 			this->kickoffState = KickoffState::started;
+			this->startingFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 		}
 	);
 }
@@ -377,21 +379,15 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 		auto& inputs = this->loadedKickoffs[*this->currentInputIndex].inputs;
 
-		// The Bot AI Controller somehow calls this functions twice per tick.
-		// For now we just set the same input twice, the `tickCounter` incrementing twice per tick.
-		auto tick = this->tickCounter / 2;
+		// The Bot Controller calls this functions multiple times per tick (varies by game speed).
+		// We need to look at the elapsed time/ticks to get the correct input.
+		auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
+		auto tick = currentFrame - this->startingFrame;
 
 		if (tick < inputs.size())
-		{
-			ControllerInput loadedInput = inputs[tick];
-			*input = loadedInput;
-		}
+			*input = inputs[tick];
 		else
-		{
 			this->removeBot(bot);
-		}
-
-		this->tickCounter += 1;
 	}
 	else
 	{
@@ -410,7 +406,6 @@ void KickoffPractice::reset()
 {
 	this->removeBots();
 	this->kickoffState = KickoffState::nothing;
-	this->tickCounter = 0;
 	this->resetBoostSettings();
 	this->isInReplay = false;
 }

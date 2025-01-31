@@ -95,7 +95,7 @@ private:
 	static void applyBoostSettings(BoostWrapper boost, BoostSettings settings);
 	BoostSettings boostSettings;
 
-	int tickCounter;
+	int startingFrame; // Physics frame when the kickoff started, i.e. the countdown ran out.
 	int kickoffCounter; // How often did we start a kickoff this session?
 	KickoffPosition currentKickoffPosition;
 	std::optional<int> currentInputIndex;
