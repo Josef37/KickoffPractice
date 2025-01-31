@@ -63,6 +63,7 @@ private:
 	void onVehicleInput(CarWrapper car, ControllerInput* input);
 	void reset();
 	void saveRecording();
+	std::string getRecordingFilename() const;
 
 	std::vector<RecordedKickoff> loadedKickoffs;
 	std::vector<ControllerInput> recordedInputs;

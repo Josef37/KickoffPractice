@@ -396,13 +396,19 @@ void KickoffPractice::saveRecording()
 	}
 	LOG("Saving... Ticks recorded: {}", this->recordedInputs.size());
 
-	auto time = std::time(nullptr);
-	std::ostringstream oss;
-	oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H-%M-%S");
-	std::string timestamp = oss.str();
+	auto filename = getRecordingFilename();
 
-	std::string name = KickoffPractice::getKickoffName(this->currentKickoffPosition);
-	std::string filename = name + " " + timestamp + FILE_EXT;
+	RecordedKickoff kickoff;
+	kickoff.name = filename;
+	kickoff.position = this->currentKickoffPosition;
+	kickoff.carBody = gameWrapper->GetLocalCar().GetLoadoutBody(); // TODO: Improve by using the values during the recording.
+	kickoff.settings = gameWrapper->GetSettings().GetGamepadSettings();
+	kickoff.inputs = this->recordedInputs;
+
+	// Automatically select the newly recorded kickoff.
+	this->states.push_back(this->currentKickoffPosition + 1);
+	this->loadedKickoffs.push_back(kickoff);
+	this->writeConfigFile();
 
 	std::ofstream inputFile(this->configPath / filename);
 	if (!inputFile.is_open())
@@ -411,19 +417,17 @@ void KickoffPractice::saveRecording()
 		return;
 	}
 
-	// TODO: Improve by using the values from during the recording.
-	inputFile << "position:" << this->currentKickoffPosition << "\n";
-	inputFile << "carBody:" << gameWrapper->GetLocalCar().GetLoadoutBody() << "\n";
+	inputFile << "position:" << kickoff.position << "\n";
+	inputFile << "carBody:" << kickoff.carBody << "\n";
 
-	const GamepadSettings settings = gameWrapper->GetSettings().GetGamepadSettings();
-	inputFile << "settings:" << settings.ControllerDeadzone
-		<< "," << settings.DodgeInputThreshold
-		<< "," << settings.SteeringSensitivity
-		<< "," << settings.AirControlSensitivity
+	inputFile << "settings:" << kickoff.settings.ControllerDeadzone
+		<< "," << kickoff.settings.DodgeInputThreshold
+		<< "," << kickoff.settings.SteeringSensitivity
+		<< "," << kickoff.settings.AirControlSensitivity
 		<< "\n";
 
 	inputFile << "inputs" << "\n";
-	for (const ControllerInput& input : this->recordedInputs)
+	for (const ControllerInput& input : kickoff.inputs)
 	{
 		inputFile << input.Throttle
 			<< "," << input.Steer
@@ -440,9 +444,18 @@ void KickoffPractice::saveRecording()
 			<< "\n";
 	}
 	inputFile.close();
+}
 
-	// TODO: Improve by only appending the current kickoff and not reading everything again.
-	this->readKickoffFiles();
+std::string KickoffPractice::getRecordingFilename() const
+{
+	auto time = std::time(nullptr);
+	std::ostringstream oss;
+	oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H-%M-%S");
+	std::string timestamp = oss.str();
+
+	std::string kickoffName = KickoffPractice::getKickoffName(this->currentKickoffPosition);
+	
+	return kickoffName + " " + timestamp + FILE_EXT;
 }
 
 int KickoffPractice::getRandomKickoffForPosition(int kickoffPosition)
