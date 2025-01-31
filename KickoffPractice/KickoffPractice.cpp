@@ -349,14 +349,6 @@ void KickoffPractice::startCountdown(int seconds, int kickoffCounterAtStart, std
 
 void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 {
-	if (this->kickoffState == KickoffState::waitingToStart)
-	{
-		// Inputting steer when the car falls to the ground initially changes the yaw slightly (about 0.05 degrees).
-		// This also works in-game! But we try to be as consistent as possible (also makes testing easier).
-		// The side-effect is that the player can't wiggle his wheels when waiting... :(
-		input->Steer = 0;
-	}
-
 	if (this->isBot(car))
 	{
 		auto& bot = car;
