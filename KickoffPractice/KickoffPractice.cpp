@@ -31,6 +31,7 @@ void KickoffPractice::onLoad()
 	this->rotationBot = Rotator(0, 0, 0);
 	this->locationBot = Vector(0, 0, 0);
 	this->tickCounter = 0;
+	this->kickoffCounter = 0;
 	this->kickoffState = KickoffState::nothing;
 	this->botJustSpawned = false;
 	this->currentKickoffPosition = KickoffPosition::CornerRight;
@@ -212,6 +213,8 @@ void KickoffPractice::setTimeoutChecked(float seconds, std::function<void()> cal
 /// args[2] = is recording? (bool or 0/1)
 void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 {
+	this->kickoffCounter++;
+
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
 
@@ -243,7 +246,7 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 
 	if (!this->isRecording && this->currentInputIndex == std::nullopt)
 	{
-		LOG("No active recording found for this kickoff!");
+		LOG("No active recording found!");
 		return;
 	}
 
@@ -291,6 +294,7 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 
 	startCountdown(
 		3,
+		this->kickoffCounter,
 		[this]()
 		{
 			this->recordedInputs.clear();
@@ -299,12 +303,15 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 	);
 }
 
-void KickoffPractice::startCountdown(int seconds, std::function<void()> onCompleted)
+void KickoffPractice::startCountdown(int seconds, int kickoffCounterAtStart, std::function<void()> onCompleted)
 {
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
 
 	if (this->kickoffState != KickoffState::waitingToStart) return;
+
+	// Abort the countdown, if we restarted or aborted the kickoff.
+	if (this->kickoffCounter != kickoffCounterAtStart) return;
 
 	if (seconds <= 0)
 	{
@@ -319,9 +326,9 @@ void KickoffPractice::startCountdown(int seconds, std::function<void()> onComple
 	// TODO: Verify the countdown is not delayed too much because the timeout might only be a lower bound.
 	this->setTimeoutChecked(
 		1.0f,
-		[this, seconds, onCompleted]()
+		[this, seconds, kickoffCounterAtStart, onCompleted]()
 		{
-			this->startCountdown(seconds - 1, onCompleted);
+			this->startCountdown(seconds - 1, kickoffCounterAtStart, onCompleted);
 		}
 	);
 }

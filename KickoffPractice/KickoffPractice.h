@@ -59,7 +59,7 @@ private:
 	void setTimeoutChecked(float seconds, std::function<void()> callback);
 
 	void start(std::optional<KickoffPosition> kickoff);
-	void startCountdown(int seconds, std::function<void()> onCompleted);
+	void startCountdown(int seconds, int kickoffCounterAtStart, std::function<void()> onCompleted);
 	void onVehicleInput(CarWrapper car, ControllerInput* input);
 	void reset();
 	void saveRecording();
@@ -95,6 +95,7 @@ private:
 	BoostSettings boostSettings;
 
 	int tickCounter;
+	int kickoffCounter; // How often did we start a kickoff this session?
 	KickoffPosition currentKickoffPosition;
 	std::optional<int> currentInputIndex;
 	KickoffState kickoffState;
