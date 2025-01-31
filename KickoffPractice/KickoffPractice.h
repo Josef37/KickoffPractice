@@ -74,7 +74,10 @@ private:
 	std::set<KickoffPosition> loadedKickoffPositions;
 
 	int getRandomKickoffForPosition(int kickoffId);
+
 	void removeBots();
+	void removeBot(CarWrapper car);
+	bool isBot(CarWrapper car);
 
 	void writeConfigFile();
 	void readConfigFile();

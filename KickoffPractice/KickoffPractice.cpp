@@ -109,8 +109,8 @@ void KickoffPractice::onLoad()
 
 			for (auto car : server.GetCars())
 			{
-				if (car.GetPRI().GetbBot() && car.GetOwnerName() == BOT_CAR_NAME)
-				{
+				if (!this->isBot(car)) continue;
+
 				car.SetLocation(this->locationBot);
 				car.SetCarRotation(this->rotationBot);
 				car.Stop();
@@ -120,7 +120,6 @@ void KickoffPractice::onLoad()
 
 				auto settings = this->loadedKickoffs[this->currentInputIndex].settings;
 				car.GetPRI().SetUserCarPreferences(settings.DodgeInputThreshold, settings.SteeringSensitivity, settings.AirControlSensitivity);
-				}
 			}
 			this->botJustSpawned = false;
 		}
@@ -326,9 +325,7 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 		input->Steer = 0;
 	}
 
-	bool isBot = car.GetPRI().GetbBot();
-
-	if (isBot)
+	if (this->isBot(car))
 	{
 		auto& bot = car;
 
@@ -347,6 +344,10 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 		{
 			ControllerInput loadedInput = inputs[tick];
 			*input = loadedInput;
+		}
+		else
+		{
+			this->removeBot(bot);
 		}
 
 		this->tickCounter += 1;
@@ -454,8 +455,16 @@ void KickoffPractice::removeBots()
 
 	for (auto car : server.GetCars())
 	{
-		if (car.GetPRI().GetbBot())
+		if (this->isBot(car))
+			this->removeBot(car);
+	}
+}
+
+void KickoffPractice::removeBot(CarWrapper car)
 {
+	ServerWrapper server = gameWrapper->GetCurrentGameState();
+	if (!server) return;
+
 	// To avoid the lightning that shows on `server.RemovePlayer()` we call `car.Destory()` first.
 	// After `car.Destory()` `car.GetAIController()` wouldn't work, so we have to store it beforehand.
 	// If we don't call `server.RemovePlayer()`, the bots will respawn on "Reset Ball".
@@ -463,7 +472,10 @@ void KickoffPractice::removeBots()
 	car.Destroy();
 	server.RemovePlayer(controller);
 }
-	}
+
+bool KickoffPractice::isBot(CarWrapper car)
+{
+	return car.GetOwnerName() == BOT_CAR_NAME && car.GetPRI().GetbBot();
 }
 
 void KickoffPractice::writeConfigFile()
