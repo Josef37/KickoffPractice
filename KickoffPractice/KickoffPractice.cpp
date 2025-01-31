@@ -209,8 +209,6 @@ void KickoffPractice::setTimeoutChecked(float seconds, std::function<void()> cal
 	);
 }
 
-/// args[1] = kickoff location (1-5)
-/// args[2] = is recording? (bool or 0/1)
 void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 {
 	this->kickoffCounter++;
@@ -265,9 +263,20 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 		this->botJustSpawned = true;
 	}
 
+	player.SetbDriving(true);
 	player.SetLocation(locationPlayer);
 	player.SetRotation(rotationPlayer);
 	player.Stop();
+	// Setting `SetbDriving(false)` immediately will prevent the `SetLocation()` call from working.
+	// (The car will move half the way and snap back to where it stood. Kind of weird...)
+	// TODO: Disable player input for the first frame. The player can move slightly in this moment.
+	gameWrapper->SetTimeout([](GameWrapper* gameWrapper)
+		{
+			if(auto player = gameWrapper->GetLocalCar()) 
+				player.SetbDriving(false);
+		}, 
+		1.f/gameWrapper->GetEngine().GetPhysicsFramerate()
+	);
 
 	BoostWrapper boost = player.GetBoostComponent();
 	if (!boost) return;
@@ -376,7 +385,8 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 	{
 		auto& player = car;
 
-		player.SetbDriving(this->kickoffState != KickoffState::waitingToStart);
+		if (this->kickoffState != KickoffState::waitingToStart)
+			player.SetbDriving(true);
 
 		if (this->kickoffState != KickoffState::started)
 			return;
