@@ -347,13 +347,28 @@ void KickoffPractice::startCountdown(int seconds, int kickoffCounterAtStart, std
 	);
 }
 
+static const ControllerInput EMPTY_INPUT = ControllerInput{
+	.Throttle = 0,
+	.Steer = 0,
+	.Pitch = 0,
+	.Yaw = 0,
+	.Roll = 0,
+	.DodgeForward = 0,
+	.DodgeStrafe = 0,
+	.Handbrake = 0,
+	.Jump = 0,
+	.ActivateBoost = 0,
+	.HoldingBoost = 0,
+	.Jumped = 0,
+};
+
 void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 {
 	if (this->isBot(car))
 	{
 		auto& bot = car;
 
-		bot.SetbDriving(this->kickoffState == KickoffState::started);
+		*input = EMPTY_INPUT;
 
 		if (this->kickoffState != KickoffState::started)
 			return;
