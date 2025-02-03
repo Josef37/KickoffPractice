@@ -38,6 +38,12 @@ enum class KickoffState
 	// Countdown is over, bot and player moving.
 	started
 };
+enum class KickoffMode
+{
+	Training,
+	Recording,
+	Replaying
+};
 
 struct RecordedKickoff
 {
@@ -67,6 +73,7 @@ private:
 	void setupKickoff();
 	void startCountdown(int seconds, int kickoffCounterAtStart, std::function<void()> onCompleted);
 	void onVehicleInput(CarWrapper car, ControllerInput* input);
+	std::optional<ControllerInput> getRecordedInput();
 	void reset();
 	void saveRecording();
 	std::string getRecordingFilename() const;
@@ -108,8 +115,8 @@ private:
 	bool botJustSpawned;
 	Vector locationBot;
 	Rotator rotationBot;
-	bool isInReplay;
-	bool isRecording;
+	bool isInGoalReplay;
+	KickoffMode mode;
 
 	float timeAfterBackToNormal = 0.5;
 

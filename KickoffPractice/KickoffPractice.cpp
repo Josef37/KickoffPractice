@@ -26,9 +26,9 @@ void KickoffPractice::onLoad()
 	_globalCvarManager = cvarManager;
 
 	this->pluginEnabled = true;
-	this->isInReplay = false;
+	this->isInGoalReplay = false;
 	this->currentInputIndex = 0;
-	this->isRecording = false;
+	this->mode = KickoffMode::Training;
 	this->rotationBot = Rotator(0, 0, 0);
 	this->locationBot = Vector(0, 0, 0);
 	this->startingFrame = 0;
@@ -50,7 +50,7 @@ void KickoffPractice::onLoad()
 	cvarManager->registerNotifier(TRAIN_COMMAND,
 		[this](std::vector<std::string> args)
 		{
-			this->isRecording = false;
+			this->mode = KickoffMode::Training;
 
 			std::optional<KickoffPosition> kickoff = args.size() >= 2
 				? parseKickoffArg(args[1])
@@ -69,7 +69,7 @@ void KickoffPractice::onLoad()
 	cvarManager->registerNotifier(RECORD_COMMAND,
 		[this](std::vector<std::string> args)
 		{
-			this->isRecording = true;
+			this->mode = KickoffMode::Recording;
 
 			std::optional<KickoffPosition> kickoff = args.size() >= 2
 				? parseKickoffArg(args[1])
@@ -125,7 +125,7 @@ void KickoffPractice::onLoad()
 				{
 					if (this->kickoffState != KickoffState::started) return;
 
-					if (this->isRecording)
+					if (this->mode == KickoffMode::Recording)
 						this->saveRecording();
 
 					this->reset();
@@ -170,14 +170,14 @@ void KickoffPractice::onLoad()
 		"Function TAGame.Ball_TA.OnHitGoal",
 		[this](CarWrapper caller, void* params, std::string eventname)
 		{
-			this->isInReplay = true;
+			this->isInGoalReplay = true;
 		}
 	);
 	gameWrapper->HookEventWithCallerPost<CarWrapper>(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.EndState",
 		[this](CarWrapper caller, void* params, std::string eventname)
 		{
-			this->isInReplay = false;
+			this->isInGoalReplay = false;
 		}
 	);
 	gameWrapper->HookEventWithCallerPost<CarWrapper>(
@@ -199,7 +199,7 @@ void KickoffPractice::onUnload()
 
 bool KickoffPractice::shouldExecute()
 {
-	return pluginEnabled && gameWrapper->IsInFreeplay() && !this->isInReplay;
+	return pluginEnabled && gameWrapper->IsInFreeplay() && !this->isInGoalReplay;
 }
 
 void KickoffPractice::setTimeoutChecked(float seconds, std::function<void()> callback)
@@ -233,7 +233,7 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 		if (!positionSelected)
 		{
 			LOG("No recorded kickoff selected for this position... Switching to recording mode.");
-			this->isRecording = true;
+			this->mode = KickoffMode::Recording;
 		}
 
 		this->currentInputIndex = this->getRandomKickoffForPosition(this->currentKickoffPosition);
@@ -246,7 +246,7 @@ void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
 			this->currentKickoffPosition = this->loadedKickoffs[*this->currentInputIndex].position;
 	}
 
-	if (!this->isRecording && this->currentInputIndex == std::nullopt)
+	if (this->mode != KickoffMode::Recording && this->currentInputIndex == std::nullopt)
 	{
 		LOG("No active recording found!");
 		return;
@@ -271,12 +271,12 @@ void KickoffPractice::setupKickoff()
 	BallWrapper ball = server.GetBall();
 	if (!ball) return;
 
-	KickoffSide playerSide = this->isRecording ? KickoffSide::Orange : KickoffSide::Blue;
+	KickoffSide playerSide = this->mode == KickoffMode::Recording ? KickoffSide::Orange : KickoffSide::Blue;
 	Vector locationPlayer = KickoffPractice::getKickoffLocation(this->currentKickoffPosition, playerSide);
 	Rotator rotationPlayer = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffPosition, playerSide) * CONST_RadToUnrRot), 0);
 	this->locationBot = KickoffPractice::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange);
 	this->rotationBot = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffPosition, KickoffSide::Orange) * CONST_RadToUnrRot), 0);
-	if (!this->isRecording)
+	if (this->mode != KickoffMode::Recording)
 	{
 		auto carBody = this->loadedKickoffs[*this->currentInputIndex].carBody;
 		server.SpawnBot(carBody, BOT_CAR_NAME);
@@ -375,18 +375,12 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 		if (this->kickoffState != KickoffState::started)
 			return;
-		if (this->currentInputIndex == std::nullopt)
-			return;
-
-		auto& inputs = this->loadedKickoffs[*this->currentInputIndex].inputs;
 
 		// The Bot Controller calls this functions multiple times per tick (varies by game speed).
 		// We need to look at the elapsed time/ticks to get the correct input.
-		auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
-		auto tick = currentFrame - this->startingFrame;
-
-		if (tick < inputs.size())
-			*input = inputs[tick];
+		auto recordedInput = getRecordedInput();
+		if (recordedInput.has_value())
+			*input = *recordedInput;
 		else
 			this->removeBot(bot);
 	}
@@ -399,8 +393,30 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 		if (this->kickoffState != KickoffState::started)
 			return;
 
+		if (this->mode == KickoffMode::Replaying)
+		{
+			auto recordedInput = getRecordedInput();
+			if (recordedInput.has_value()) 
+				*input = *recordedInput;
+		}
+
 		this->recordedInputs.push_back(*input);
 	}
+}
+
+std::optional<ControllerInput> KickoffPractice::getRecordedInput()
+{
+	if (this->currentInputIndex == std::nullopt)
+		return std::nullopt;
+
+	auto& inputs = this->loadedKickoffs[*this->currentInputIndex].inputs;
+	auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
+	auto tick = currentFrame - this->startingFrame;
+
+	if (tick >= inputs.size())
+		return std::nullopt;
+
+	return inputs[tick];
 }
 
 void KickoffPractice::reset()
@@ -408,7 +424,7 @@ void KickoffPractice::reset()
 	this->removeBots();
 	this->kickoffState = KickoffState::nothing;
 	this->resetBoostSettings();
-	this->isInReplay = false;
+	this->isInGoalReplay = false;
 }
 
 void KickoffPractice::saveRecording()
