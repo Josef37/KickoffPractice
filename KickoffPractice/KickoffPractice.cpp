@@ -56,17 +56,21 @@ void KickoffPractice::onLoad()
 				? parseKickoffArg(args[1])
 				: std::nullopt;
 
-			std::optional<int> kickoffIndex = position.has_value()
-				? this->getRandomKickoffForPosition(*position)
-				: this->getRandomKickoff();
+			std::vector<RecordedKickoff*> suitableKickoffs;
+			for (auto& kickoff : this->loadedKickoffs) {
+				if (!kickoff.isActive) continue;
+				if (position.has_value() && kickoff.position != *position) continue;
 
-			if (kickoffIndex == std::nullopt)
+				suitableKickoffs.push_back(&kickoff);
+			}
+
+			if (suitableKickoffs.empty())
 			{
 				LOG("No active recording found!");
 				return;
 			}
 
-			this->currentKickoff = &this->loadedKickoffs[*kickoffIndex];
+			this->currentKickoff = suitableKickoffs[rand() % suitableKickoffs.size()];
 			this->currentKickoffPosition = this->currentKickoff->position;
 
 			// Use a timeout to start after other commands bound to the same button.
@@ -462,9 +466,8 @@ void KickoffPractice::saveRecording()
 	kickoff.carBody = gameWrapper->GetLocalCar().GetLoadoutBody(); // TODO: Improve by using the values during the recording.
 	kickoff.settings = gameWrapper->GetSettings().GetGamepadSettings();
 	kickoff.inputs = this->recordedInputs;
+	kickoff.isActive = true; // Automatically select the newly recorded kickoff.
 
-	// Automatically select the newly recorded kickoff.
-	this->states.push_back(this->currentKickoffPosition + 1);
 	this->loadedKickoffs.push_back(kickoff);
 	this->writeConfigFile();
 
@@ -516,28 +519,6 @@ std::string KickoffPractice::getRecordingFilename() const
 	return kickoffName + " " + timestamp + FILE_EXT;
 }
 
-std::optional<int> KickoffPractice::getRandomKickoff()
-{
-	return getRandomIndex(this->states, [](int state) { return state != 0; });
-}
-
-std::optional<int> KickoffPractice::getRandomKickoffForPosition(int kickoffPosition)
-{
-	return getRandomIndex(this->states, [kickoffPosition](int state) { return state - 1 == kickoffPosition; });
-}
-
-std::optional<int> KickoffPractice::getRandomIndex(std::vector<int> vec, std::function<bool(int)> filter)
-{
-	std::vector<int> indices;
-
-	for (int i = 0; i < vec.size(); i++)
-		if (filter(vec[i])) indices.push_back(i);
-
-	if (indices.empty()) return std::nullopt;
-
-	return indices[rand() % indices.size()];
-}
-
 void KickoffPractice::removeBots()
 {
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
@@ -573,16 +554,17 @@ void KickoffPractice::writeConfigFile()
 	auto filename = this->configPath / CONFIG_FILE;
 
 	std::ofstream inputFile(filename);
+
 	if (!inputFile.is_open())
 	{
-		LOG("ERROR : can't create config file");
+		LOG("Can't create the config file");
 		return;
 	}
 
-	for (int i = 0; i < this->states.size(); i++)
+	for (auto& kickoff : this->loadedKickoffs)
 	{
-		if (this->states[i] == 0) continue;
-		inputFile << this->states[i] << "," << this->loadedKickoffs[i].name << "\n";
+		if (!kickoff.isActive) continue;
+		inputFile << kickoff.name << "\n";
 	}
 	inputFile.close();
 }
@@ -596,59 +578,29 @@ void KickoffPractice::readConfigFile()
 
 	std::fstream file(filename, std::ios::in);
 
-	if (file.is_open())
+	if (!file.is_open())
 	{
-		std::vector<std::string> row;
-		std::string line, word;
+		LOG("Can't open the config file");
+		return;
+	}
 
-		int i = 0;
-		while (getline(file, line))
+	std::string line;
+
+	while (getline(file, line))
+	{
+		// TODO: Avoid iterating every line.
+		for (auto& kickoff : this->loadedKickoffs)
 		{
-			i++;
-			row.clear();
-
-			std::stringstream str(line);
-
-			while (getline(str, word, ','))
-			{
-				row.push_back(word);
-			}
-			if (row.size() != 2)
-			{
-				LOG("Error on line {}", i);
-				continue;
-			}
-			try
-			{
-				std::string name = row[1];
-				int state = std::stoi(row[0]);
-				if (state < 0 || state > 5) continue;
-				for (int j = 0; j < this->loadedKickoffs.size(); j++)
-				{
-					if (this->loadedKickoffs[j].name == name)
-					{
-						this->states[j] = state;
-					}
-				}
-			}
-			catch (std::invalid_argument exception)
-			{
-				LOG("ERROR : invalid argument in config file\n{}", exception.what());
-			}
-			catch (std::out_of_range exception)
-			{
-				LOG("ERROR : number too big in config file \n{}", exception.what());
-			}
+			if (kickoff.name == line)
+				kickoff.isActive = true;
 		}
 	}
-	else
-		LOG("Can't open the config file");
+	file.close();
 }
 
 void KickoffPractice::readKickoffFiles()
 {
-	this->loadedKickoffs = std::vector<RecordedKickoff>();
-	this->states = std::vector<int>();
+	this->loadedKickoffs.clear();
 
 	try
 	{
@@ -657,7 +609,6 @@ void KickoffPractice::readKickoffFiles()
 			if (entry.is_regular_file() && entry.path().extension() == FILE_EXT)
 			{
 				this->loadedKickoffs.push_back(this->readKickoffFile(entry.path()));
-				this->states.push_back(0);
 			}
 		}
 	}
@@ -665,6 +616,7 @@ void KickoffPractice::readKickoffFiles()
 	{
 		LOG("ERROR : {}", ex.code().message());
 	}
+
 	this->readConfigFile();
 }
 

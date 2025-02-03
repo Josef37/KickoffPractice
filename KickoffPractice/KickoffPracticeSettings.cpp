@@ -27,18 +27,18 @@ void KickoffPractice::RenderSettings()
 	ImGui::Text("Training");
 	ImGui::Spacing();
 
-	for (int i = -1; i < 5; i++)
+	for (int position = -1; position < 5; position++)
 	{
-		auto command = TRAIN_COMMAND + " " + std::to_string(i + 1);
-		auto label = "Train " + getKickoffName(i);
+		auto command = TRAIN_COMMAND + " " + std::to_string(position + 1);
+		auto label = "Train " + getKickoffName(position);
 
-		if (i == -1)
+		if (position == -1)
 		{
 			command = "kickoff_train";
 			label = "Train All";
 		}
 
-		if (i >= 0) ImGui::SameLine();
+		if (position >= 0) ImGui::SameLine();
 
 		if (ImGui::Button(label.c_str()))
 			gameWrapper->Execute([this, command](GameWrapper* gw)
@@ -54,12 +54,12 @@ void KickoffPractice::RenderSettings()
 	ImGui::Text("Recording");
 	ImGui::Spacing();
 
-	for (int i = 0; i < 5; i++)
+	for (int position = 0; position < 5; position++)
 	{
-		if (i > 0) ImGui::SameLine();
+		if (position > 0) ImGui::SameLine();
 
-		auto command = RECORD_COMMAND + " " + std::to_string(i + 1);
-		auto label = "Record " + getKickoffName(i);
+		auto command = RECORD_COMMAND + " " + std::to_string(position + 1);
+		auto label = "Record " + getKickoffName(position);
 
 		if (ImGui::Button(label.c_str()))
 			gameWrapper->Execute([this, command](GameWrapper* gw)
@@ -81,46 +81,45 @@ void KickoffPractice::RenderSettings()
 
 	SpacedSeparator();
 
-	if (ImGui::Button("Reload files"))
+	if (ImGui::Button("Reload kickoffs"))
 		readKickoffFiles();
 	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("Reload recorded kickoffs");
+		ImGui::SetTooltip("Reload recorded kickoffs from files.");
 
 	ImGui::Spacing();
-	// TODO: Duplication
-	const char* items[] = { "Unused", "Right Corner", "Left Corner", "Back Right", "Back Left", "Back Center" };
-	bool isChanged = false;
-	if (ImGui::BeginChild("LoadedFiles", ImVec2(0, 0), true))
+
+	bool changedActiveKickoffs = false;
+
+	// TODO: Don't compute every loop.
+	std::map<int, std::vector<RecordedKickoff*>> kickoffsByPosition;
+	for (auto& kickoff : loadedKickoffs)
+		kickoffsByPosition[kickoff.position].push_back(&kickoff);
+
+	for (int position = 0; position < 5; position++)
 	{
-		ImGui::Indent(5);
-		ImGui::PushItemWidth(ImGui::GetFontSize() * 15.f);
+		ImGui::Text(getKickoffName(position).c_str());
 
-		for (int i = 0; i < loadedKickoffs.size(); i++)
+		if (kickoffsByPosition[position].empty())
+			ImGui::Text("(no kickoffs recorded)");
+
+		for (auto& kickoff : kickoffsByPosition[position])
 		{
-			auto& kickoffName = loadedKickoffs[i].name;
+			if (ImGui::Checkbox(kickoff->name.c_str(), &kickoff->isActive))
+				changedActiveKickoffs = true;
 
-			ImGui::PushID(i);
-
-			if (ImGui::Combo(kickoffName.c_str(), &states[i], items, IM_ARRAYSIZE(items)))
-				isChanged = true;
 			ImGui::SameLine();
-
-			if (ImGui::Button("Replay"))
-				gameWrapper->Execute([this, kickoffName](GameWrapper* gw)
+			if (ImGui::Button(("Replay##" + kickoff->name).c_str()))
+				gameWrapper->Execute([this, &kickoff](GameWrapper* gw)
 					{
-						cvarManager->executeCommand(REPLAY_COMMAND + " \"" + kickoffName + "\"");
+						cvarManager->executeCommand(REPLAY_COMMAND + " \"" + kickoff->name + "\"");
 					}
 				);
 			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip("Only changes the car body for the bot.");
-
-			ImGui::PopID();
+				ImGui::SetTooltip("Replay a kickoff. Spawns a bot that replays the same recording. Only changes the bot car body.");
 		}
+		ImGui::Spacing();
 	}
-	ImGui::EndChild();
 
-	if (isChanged)
-	{
+	if (changedActiveKickoffs)
 		writeConfigFile();
-	}
 }

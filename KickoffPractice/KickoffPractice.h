@@ -52,6 +52,7 @@ struct RecordedKickoff
 	int carBody = 23; // Octane
 	GamepadSettings settings = GamepadSettings(0, 0.5, 1, 1);
 	std::vector<ControllerInput> inputs;
+	bool isActive = false;
 };
 
 struct BoostSettings
@@ -81,16 +82,6 @@ private:
 	std::vector<RecordedKickoff> loadedKickoffs; // TODO: Introduce setter to update `currentKickoff` pointer.
 	RecordedKickoff* currentKickoff;
 	std::vector<ControllerInput> recordedInputs;
-	// A list corresponding to `loadedInputs`.
-	// Each item represents which kickoff position is selected for a recording.
-	// If it is `0`, the kickoff isn't used in training.
-	// If it is between `1` and `5` it is one of the `KickoffPosition`s.
-	// Watch out for the `-1` difference!
-	std::vector<int> states;
-
-	std::optional<int> getRandomKickoff();
-	std::optional<int> getRandomKickoffForPosition(int kickoffId);
-	static std::optional<int> getRandomIndex(std::vector<int> vec, std::function<bool(int)> filter);
 
 	void removeBots();
 	void removeBot(CarWrapper car);
