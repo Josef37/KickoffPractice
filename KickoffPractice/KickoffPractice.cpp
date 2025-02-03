@@ -27,7 +27,7 @@ void KickoffPractice::onLoad()
 
 	this->pluginEnabled = true;
 	this->isInGoalReplay = false;
-	this->currentInputIndex = 0;
+	this->currentKickoff = nullptr;
 	this->mode = KickoffMode::Training;
 	this->rotationBot = Rotator(0, 0, 0);
 	this->locationBot = Vector(0, 0, 0);
@@ -52,14 +52,27 @@ void KickoffPractice::onLoad()
 		{
 			this->mode = KickoffMode::Training;
 
-			std::optional<KickoffPosition> kickoff = args.size() >= 2
+			std::optional<KickoffPosition> position = args.size() >= 2
 				? parseKickoffArg(args[1])
 				: std::nullopt;
+
+			std::optional<int> kickoffIndex = position.has_value()
+				? this->getRandomKickoffForPosition(*position)
+				: this->getRandomKickoff();
+
+			if (kickoffIndex == std::nullopt)
+			{
+				LOG("No active recording found!");
+				return;
+			}
+
+			this->currentKickoff = &this->loadedKickoffs[*kickoffIndex];
+			this->currentKickoffPosition = this->currentKickoff->position;
 
 			// Use a timeout to start after other commands bound to the same button.
 			this->setTimeoutChecked(
 				gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
-				[this, kickoff]() { this->start(kickoff); }
+				[this]() { this->start(); }
 			);
 		},
 		"Practice kickoff. Without arguments: Random kickoff. With argument from 1 to 5: Specific kickoff position.",
@@ -71,23 +84,57 @@ void KickoffPractice::onLoad()
 		{
 			this->mode = KickoffMode::Recording;
 
-			std::optional<KickoffPosition> kickoff = args.size() >= 2
+			std::optional<KickoffPosition> position = args.size() >= 2
 				? parseKickoffArg(args[1])
 				: std::nullopt;
 
-			if (kickoff == std::nullopt)
+			if (position == std::nullopt)
 			{
 				LOG("Kickoff number argument expected for recordings.");
 				return;
 			}
 
+			this->currentKickoffPosition = *position;
+
 			// Use a timeout to start after other commands bound to the same button.
 			this->setTimeoutChecked(
 				gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
-				[this, kickoff]() { this->start(kickoff); }
+				[this]() { this->start(); }
 			);
 		},
 		"Record a kickoff. Specify kickoff position with index from 1 to 5.",
+		PERMISSION_FREEPLAY
+	);
+
+	cvarManager->registerNotifier(REPLAY_COMMAND,
+		[this](std::vector<std::string> args)
+		{
+			this->mode = KickoffMode::Replaying;
+
+			if (args.size() < 2)
+			{
+				LOG("Kickoff name argument expected for replaying.");
+				return;
+			}
+			auto& kickoffName = args[1];
+			auto findByName = [&](const RecordedKickoff& kickoff) { return kickoff.name == kickoffName; };
+			auto it = std::find_if(this->loadedKickoffs.begin(), this->loadedKickoffs.end(), findByName);
+			if (it == this->loadedKickoffs.end())
+			{
+				LOG("No kickoff found with the specified name: {}", kickoffName);
+				return;
+			}
+			auto& foundKickoff = *it;
+			this->currentKickoff = &foundKickoff;
+			this->currentKickoffPosition = this->currentKickoff->position;
+
+			// Use a timeout to start after other commands bound to the same button.
+			this->setTimeoutChecked(
+				gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
+				[this]() { this->start(); }
+			);
+		},
+		"Replay a kickoff. Spawns a bot that replays the same recording.",
 		PERMISSION_FREEPLAY
 	);
 
@@ -146,7 +193,7 @@ void KickoffPractice::onLoad()
 			// `SpawnInstance` gets called multiple times for the same car.
 			// We make sure to execute the following code only once.
 			if (!this->botJustSpawned) return;
-			if (this->currentInputIndex == std::nullopt) return;
+			if (!this->currentKickoff) return;
 
 			for (auto car : server.GetCars())
 			{
@@ -159,7 +206,7 @@ void KickoffPractice::onLoad()
 				// But then the `SetVehicleInput` hook would not fire for the bot.
 				// So we don't disable the controller, but overwrite the inputs inside the hook.
 
-				auto settings = this->loadedKickoffs[*this->currentInputIndex].settings;
+				auto settings = this->currentKickoff->settings;
 				car.GetPRI().SetUserCarPreferences(settings.DodgeInputThreshold, settings.SteeringSensitivity, settings.AirControlSensitivity);
 			}
 			this->botJustSpawned = false;
@@ -216,44 +263,15 @@ void KickoffPractice::setTimeoutChecked(float seconds, std::function<void()> cal
 	);
 }
 
-void KickoffPractice::start(std::optional<KickoffPosition> kickoff)
+void KickoffPractice::start()
 {
 	this->kickoffCounter++;
 
 	this->recordBoostSettings();
 	this->reset();
 
-	// Determine current kickoff position.
-	if (kickoff.has_value())
-	{
-		this->currentKickoffPosition = *kickoff;
-
-		auto it = std::find(this->states.begin(), this->states.end(), *kickoff + 1);
-		bool positionSelected = it != this->states.end();
-		if (!positionSelected)
-		{
-			LOG("No recorded kickoff selected for this position... Switching to recording mode.");
-			this->mode = KickoffMode::Recording;
-		}
-
-		this->currentInputIndex = this->getRandomKickoffForPosition(this->currentKickoffPosition);
-	}
-	else
-	{
-		this->currentInputIndex = this->getRandomKickoff();
-
-		if (this->currentInputIndex.has_value())
-			this->currentKickoffPosition = this->loadedKickoffs[*this->currentInputIndex].position;
-	}
-
-	if (this->mode != KickoffMode::Recording && this->currentInputIndex == std::nullopt)
-	{
-		LOG("No active recording found!");
-		return;
-	}
-
 	// We wait a little before updating the game state, because we want the reset to finish first.
-	// Otherwise `player.SetLocation()` won't not work properly, because `player.SetbDriving(false)` still affects it.
+	// Otherwise `player.SetLocation()` won't work properly, because `player.SetbDriving(false)` still affects it.
 	this->setTimeoutChecked(
 		gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
 		[this]() { this->setupKickoff(); }
@@ -278,7 +296,7 @@ void KickoffPractice::setupKickoff()
 	this->rotationBot = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffPosition, KickoffSide::Orange) * CONST_RadToUnrRot), 0);
 	if (this->mode != KickoffMode::Recording)
 	{
-		auto carBody = this->loadedKickoffs[*this->currentInputIndex].carBody;
+		auto carBody = this->currentKickoff->carBody;
 		server.SpawnBot(carBody, BOT_CAR_NAME);
 		this->botJustSpawned = true;
 	}
@@ -396,7 +414,7 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 		if (this->mode == KickoffMode::Replaying)
 		{
 			auto recordedInput = getRecordedInput();
-			if (recordedInput.has_value()) 
+			if (recordedInput.has_value())
 				*input = *recordedInput;
 		}
 
@@ -406,10 +424,10 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 std::optional<ControllerInput> KickoffPractice::getRecordedInput()
 {
-	if (this->currentInputIndex == std::nullopt)
+	if (this->currentKickoff == nullptr)
 		return std::nullopt;
 
-	auto& inputs = this->loadedKickoffs[*this->currentInputIndex].inputs;
+	auto& inputs = this->currentKickoff->inputs;
 	auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	auto tick = currentFrame - this->startingFrame;
 

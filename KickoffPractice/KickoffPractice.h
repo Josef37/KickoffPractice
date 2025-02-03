@@ -69,7 +69,7 @@ private:
 	bool shouldExecute();
 	void setTimeoutChecked(float seconds, std::function<void()> callback);
 
-	void start(std::optional<KickoffPosition> kickoff);
+	void start();
 	void setupKickoff();
 	void startCountdown(int seconds, int kickoffCounterAtStart, std::function<void()> onCompleted);
 	void onVehicleInput(CarWrapper car, ControllerInput* input);
@@ -78,7 +78,8 @@ private:
 	void saveRecording();
 	std::string getRecordingFilename() const;
 
-	std::vector<RecordedKickoff> loadedKickoffs;
+	std::vector<RecordedKickoff> loadedKickoffs; // TODO: Introduce setter to update `currentKickoff` pointer.
+	RecordedKickoff* currentKickoff;
 	std::vector<ControllerInput> recordedInputs;
 	// A list corresponding to `loadedInputs`.
 	// Each item represents which kickoff position is selected for a recording.
@@ -110,13 +111,12 @@ private:
 	int startingFrame; // Physics frame when the kickoff started, i.e. the countdown ran out.
 	int kickoffCounter; // How often did we start a kickoff this session?
 	KickoffPosition currentKickoffPosition;
-	std::optional<int> currentInputIndex;
 	KickoffState kickoffState;
 	bool botJustSpawned;
 	Vector locationBot;
 	Rotator rotationBot;
 	bool isInGoalReplay;
-	KickoffMode mode;
+	KickoffMode mode; // TODO: Link mode to current position/kickoff values to check what's required.
 
 	float timeAfterBackToNormal = 0.5;
 

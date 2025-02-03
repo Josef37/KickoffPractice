@@ -97,7 +97,24 @@ void KickoffPractice::RenderSettings()
 
 		for (int i = 0; i < loadedKickoffs.size(); i++)
 		{
-			isChanged = isChanged || ImGui::Combo(loadedKickoffs[i].name.c_str(), &states[i], items, IM_ARRAYSIZE(items));
+			auto& kickoffName = loadedKickoffs[i].name;
+
+			ImGui::PushID(i);
+
+			if (ImGui::Combo(kickoffName.c_str(), &states[i], items, IM_ARRAYSIZE(items)))
+				isChanged = true;
+			ImGui::SameLine();
+
+			if (ImGui::Button("Replay"))
+				gameWrapper->Execute([this, kickoffName](GameWrapper* gw)
+					{
+						cvarManager->executeCommand(REPLAY_COMMAND + " \"" + kickoffName + "\"");
+					}
+				);
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Only changes the car body for the bot.");
+
+			ImGui::PopID();
 		}
 	}
 	ImGui::EndChild();
