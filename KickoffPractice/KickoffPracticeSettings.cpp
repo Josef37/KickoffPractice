@@ -29,9 +29,20 @@ void KickoffPractice::RenderSettings()
 
 	ImGui::Spacing();
 
-	ImGui::SliderFloat("Time before back to normal", &this->timeAfterBackToNormal, 0.0f, 3.0f, "%.3f seconds");
+	ImGui::SetNextItemWidth(300);
+	ImGui::DragFloat("Time before back to normal", &this->timeAfterBackToNormal, 0.002f, 0.0f, FLT_MAX, "%.1f seconds");
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("How long you stay in \"kickoff mode\" after someone hit the ball. This also affects how long the recording lasts after hitting the ball.");
+
+	ImGui::Spacing();
+
+	ImGui::Checkbox("Restart on Freeplay Reset", &restartOnTrainingReset);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Repeats the last command when resetting freeplay, i.e. using the \"Rest Ball\" binding.");
+
+	ImGui::Checkbox("Auto-Restart", &autoRestart);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Automatically repeats the last command. Break out of auto-restart by resetting freeplay, exiting or using the reset button below.");
 
 	ImGui::Spacing();
 

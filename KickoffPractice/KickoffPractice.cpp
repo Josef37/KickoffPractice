@@ -50,17 +50,15 @@ void KickoffPractice::onLoad()
 	cvarManager->registerNotifier(TRAIN_COMMAND,
 		[this](std::vector<std::string> args)
 		{
+			if (!this->shouldExecute()) return;
+
 			this->mode = KickoffMode::Training;
 
 			this->positionOverride = args.size() >= 2
 				? parseKickoffArg(args[1])
 				: std::nullopt;
 
-			// Use a timeout to start after other commands bound to the same button.
-			this->setTimeoutChecked(
-				gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
-				[this]() { this->start(); }
-			);
+			this->start();
 		},
 		"Practice kickoff. Without arguments: Selected positions. With argument from 1 to 5: Specific kickoff position.",
 		PERMISSION_FREEPLAY
@@ -69,6 +67,8 @@ void KickoffPractice::onLoad()
 	cvarManager->registerNotifier(RECORD_COMMAND,
 		[this](std::vector<std::string> args)
 		{
+			if (!this->shouldExecute()) return;
+
 			this->mode = KickoffMode::Recording;
 
 			std::optional<KickoffPosition> position = args.size() >= 2
@@ -83,11 +83,7 @@ void KickoffPractice::onLoad()
 
 			this->currentKickoffPosition = *position;
 
-			// Use a timeout to start after other commands bound to the same button.
-			this->setTimeoutChecked(
-				gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
-				[this]() { this->start(); }
-			);
+			this->start();
 		},
 		"Record a kickoff. Specify kickoff position with index from 1 to 5.",
 		PERMISSION_FREEPLAY
@@ -96,6 +92,8 @@ void KickoffPractice::onLoad()
 	cvarManager->registerNotifier(REPLAY_COMMAND,
 		[this](std::vector<std::string> args)
 		{
+			if (!this->shouldExecute()) return;
+
 			this->mode = KickoffMode::Replaying;
 
 			if (args.size() < 2)
@@ -115,11 +113,7 @@ void KickoffPractice::onLoad()
 			this->currentKickoff = &foundKickoff;
 			this->currentKickoffPosition = this->currentKickoff->position;
 
-			// Use a timeout to start after other commands bound to the same button.
-			this->setTimeoutChecked(
-				gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
-				[this]() { this->start(); }
-			);
+			this->start();
 		},
 		"Replay a kickoff. Spawns a bot that replays the same recording.",
 		PERMISSION_FREEPLAY
@@ -163,9 +157,11 @@ void KickoffPractice::onLoad()
 						this->saveRecording();
 
 					this->reset();
+
+					if (this->autoRestart)
+						this->start();
 				}
 			);
-
 		}
 	);
 
@@ -228,12 +224,11 @@ void KickoffPractice::onLoad()
 		"Function TAGame.PlayerController_TA.PlayerResetTraining", // Called when resetting freeplay.
 		[this](std::string eventName)
 		{
-			// Repeat the last command.
-			// Use a timeout to start after other commands bound to the same button.
-			this->setTimeoutChecked(
-				gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
-				[this]() { this->start(); }
-			);
+			// Allow to break out of auto-restart by resetting freeplay.
+			if (this->autoRestart && this->kickoffState != KickoffState::nothing)
+				return;
+			if (this->restartOnTrainingReset)
+				this->start();
 		}
 	);
 }

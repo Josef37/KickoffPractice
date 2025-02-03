@@ -119,6 +119,8 @@ private:
 		KickoffPosition::BackCenter };
 	// Set this to ignore `activePositions` and only train a single kickoff.
 	std::optional<KickoffPosition> positionOverride; 
+	bool restartOnTrainingReset;
+	bool autoRestart;
 
 	static Vector getKickoffLocation(int kickoff, KickoffSide side);
 	static float getKickoffYaw(int kickoff, KickoffSide side);
