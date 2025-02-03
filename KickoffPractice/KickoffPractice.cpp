@@ -13,6 +13,7 @@ static const BoostSettings INITIAL_BOOST_SETTINGS = BoostSettings{
 	.RechargeDelay = 0.f,
 	.RechargeRate = 0.f
 };
+
 static const std::string PLUGIN_FOLDER = "kickoffPractice";
 static const std::string CONFIG_FILE = "config.cfg";
 static const std::string DEFAULT_BOT_FOLDER = "bot";
@@ -46,7 +47,7 @@ void KickoffPractice::onLoad()
 
 	this->readKickoffFiles();
 
-	cvarManager->registerNotifier("kickoff_train",
+	cvarManager->registerNotifier(TRAIN_COMMAND,
 		[this](std::vector<std::string> args)
 		{
 			this->isRecording = false;
@@ -65,7 +66,7 @@ void KickoffPractice::onLoad()
 		PERMISSION_FREEPLAY
 	);
 
-	cvarManager->registerNotifier("kickoff_train_record",
+	cvarManager->registerNotifier(RECORD_COMMAND,
 		[this](std::vector<std::string> args)
 		{
 			this->isRecording = true;
@@ -90,7 +91,7 @@ void KickoffPractice::onLoad()
 		PERMISSION_FREEPLAY
 	);
 
-	cvarManager->registerNotifier("kickoff_train_save",
+	cvarManager->registerNotifier(SAVE_COMMAND,
 		[this](std::vector<std::string> args)
 		{
 			// Don't check `shouldExecute()`. We always allow saving.
