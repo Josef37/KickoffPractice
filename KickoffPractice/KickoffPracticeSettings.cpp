@@ -8,6 +8,17 @@ static void SpacedSeparator()
 	ImGui::Spacing();
 }
 
+static void CommandButton(KickoffPractice* that, const std::string& label, const std::string& command)
+{
+	if (ImGui::Button(label.c_str()))
+		that->gameWrapper->Execute([that, command](GameWrapper* gw)
+			{
+				that->cvarManager->executeCommand(command + ";closemenu settings");
+			});
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip(command.c_str());
+}
+
 void KickoffPractice::RenderSettings()
 {
 	ImGui::Spacing();
@@ -22,32 +33,55 @@ void KickoffPractice::RenderSettings()
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("How long you stay in \"kickoff mode\" after someone hit the ball. This also affects how long the recording lasts after hitting the ball.");
 
+	ImGui::Spacing();
+
+	if (ImGui::Button("Reset Training/Recording"))
+		gameWrapper->Execute([this](GameWrapper* gw) { this->reset(); });
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Reset back to normal freeplay.");
+
 	SpacedSeparator();
 
 	ImGui::Text("Training");
 	ImGui::Spacing();
 
-	for (int position = -1; position < 5; position++)
+	for (int position = 0; position < 5; position++)
 	{
-		auto command = TRAIN_COMMAND + " " + std::to_string(position + 1);
+		if (position > 0) ImGui::SameLine();
+
 		auto label = "Train " + getKickoffName(position);
+		auto command = TRAIN_COMMAND + " " + std::to_string(position + 1);
 
-		if (position == -1)
-		{
-			command = "kickoff_train";
-			label = "Train All";
-		}
-
-		if (position >= 0) ImGui::SameLine();
-
-		if (ImGui::Button(label.c_str()))
-			gameWrapper->Execute([this, command](GameWrapper* gw)
-				{
-					cvarManager->executeCommand(command + ";closemenu settings");
-				});
-		if (ImGui::IsItemHovered())
-			ImGui::SetTooltip(command.c_str());
+		CommandButton(this, label, command);
 	}
+	ImGui::Spacing();
+
+	CommandButton(this, "Train Selected", TRAIN_COMMAND);
+
+	for (int i = 0; i < 5; i++)
+	{
+		ImGui::SameLine();
+
+		KickoffPosition position = static_cast<KickoffPosition>(i);
+
+		bool active = activePositions.contains(position);
+		if (ImGui::Checkbox(getKickoffName(position).c_str(), &active))
+		{
+			if (active) activePositions.insert(position);
+			else activePositions.erase(position);
+		}
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Select All"))
+		activePositions.insert({
+			KickoffPosition::CornerRight,
+			KickoffPosition::CornerLeft,
+			KickoffPosition::BackRight,
+			KickoffPosition::BackLeft,
+			KickoffPosition::BackCenter });
+	ImGui::SameLine();
+	if (ImGui::Button("Clear All"))
+		activePositions.clear();
 
 	SpacedSeparator();
 
@@ -61,14 +95,7 @@ void KickoffPractice::RenderSettings()
 		auto command = RECORD_COMMAND + " " + std::to_string(position + 1);
 		auto label = "Record " + getKickoffName(position);
 
-		if (ImGui::Button(label.c_str()))
-			gameWrapper->Execute([this, command](GameWrapper* gw)
-				{
-					cvarManager->executeCommand(command + ";closemenu settings");
-				});
-		if (ImGui::IsItemHovered())
-			ImGui::SetTooltip(command.c_str());
-
+		CommandButton(this, label, command);
 	}
 	ImGui::Spacing();
 	if (ImGui::Button("Save last attempt"))
@@ -77,9 +104,12 @@ void KickoffPractice::RenderSettings()
 				cvarManager->executeCommand(SAVE_COMMAND);
 			});
 	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("Save the last kickoff you made. When starting a recording it is saved automatically.");
+		ImGui::SetTooltip("Save the last kickoff you made. Recordings are saved automatically.");
 
 	SpacedSeparator();
+
+	ImGui::Text("Select Kickoffs to use for Training");
+	ImGui::Spacing();
 
 	if (ImGui::Button("Reload kickoffs"))
 		readKickoffFiles();
@@ -107,13 +137,11 @@ void KickoffPractice::RenderSettings()
 			if (ImGui::Checkbox(kickoff->name.c_str(), &kickoff->isActive))
 				changedActiveKickoffs = true;
 
+			auto label = "Replay##" + kickoff->name;
+			auto command = REPLAY_COMMAND + " \"" + kickoff->name + "\"";
+
 			ImGui::SameLine();
-			if (ImGui::Button(("Replay##" + kickoff->name).c_str()))
-				gameWrapper->Execute([this, &kickoff](GameWrapper* gw)
-					{
-						cvarManager->executeCommand(REPLAY_COMMAND + " \"" + kickoff->name + "\"");
-					}
-				);
+			CommandButton(this, label, command);
 			if (ImGui::IsItemHovered())
 				ImGui::SetTooltip("Replay a kickoff. Spawns a bot that replays the same recording. Only changes the bot car body.");
 		}

@@ -110,6 +110,15 @@ private:
 	KickoffMode mode; // TODO: Link mode to current position/kickoff values to check what's required.
 
 	float timeAfterBackToNormal = 0.5;
+	// Kickoff positions currently selected for training.
+	std::set<KickoffPosition> activePositions = {
+		KickoffPosition::CornerRight,
+		KickoffPosition::CornerLeft,
+		KickoffPosition::BackRight,
+		KickoffPosition::BackLeft,
+		KickoffPosition::BackCenter };
+	// Set this to ignore `activePositions` and only train a single kickoff.
+	std::optional<KickoffPosition> positionOverride; 
 
 	static Vector getKickoffLocation(int kickoff, KickoffSide side);
 	static float getKickoffYaw(int kickoff, KickoffSide side);

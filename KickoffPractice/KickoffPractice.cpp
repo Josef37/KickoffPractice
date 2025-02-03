@@ -52,26 +52,9 @@ void KickoffPractice::onLoad()
 		{
 			this->mode = KickoffMode::Training;
 
-			std::optional<KickoffPosition> position = args.size() >= 2
+			this->positionOverride = args.size() >= 2
 				? parseKickoffArg(args[1])
 				: std::nullopt;
-
-			std::vector<RecordedKickoff*> suitableKickoffs;
-			for (auto& kickoff : this->loadedKickoffs) {
-				if (!kickoff.isActive) continue;
-				if (position.has_value() && kickoff.position != *position) continue;
-
-				suitableKickoffs.push_back(&kickoff);
-			}
-
-			if (suitableKickoffs.empty())
-			{
-				LOG("No active recording found!");
-				return;
-			}
-
-			this->currentKickoff = suitableKickoffs[rand() % suitableKickoffs.size()];
-			this->currentKickoffPosition = this->currentKickoff->position;
 
 			// Use a timeout to start after other commands bound to the same button.
 			this->setTimeoutChecked(
@@ -79,7 +62,7 @@ void KickoffPractice::onLoad()
 				[this]() { this->start(); }
 			);
 		},
-		"Practice kickoff. Without arguments: Random kickoff. With argument from 1 to 5: Specific kickoff position.",
+		"Practice kickoff. Without arguments: Selected positions. With argument from 1 to 5: Specific kickoff position.",
 		PERMISSION_FREEPLAY
 	);
 
@@ -217,28 +200,40 @@ void KickoffPractice::onLoad()
 		}
 	);
 
-	gameWrapper->HookEventWithCallerPost<CarWrapper>(
+	gameWrapper->HookEventPost(
 		"Function TAGame.Ball_TA.OnHitGoal",
-		[this](CarWrapper caller, void* params, std::string eventname)
+		[this](std::string eventname)
 		{
 			this->isInGoalReplay = true;
 		}
 	);
-	gameWrapper->HookEventWithCallerPost<CarWrapper>(
+	gameWrapper->HookEventPost(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.EndState",
-		[this](CarWrapper caller, void* params, std::string eventname)
+		[this](std::string eventname)
 		{
 			this->isInGoalReplay = false;
 		}
 	);
-	gameWrapper->HookEventWithCallerPost<CarWrapper>(
+	gameWrapper->HookEventPost(
 		"Function GameEvent_Soccar_TA.Countdown.EndState", // Called at the beginning/reset of freeplay.
-		[this](CarWrapper caller, void* params, std::string eventname)
+		[this](std::string eventname)
 		{
 			if (!this->shouldExecute()) return;
 
 			this->recordBoostSettings();
 			this->reset();
+		}
+	);
+	gameWrapper->HookEvent(
+		"Function TAGame.PlayerController_TA.PlayerResetTraining", // Called when resetting freeplay.
+		[this](std::string eventName)
+		{
+			// Repeat the last command.
+			// Use a timeout to start after other commands bound to the same button.
+			this->setTimeoutChecked(
+				gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
+				[this]() { this->start(); }
+			);
 		}
 	);
 }
@@ -273,6 +268,34 @@ void KickoffPractice::start()
 
 	this->recordBoostSettings();
 	this->reset();
+
+	// Determine a suitable kickoff for training here, so we can call `start()` when
+	// resetting freeplay to repeat the last command (and not repeat the same kickoff).
+	if (this->mode == KickoffMode::Training)
+	{
+		std::vector<RecordedKickoff*> suitableKickoffs;
+		for (auto& kickoff : this->loadedKickoffs)
+		{
+			bool isSuitable = kickoff.isActive;
+
+			if (this->positionOverride.has_value())
+				isSuitable = isSuitable && kickoff.position == *this->positionOverride;
+			else
+				isSuitable = isSuitable && this->activePositions.contains(kickoff.position);
+
+			if (isSuitable)
+				suitableKickoffs.push_back(&kickoff);
+		}
+
+		if (suitableKickoffs.empty())
+		{
+			LOG("No suitable kickoff recording found! Make sure there are active kickoffs for your selected positions.");
+			return;
+		}
+
+		this->currentKickoff = suitableKickoffs[rand() % suitableKickoffs.size()];
+		this->currentKickoffPosition = this->currentKickoff->position;
+	}
 
 	// We wait a little before updating the game state, because we want the reset to finish first.
 	// Otherwise `player.SetLocation()` won't work properly, because `player.SetbDriving(false)` still affects it.
