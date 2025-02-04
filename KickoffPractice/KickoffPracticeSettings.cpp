@@ -166,8 +166,14 @@ void KickoffPractice::RenderSettings()
 		{
 			ImGui::PushID(kickoff->name.c_str());
 
+			if (kickoff == this->currentKickoff)
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.5f, 1.0f));
+
 			if (ImGui::Checkbox(kickoff->name.c_str(), &kickoff->isActive))
 				changedActiveKickoffs = true;
+
+			if (kickoff == this->currentKickoff)
+				ImGui::PopStyleColor();
 
 			auto label = "Replay";
 			auto command = REPLAY_COMMAND + " \"" + kickoff->name + "\"";
