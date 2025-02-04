@@ -377,7 +377,7 @@ void KickoffPractice::setupKickoff()
 
 	// TODO: Align the countdown end with the physics frames for more consistency.
 	startCountdown(
-		3,
+		this->mode == KickoffMode::Replaying ? 1 : 3,
 		this->kickoffCounter,
 		[this]()
 		{
