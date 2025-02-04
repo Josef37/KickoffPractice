@@ -52,6 +52,9 @@ void KickoffPractice::onLoad()
 	persistentStorage->RegisterPersistentCvar(CVAR_AUTO_RESTART, "0")
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { autoRestart = cvar.getBoolValue(); });
 
+	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_INDICATOR, "1")
+		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { showIndicator = cvar.getBoolValue(); });
+
 	persistentStorage->RegisterPersistentCvar(CVAR_BACK_TO_NORMAL, "0.5")
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { timeAfterBackToNormal = cvar.getFloatValue(); });
 
@@ -247,6 +250,13 @@ void KickoffPractice::onLoad()
 				return;
 			if (this->restartOnTrainingReset)
 				this->start();
+		}
+	);
+
+	gameWrapper->RegisterDrawable(
+		[this](CanvasWrapper canvas)
+		{
+			this->renderIndicator(canvas);
 		}
 	);
 }
@@ -824,6 +834,25 @@ void KickoffPractice::applyBoostSettings(BoostWrapper boost, BoostSettings setti
 	boost.SetbNoBoost(settings.NoBoost);
 	boost.SetRechargeDelay(settings.RechargeDelay);
 	boost.SetRechargeRate(settings.RechargeRate);
+}
+
+void KickoffPractice::renderIndicator(CanvasWrapper canvas)
+{
+	if (!showIndicator) return;
+	if (!shouldExecute()) return;
+	if (kickoffState == KickoffState::nothing) return;
+
+	canvas.SetColor(LinearColor(255, 255, 255, 255));
+
+	auto text = mode == KickoffMode::Training ? "Training"
+		: mode == KickoffMode::Recording ? "Recording"
+		: mode == KickoffMode::Replaying ? "Replaying"
+		: "";
+	auto scale = 3.0f;
+	auto offset = 0.05f;
+
+	canvas.SetPosition((Vector2F{ offset, offset }) * canvas.GetSize());
+	canvas.DrawString(text, scale, scale);
 }
 
 Vector KickoffPractice::getKickoffLocation(int kickoff, KickoffSide side)

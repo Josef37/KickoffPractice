@@ -21,6 +21,7 @@ static const std::string REPLAY_COMMAND = "kickoff_train_replay";
 static const std::string CVAR_ENABLED = "kickoff_train_enabled";
 static const std::string CVAR_RESTART_ON_RESET = "kickoff_train_restart_on_reset";
 static const std::string CVAR_AUTO_RESTART = "kickoff_train_auto_restart";
+static const std::string CVAR_SHOW_INDICATOR = "kickoff_train_show_indicator";
 static const std::string CVAR_BACK_TO_NORMAL = "kickoff_train_back_to_normal";
 static const std::string CVAR_ACTIVE_POSITIONS = "kickoff_train_active_positions";
 
@@ -133,6 +134,9 @@ private:
 	std::optional<KickoffPosition> positionOverride;
 	bool restartOnTrainingReset = true;
 	bool autoRestart = false;
+	bool showIndicator = true;
+
+	void renderIndicator(CanvasWrapper canvas);
 
 	static Vector getKickoffLocation(int kickoff, KickoffSide side);
 	static float getKickoffYaw(int kickoff, KickoffSide side);

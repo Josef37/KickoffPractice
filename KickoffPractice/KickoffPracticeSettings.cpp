@@ -47,6 +47,11 @@ void KickoffPractice::RenderSettings()
 		cvarManager->getCvar(CVAR_AUTO_RESTART).setValue(autoRestart);
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Automatically repeats the last command. Break out of auto-restart by resetting freeplay, exiting or using the reset button below.");
+	
+	if (ImGui::Checkbox("Show Indicator", &showIndicator))
+		cvarManager->getCvar(CVAR_SHOW_INDICATOR).setValue(showIndicator);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Display a text showing what the plugin is currently doing.");
 
 	ImGui::Spacing();
 
