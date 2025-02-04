@@ -668,7 +668,7 @@ void KickoffPractice::readKickoffFiles()
 			}
 		}
 	}
-	catch (std::filesystem::filesystem_error const& ex)
+	catch (fs::filesystem_error const& ex)
 	{
 		LOG("ERROR : {}", ex.code().message());
 	}
@@ -676,7 +676,7 @@ void KickoffPractice::readKickoffFiles()
 	this->readActiveKickoffs();
 }
 
-RecordedKickoff KickoffPractice::readKickoffFile(std::filesystem::path filePath)
+RecordedKickoff KickoffPractice::readKickoffFile(fs::path filePath)
 {
 	std::optional<KickoffPosition> position;
 	std::optional<int> carBody;
@@ -802,6 +802,67 @@ RecordedKickoff KickoffPractice::readKickoffFile(std::filesystem::path filePath)
 		LOG("No inputs found.");
 
 	return kickoff;
+}
+
+void KickoffPractice::renameKickoff(RecordedKickoff* kickoff, std::string newName, std::function<void()> onSuccess)
+{
+	if (newName.empty())
+		return;
+
+	try
+	{
+		auto oldPath = this->configPath / (kickoff->name + FILE_EXT);
+		auto newPath = this->configPath / (newName + FILE_EXT);
+
+		if (!fs::is_regular_file(oldPath))
+		{
+			LOG("No recording file found with this name: {}", kickoff->name);
+			return;
+		}
+		if (fs::exists(newPath))
+		{
+			LOG("Already found a recording with this name: {}", newName);
+			return;
+		}
+
+		fs::rename(oldPath, newPath);
+
+		kickoff->name = newName;
+
+		onSuccess();
+	}
+	catch (const fs::filesystem_error)
+	{
+		LOG("Failed to rename recording file");
+	}
+}
+
+void KickoffPractice::deleteKickoff(RecordedKickoff* kickoff, std::function<void()> onSuccess)
+{
+	try
+	{
+		auto fileName = kickoff->name + FILE_EXT;
+		auto filePath = this->configPath / fileName;
+
+		if (fs::exists(filePath) && !fs::is_regular_file(filePath))
+		{
+			LOG("Recording is no regular file: {}", kickoff->name);
+			return;
+		}
+
+		fs::remove(filePath);
+
+		auto it = std::find_if(loadedKickoffs.begin(), loadedKickoffs.end(),
+			[kickoff](const RecordedKickoff& other) { return &other == kickoff; }
+		);
+		if (it != loadedKickoffs.end()) loadedKickoffs.erase(it);
+
+		onSuccess();
+	}
+	catch (const fs::filesystem_error)
+	{
+		LOG("Failed to remove recording file");
+	}
 }
 
 void KickoffPractice::recordBoostSettings()

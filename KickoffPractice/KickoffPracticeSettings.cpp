@@ -47,7 +47,7 @@ void KickoffPractice::RenderSettings()
 		cvarManager->getCvar(CVAR_AUTO_RESTART).setValue(autoRestart);
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Automatically repeats the last command. Break out of auto-restart by resetting freeplay, exiting or using the reset button below.");
-	
+
 	if (ImGui::Checkbox("Show Indicator", &showIndicator))
 		cvarManager->getCvar(CVAR_SHOW_INDICATOR).setValue(showIndicator);
 	if (ImGui::IsItemHovered())
@@ -85,7 +85,8 @@ void KickoffPractice::RenderSettings()
 		KickoffPosition position = static_cast<KickoffPosition>(i);
 
 		bool active = activePositions.contains(position);
-		if (ImGui::Checkbox(getKickoffName(position).c_str(), &active))
+		auto positionName = getKickoffName(position);
+		if (ImGui::Checkbox(positionName.c_str(), &active))
 		{
 			if (active) activePositions.insert(position);
 			else activePositions.erase(position);
@@ -126,7 +127,7 @@ void KickoffPractice::RenderSettings()
 		CommandButton(this, label, command);
 	}
 	ImGui::Spacing();
-	if (ImGui::Button("Save last attempt"))
+	if (ImGui::Button("Save Last Attempt"))
 		gameWrapper->Execute([this](...)
 			{
 				cvarManager->executeCommand(SAVE_COMMAND);
@@ -155,23 +156,87 @@ void KickoffPractice::RenderSettings()
 
 	for (int position = 0; position < 5; position++)
 	{
-		ImGui::Text(getKickoffName(position).c_str());
+		auto positionName = getKickoffName(position);
+		ImGui::Text(positionName.c_str());
 
 		if (kickoffsByPosition[position].empty())
 			ImGui::Text("(no kickoffs recorded)");
 
-		for (auto& kickoff : kickoffsByPosition[position])
+		for (auto kickoff : kickoffsByPosition[position])
 		{
+			ImGui::PushID(kickoff->name.c_str());
+
 			if (ImGui::Checkbox(kickoff->name.c_str(), &kickoff->isActive))
 				changedActiveKickoffs = true;
 
-			auto label = "Replay##" + kickoff->name;
+			auto label = "Replay";
 			auto command = REPLAY_COMMAND + " \"" + kickoff->name + "\"";
 
 			ImGui::SameLine();
 			CommandButton(this, label, command);
 			if (ImGui::IsItemHovered())
 				ImGui::SetTooltip("Replay a kickoff. Spawns a bot that replays the same recording. Only changes the bot car body.");
+
+			ImGui::SameLine();
+			if (ImGui::Button("Rename"))
+			{
+				tempName = kickoff->name;
+				ImGui::OpenPopup("Rename Recording");
+			}
+
+			ImGui::SetNextWindowPos(ImGui::GetMousePos(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+			if (ImGui::BeginPopupModal("Rename Recording", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+			{
+				ImGui::SetNextItemWidth(ImGui::GetFontSize() * 20);
+				ImGui::InputText("", &tempName);
+				ImGui::Spacing();
+
+				if (ImGui::Button("Rename", ImVec2(120, 0)))
+				{
+					this->renameKickoff(kickoff, tempName, [&]()
+						{
+							changedActiveKickoffs = true;
+							ImGui::CloseCurrentPopup();
+						});
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Cancel", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
+
+				ImGui::EndPopup();
+			}
+
+			ImGui::SameLine();
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.0f, 0.0f, 1.0f));
+			if (ImGui::Button("Delete"))
+				ImGui::OpenPopup("Delete Recording");
+			ImGui::PopStyleColor();
+
+			ImGui::SetNextWindowPos(ImGui::GetMousePos(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+			if (ImGui::BeginPopupModal("Delete Recording", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+			{
+				auto text = std::format("Confirm you want to delete this recording:\n{}", kickoff->name);
+				ImGui::Text(text.c_str());
+				ImGui::Spacing();
+				ImGui::Text("This operation cannot be undone!");
+				ImGui::Spacing();
+
+				if (ImGui::Button("Delete", ImVec2(120, 0)))
+				{
+					this->deleteKickoff(kickoff, [&]()
+						{
+							changedActiveKickoffs = true;
+							ImGui::CloseCurrentPopup();
+						});
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Cancel", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
+
+				ImGui::EndPopup();
+			}
+
+			ImGui::PopID();
 		}
 		ImGui::Spacing();
 	}

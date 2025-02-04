@@ -105,6 +105,9 @@ private:
 	void readKickoffFiles();
 	RecordedKickoff readKickoffFile(std::filesystem::path filePath);
 
+	void renameKickoff(RecordedKickoff* kickoff, std::string newName, std::function<void()> onSuccess);
+	void deleteKickoff(RecordedKickoff* kickoff, std::function<void()> onSuccess);
+
 	void recordBoostSettings();
 	void resetBoostSettings();
 	static void applyBoostSettings(BoostWrapper boost, BoostSettings settings);
@@ -137,6 +140,8 @@ private:
 	bool showIndicator = true;
 
 	void renderIndicator(CanvasWrapper canvas);
+
+	std::string tempName; // Used for renaming kickoffs in the UI.
 
 	static Vector getKickoffLocation(int kickoff, KickoffSide side);
 	static float getKickoffYaw(int kickoff, KickoffSide side);
