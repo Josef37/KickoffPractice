@@ -515,10 +515,8 @@ void KickoffPractice::saveRecording()
 	}
 	LOG("Saving... Ticks recorded: {}", this->recordedInputs.size());
 
-	auto filename = getRecordingFilename();
-
 	RecordedKickoff kickoff;
-	kickoff.name = filename;
+	kickoff.name = getNewRecordingName();
 	kickoff.position = this->currentKickoffPosition;
 	kickoff.carBody = gameWrapper->GetLocalCar().GetLoadoutBody(); // TODO: Improve by using the values during the recording.
 	kickoff.settings = gameWrapper->GetSettings().GetGamepadSettings();
@@ -528,6 +526,7 @@ void KickoffPractice::saveRecording()
 	this->loadedKickoffs.push_back(kickoff);
 	this->writeActiveKickoffs();
 
+	auto filename = kickoff.name + FILE_EXT;
 	std::ofstream inputFile(this->configPath / filename);
 	if (!inputFile.is_open())
 	{
@@ -564,7 +563,7 @@ void KickoffPractice::saveRecording()
 	inputFile.close();
 }
 
-std::string KickoffPractice::getRecordingFilename() const
+std::string KickoffPractice::getNewRecordingName() const
 {
 	auto time = std::time(nullptr);
 	std::ostringstream oss;
@@ -573,7 +572,7 @@ std::string KickoffPractice::getRecordingFilename() const
 
 	std::string kickoffName = KickoffPractice::getKickoffName(this->currentKickoffPosition);
 
-	return kickoffName + " " + timestamp + FILE_EXT;
+	return timestamp + " " + kickoffName;
 }
 
 void KickoffPractice::removeBots()
@@ -781,7 +780,7 @@ RecordedKickoff KickoffPractice::readKickoffFile(std::filesystem::path filePath)
 	LOG("{}: {} inputs loaded", filePath.filename().string(), inputs.size());
 
 	RecordedKickoff kickoff;
-	kickoff.name = filePath.filename().string();
+	kickoff.name = filePath.stem().string();
 
 	if (position.has_value())
 		kickoff.position = *position;

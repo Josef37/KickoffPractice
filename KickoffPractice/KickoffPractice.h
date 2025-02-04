@@ -88,7 +88,7 @@ private:
 	std::optional<ControllerInput> getRecordedInput();
 	void reset();
 	void saveRecording();
-	std::string getRecordingFilename() const;
+	std::string getNewRecordingName() const;
 
 	std::vector<RecordedKickoff> loadedKickoffs; // TODO: Introduce setter to update `currentKickoff` pointer.
 	RecordedKickoff* currentKickoff;
