@@ -38,12 +38,30 @@ void KickoffPractice::onLoad()
 	this->currentKickoffPosition = KickoffPosition::CornerRight;
 	srand((int)time(0)); // initialize the random number generator seed
 
+	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffPractice", true, true);
+
+	persistentStorage->RegisterPersistentCvar(CVAR_ENABLED, "1").addOnValueChanged([this](std::string oldValue, CVarWrapper cvar)
+		{
+			gameWrapper->Execute([this](...) { reset(); });
+			pluginEnabled = cvar.getBoolValue();
+		});
+
+	persistentStorage->RegisterPersistentCvar(CVAR_RESTART_ON_RESET, "1")
+		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { restartOnTrainingReset = cvar.getBoolValue(); });
+
+	persistentStorage->RegisterPersistentCvar(CVAR_AUTO_RESTART, "0")
+		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { autoRestart = cvar.getBoolValue(); });
+
+	persistentStorage->RegisterPersistentCvar(CVAR_BACK_TO_NORMAL, "0.5")
+		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { timeAfterBackToNormal = cvar.getFloatValue(); });
+
+	persistentStorage->RegisterPersistentCvar(CVAR_ACTIVE_POSITIONS, getActivePositionsMask())
+		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { setActivePositionFromMask(cvar.getStringValue()); });
+
 	this->configPath = gameWrapper->GetDataFolder() / PLUGIN_FOLDER;
 	if (!fs::exists(this->configPath) || !fs::is_directory(this->configPath))
 		if (!fs::create_directory(this->configPath))
 			LOG("Can't create config directory in bakkesmod data folder");
-
-	this->readConfigFile();
 
 	this->readKickoffFiles();
 
@@ -487,7 +505,7 @@ void KickoffPractice::saveRecording()
 	kickoff.isActive = true; // Automatically select the newly recorded kickoff.
 
 	this->loadedKickoffs.push_back(kickoff);
-	this->writeConfigFile();
+	this->writeActiveKickoffs();
 
 	std::ofstream inputFile(this->configPath / filename);
 	if (!inputFile.is_open())
@@ -567,7 +585,7 @@ bool KickoffPractice::isBot(CarWrapper car)
 	return car.GetOwnerName() == BOT_CAR_NAME && car.GetPRI().GetbBot();
 }
 
-void KickoffPractice::writeConfigFile()
+void KickoffPractice::writeActiveKickoffs()
 {
 	auto filename = this->configPath / CONFIG_FILE;
 
@@ -587,7 +605,7 @@ void KickoffPractice::writeConfigFile()
 	inputFile.close();
 }
 
-void KickoffPractice::readConfigFile()
+void KickoffPractice::readActiveKickoffs()
 {
 	auto filename = this->configPath / CONFIG_FILE;
 
@@ -635,7 +653,7 @@ void KickoffPractice::readKickoffFiles()
 		LOG("ERROR : {}", ex.code().message());
 	}
 
-	this->readConfigFile();
+	this->readActiveKickoffs();
 }
 
 RecordedKickoff KickoffPractice::readKickoffFile(std::filesystem::path filePath)
@@ -877,4 +895,21 @@ std::optional<KickoffPosition> KickoffPractice::parseKickoffArg(std::string arg)
 		return std::nullopt;
 	}
 	return static_cast<KickoffPosition>(kickoffNumber - 1);
+}
+
+// Use a string mask for usability in commands.
+std::string KickoffPractice::getActivePositionsMask()
+{
+	std::string mask = "00000";
+	for (auto position : activePositions)
+		mask[position] = '1';
+	return mask;
+}
+void KickoffPractice::setActivePositionFromMask(std::string mask)
+{
+	activePositions.clear();
+
+	for (int i = 0; i < 5; i++)
+		if (mask[i] == '1')
+			activePositions.insert(static_cast<KickoffPosition>(i));
 }

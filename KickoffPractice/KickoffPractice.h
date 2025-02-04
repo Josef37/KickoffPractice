@@ -1,13 +1,15 @@
 #pragma once
 
+#include <fstream>
+#include <set>
+
 #include "GuiBase.h"
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 #include "bakkesmod/plugin/pluginwindow.h"
 #include "bakkesmod/plugin/PluginSettingsWindow.h"
-
 #include "version.h"
-#include <fstream>
-#include <set>
+
+#include "PersistentStorage.h"
 
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
@@ -15,6 +17,12 @@ static const std::string TRAIN_COMMAND = "kickoff_train";
 static const std::string RECORD_COMMAND = "kickoff_train_record";
 static const std::string SAVE_COMMAND = "kickoff_train_save";
 static const std::string REPLAY_COMMAND = "kickoff_train_replay";
+
+static const std::string CVAR_ENABLED = "kickoff_train_enabled";
+static const std::string CVAR_RESTART_ON_RESET = "kickoff_train_restart_on_reset";
+static const std::string CVAR_AUTO_RESTART = "kickoff_train_auto_restart";
+static const std::string CVAR_BACK_TO_NORMAL = "kickoff_train_back_to_normal";
+static const std::string CVAR_ACTIVE_POSITIONS = "kickoff_train_active_positions";
 
 enum KickoffPosition
 {
@@ -66,6 +74,8 @@ struct BoostSettings
 class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public SettingsWindowBase
 {
 private:
+	std::shared_ptr<PersistentStorage> persistentStorage;
+
 	bool pluginEnabled;
 	bool shouldExecute();
 	void setTimeoutChecked(float seconds, std::function<void()> callback);
@@ -87,8 +97,8 @@ private:
 	void removeBot(CarWrapper car);
 	bool isBot(CarWrapper car);
 
-	void writeConfigFile();
-	void readConfigFile();
+	void writeActiveKickoffs();
+	void readActiveKickoffs();
 	std::filesystem::path configPath;
 
 	void readKickoffFiles();
@@ -117,10 +127,12 @@ private:
 		KickoffPosition::BackRight,
 		KickoffPosition::BackLeft,
 		KickoffPosition::BackCenter };
+	std::string getActivePositionsMask();
+	void setActivePositionFromMask(std::string mask);
 	// Set this to ignore `activePositions` and only train a single kickoff.
-	std::optional<KickoffPosition> positionOverride; 
-	bool restartOnTrainingReset;
-	bool autoRestart;
+	std::optional<KickoffPosition> positionOverride;
+	bool restartOnTrainingReset = true;
+	bool autoRestart = false;
 
 	static Vector getKickoffLocation(int kickoff, KickoffSide side);
 	static float getKickoffYaw(int kickoff, KickoffSide side);

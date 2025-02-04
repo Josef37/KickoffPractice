@@ -23,24 +23,28 @@ void KickoffPractice::RenderSettings()
 {
 	ImGui::Spacing();
 
-	ImGui::Checkbox("Enable plugin", &pluginEnabled);
+	if (ImGui::Checkbox("Enable plugin", &pluginEnabled))
+		cvarManager->getCvar(CVAR_ENABLED).setValue(pluginEnabled);
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Enable or disable the plugin");
 
 	ImGui::Spacing();
 
 	ImGui::SetNextItemWidth(300);
-	ImGui::DragFloat("Time before back to normal", &this->timeAfterBackToNormal, 0.002f, 0.0f, FLT_MAX, "%.1f seconds");
+	if (ImGui::DragFloat("Time before back to normal", &timeAfterBackToNormal, 0.002f, 0.0f, FLT_MAX, "%.1f seconds"))
+		cvarManager->getCvar(CVAR_BACK_TO_NORMAL).setValue(timeAfterBackToNormal);
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("How long you stay in \"kickoff mode\" after someone hit the ball. This also affects how long the recording lasts after hitting the ball.");
 
 	ImGui::Spacing();
 
-	ImGui::Checkbox("Restart on Freeplay Reset", &restartOnTrainingReset);
+	if (ImGui::Checkbox("Restart on Freeplay Reset", &restartOnTrainingReset))
+		cvarManager->getCvar(CVAR_RESTART_ON_RESET).setValue(restartOnTrainingReset);
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Repeats the last command when resetting freeplay, i.e. using the \"Rest Ball\" binding.");
 
-	ImGui::Checkbox("Auto-Restart", &autoRestart);
+	if (ImGui::Checkbox("Auto-Restart", &autoRestart))
+		cvarManager->getCvar(CVAR_AUTO_RESTART).setValue(autoRestart);
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Automatically repeats the last command. Break out of auto-restart by resetting freeplay, exiting or using the reset button below.");
 
@@ -80,19 +84,27 @@ void KickoffPractice::RenderSettings()
 		{
 			if (active) activePositions.insert(position);
 			else activePositions.erase(position);
+
+			cvarManager->getCvar(CVAR_ACTIVE_POSITIONS).setValue(getActivePositionsMask());
 		}
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Select All"))
+	{
 		activePositions.insert({
 			KickoffPosition::CornerRight,
 			KickoffPosition::CornerLeft,
 			KickoffPosition::BackRight,
 			KickoffPosition::BackLeft,
 			KickoffPosition::BackCenter });
+		cvarManager->getCvar(CVAR_ACTIVE_POSITIONS).setValue(getActivePositionsMask());
+	}
 	ImGui::SameLine();
 	if (ImGui::Button("Clear All"))
+	{
 		activePositions.clear();
+		cvarManager->getCvar(CVAR_ACTIVE_POSITIONS).setValue(getActivePositionsMask());
+	}
 
 	SpacedSeparator();
 
@@ -160,5 +172,5 @@ void KickoffPractice::RenderSettings()
 	}
 
 	if (changedActiveKickoffs)
-		writeConfigFile();
+		writeActiveKickoffs();
 }
