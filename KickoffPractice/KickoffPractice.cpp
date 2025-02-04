@@ -25,18 +25,9 @@ void KickoffPractice::onLoad()
 {
 	_globalCvarManager = cvarManager;
 
-	this->pluginEnabled = true;
-	this->isInGoalReplay = false;
-	this->currentKickoff = nullptr;
-	this->mode = KickoffMode::Training;
-	this->rotationBot = Rotator(0, 0, 0);
-	this->locationBot = Vector(0, 0, 0);
-	this->startingFrame = 0;
-	this->kickoffCounter = 0;
-	this->kickoffState = KickoffState::nothing;
-	this->botJustSpawned = false;
-	this->currentKickoffPosition = KickoffPosition::CornerRight;
-	srand((int)time(0)); // initialize the random number generator seed
+	// initialize the random number generator seed
+	srand((int)time(0));
+
 
 	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffPractice", true, true);
 
@@ -61,6 +52,7 @@ void KickoffPractice::onLoad()
 
 	persistentStorage->RegisterPersistentCvar(CVAR_ACTIVE_POSITIONS, getActivePositionsMask())
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { setActivePositionFromMask(cvar.getStringValue()); });
+
 
 	this->configPath = gameWrapper->GetDataFolder() / PLUGIN_FOLDER;
 	if (!fs::exists(this->configPath) || !fs::is_directory(this->configPath))
@@ -132,8 +124,7 @@ void KickoffPractice::onLoad()
 				return;
 			}
 			auto& foundKickoff = *it;
-			this->currentKickoff = &foundKickoff;
-			this->currentKickoffPosition = this->currentKickoff->position;
+			this->setCurrentKickoff(&foundKickoff);
 
 			this->start();
 		},
@@ -218,20 +209,17 @@ void KickoffPractice::onLoad()
 		}
 	);
 
+	this->isInGoalReplay = gameWrapper->IsInReplay();
+
 	gameWrapper->HookEventPost(
-		"Function TAGame.Ball_TA.OnHitGoal",
-		[this](...)
-		{
-			this->isInGoalReplay = true;
-		}
+		"Function GameEvent_Soccar_TA.ReplayPlayback.BeginState",
+		[this](...) { this->isInGoalReplay = true; }
 	);
 	gameWrapper->HookEventPost(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.EndState",
-		[this](...)
-		{
-			this->isInGoalReplay = false;
-		}
+		[this](...) { this->isInGoalReplay = false; }
 	);
+
 	gameWrapper->HookEventPost(
 		"Function GameEvent_Soccar_TA.Countdown.EndState", // Called at the beginning/reset of freeplay.
 		[this](...)
@@ -317,8 +305,7 @@ void KickoffPractice::start()
 			return;
 		}
 
-		this->currentKickoff = suitableKickoffs[rand() % suitableKickoffs.size()];
-		this->currentKickoffPosition = this->currentKickoff->position;
+		this->setCurrentKickoff(suitableKickoffs[rand() % suitableKickoffs.size()]);
 	}
 
 	// We wait a little before updating the game state, because we want the reset to finish first.
@@ -345,7 +332,7 @@ void KickoffPractice::setupKickoff()
 	Rotator rotationPlayer = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffPosition, playerSide) * CONST_RadToUnrRot), 0);
 	this->locationBot = KickoffPractice::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange);
 	this->rotationBot = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffPosition, KickoffSide::Orange) * CONST_RadToUnrRot), 0);
-	if (this->mode != KickoffMode::Recording)
+	if (this->mode != KickoffMode::Recording && this->currentKickoff)
 	{
 		auto carBody = this->currentKickoff->carBody;
 		server.SpawnBot(carBody, BOT_CAR_NAME);
@@ -575,6 +562,12 @@ std::string KickoffPractice::getNewRecordingName() const
 	return timestamp + " " + kickoffName;
 }
 
+void KickoffPractice::setCurrentKickoff(RecordedKickoff* kickoff)
+{
+	this->currentKickoff = kickoff;
+	if (kickoff) this->currentKickoffPosition = kickoff->position;
+}
+
 void KickoffPractice::removeBots()
 {
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
@@ -657,6 +650,7 @@ void KickoffPractice::readActiveKickoffs()
 void KickoffPractice::readKickoffFiles()
 {
 	this->loadedKickoffs.clear();
+	this->setCurrentKickoff(nullptr);
 
 	try
 	{
@@ -804,10 +798,10 @@ RecordedKickoff KickoffPractice::readKickoffFile(fs::path filePath)
 	return kickoff;
 }
 
-void KickoffPractice::renameKickoff(RecordedKickoff* kickoff, std::string newName, std::function<void()> onSuccess)
+void KickoffPractice::renameKickoff(RecordedKickoff* kickoff, std::string newName, std::function<void()> onSuccess) const
 {
-	if (newName.empty())
-		return;
+	if (!kickoff) return;
+	if (newName.empty()) return;
 
 	try
 	{
@@ -839,6 +833,8 @@ void KickoffPractice::renameKickoff(RecordedKickoff* kickoff, std::string newNam
 
 void KickoffPractice::deleteKickoff(RecordedKickoff* kickoff, std::function<void()> onSuccess)
 {
+	if (!kickoff) return;
+
 	try
 	{
 		auto fileName = kickoff->name + FILE_EXT;

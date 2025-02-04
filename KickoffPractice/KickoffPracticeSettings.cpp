@@ -8,12 +8,12 @@ static void SpacedSeparator()
 	ImGui::Spacing();
 }
 
-static void CommandButton(KickoffPractice* that, const std::string& label, const std::string& command)
+void KickoffPractice::CommandButton(const std::string& label, const std::string& command)
 {
 	if (ImGui::Button(label.c_str()))
-		that->gameWrapper->Execute([that, command](...)
+		this->gameWrapper->Execute([this, command](...)
 			{
-				that->cvarManager->executeCommand(command + ";closemenu settings");
+				this->cvarManager->executeCommand(command + ";closemenu settings");
 			});
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip(command.c_str());
@@ -72,11 +72,11 @@ void KickoffPractice::RenderSettings()
 		auto label = "Train " + getKickoffName(position);
 		auto command = TRAIN_COMMAND + " " + std::to_string(position + 1);
 
-		CommandButton(this, label, command);
+		CommandButton(label, command);
 	}
 	ImGui::Spacing();
 
-	CommandButton(this, "Train Selected", TRAIN_COMMAND);
+	CommandButton("Train Selected", TRAIN_COMMAND);
 
 	for (int i = 0; i < 5; i++)
 	{
@@ -124,7 +124,7 @@ void KickoffPractice::RenderSettings()
 		auto command = RECORD_COMMAND + " " + std::to_string(position + 1);
 		auto label = "Record " + getKickoffName(position);
 
-		CommandButton(this, label, command);
+		CommandButton(label, command);
 	}
 	ImGui::Spacing();
 	if (ImGui::Button("Save Last Attempt"))
@@ -173,7 +173,7 @@ void KickoffPractice::RenderSettings()
 			auto command = REPLAY_COMMAND + " \"" + kickoff->name + "\"";
 
 			ImGui::SameLine();
-			CommandButton(this, label, command);
+			CommandButton(label, command);
 			if (ImGui::IsItemHovered())
 				ImGui::SetTooltip("Replay a kickoff. Spawns a bot that replays the same recording. Only changes the bot car body.");
 

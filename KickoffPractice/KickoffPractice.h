@@ -77,7 +77,7 @@ class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public Settin
 private:
 	std::shared_ptr<PersistentStorage> persistentStorage;
 
-	bool pluginEnabled;
+	bool pluginEnabled = true;
 	bool shouldExecute();
 	void setTimeoutChecked(float seconds, std::function<void()> callback);
 
@@ -90,8 +90,10 @@ private:
 	void saveRecording();
 	std::string getNewRecordingName() const;
 
-	std::vector<RecordedKickoff> loadedKickoffs; // TODO: Introduce setter to update `currentKickoff` pointer.
-	RecordedKickoff* currentKickoff;
+	std::vector<RecordedKickoff> loadedKickoffs;
+	RecordedKickoff* currentKickoff = nullptr;
+	void setCurrentKickoff(RecordedKickoff* kickoff);
+
 	std::vector<ControllerInput> recordedInputs;
 
 	void removeBots();
@@ -105,23 +107,23 @@ private:
 	void readKickoffFiles();
 	RecordedKickoff readKickoffFile(std::filesystem::path filePath);
 
-	void renameKickoff(RecordedKickoff* kickoff, std::string newName, std::function<void()> onSuccess);
+	void renameKickoff(RecordedKickoff* kickoff, std::string newName, std::function<void()> onSuccess) const;
 	void deleteKickoff(RecordedKickoff* kickoff, std::function<void()> onSuccess);
 
 	void recordBoostSettings();
 	void resetBoostSettings();
 	static void applyBoostSettings(BoostWrapper boost, BoostSettings settings);
-	BoostSettings boostSettings;
+	BoostSettings boostSettings{};
 
-	int startingFrame; // Physics frame when the kickoff started, i.e. the countdown ran out.
-	int kickoffCounter; // How often did we start a kickoff this session?
-	KickoffPosition currentKickoffPosition;
-	KickoffState kickoffState;
-	bool botJustSpawned;
-	Vector locationBot;
-	Rotator rotationBot;
-	bool isInGoalReplay;
-	KickoffMode mode; // TODO: Link mode to current position/kickoff values to check what's required.
+	int startingFrame = 0; // Physics frame when the kickoff started, i.e. the countdown ran out.
+	int kickoffCounter = 0; // How often did we start a kickoff this session?
+	KickoffPosition currentKickoffPosition = KickoffPosition::BackCenter;
+	KickoffState kickoffState = KickoffState::nothing;
+	bool botJustSpawned = false;
+	Vector locationBot = Vector(0, 0, 0);
+	Rotator rotationBot = Rotator(0, 0, 0);
+	bool isInGoalReplay = false;
+	KickoffMode mode = KickoffMode::Training; // TODO: Link mode to current position/kickoff values to check what's required.
 
 	float timeAfterBackToNormal = 0.5;
 	// Kickoff positions currently selected for training.
@@ -142,6 +144,7 @@ private:
 	void renderIndicator(CanvasWrapper canvas);
 
 	std::string tempName; // Used for renaming kickoffs in the UI.
+	void CommandButton(const std::string& label, const std::string& command);
 
 	static Vector getKickoffLocation(int kickoff, KickoffSide side);
 	static float getKickoffYaw(int kickoff, KickoffSide side);
