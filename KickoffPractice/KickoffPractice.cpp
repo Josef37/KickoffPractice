@@ -40,10 +40,11 @@ void KickoffPractice::onLoad()
 
 	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffPractice", true, true);
 
+	// TODO: Add description. Store cvar, title and description in variable to use it in UI, too.
 	persistentStorage->RegisterPersistentCvar(CVAR_ENABLED, "1").addOnValueChanged([this](std::string oldValue, CVarWrapper cvar)
 		{
-			gameWrapper->Execute([this](...) { reset(); });
 			pluginEnabled = cvar.getBoolValue();
+			if (!pluginEnabled) gameWrapper->Execute([this](...) { reset(); });
 		});
 
 	persistentStorage->RegisterPersistentCvar(CVAR_RESTART_ON_RESET, "1")
@@ -263,7 +264,7 @@ void KickoffPractice::onLoad()
 
 void KickoffPractice::onUnload()
 {
-	// nothing to unload...
+	this->reset();
 }
 
 bool KickoffPractice::shouldExecute()
