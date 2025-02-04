@@ -396,14 +396,17 @@ void KickoffPractice::startCountdown(int seconds, int kickoffCounterAtStart, std
 		return;
 	}
 
-	server.SendCountdownMessage(seconds, gameWrapper->GetPlayerController());
+	// TODO: Actually pause the countdown.
+	if (!gameWrapper->IsPaused())
+		server.SendCountdownMessage(seconds, gameWrapper->GetPlayerController());
 
 	// TODO: Verify the countdown is not delayed too much because the timeout might only be a lower bound.
 	this->setTimeoutChecked(
 		1.0f,
 		[this, seconds, kickoffCounterAtStart, onCompleted]()
 		{
-			this->startCountdown(seconds - 1, kickoffCounterAtStart, onCompleted);
+			auto newDelay = gameWrapper->IsPaused() ? seconds : seconds - 1;
+			this->startCountdown(newDelay, kickoffCounterAtStart, onCompleted);
 		}
 	);
 }
