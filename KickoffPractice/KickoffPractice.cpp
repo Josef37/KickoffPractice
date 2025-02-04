@@ -185,7 +185,7 @@ void KickoffPractice::onLoad()
 
 	gameWrapper->HookEvent(
 		"Function Engine.Actor.SpawnInstance",
-		[this](std::string eventName)
+		[this](...)
 		{
 			if (!this->shouldExecute()) return;
 
@@ -216,21 +216,21 @@ void KickoffPractice::onLoad()
 
 	gameWrapper->HookEventPost(
 		"Function TAGame.Ball_TA.OnHitGoal",
-		[this](std::string eventname)
+		[this](...)
 		{
 			this->isInGoalReplay = true;
 		}
 	);
 	gameWrapper->HookEventPost(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.EndState",
-		[this](std::string eventname)
+		[this](...)
 		{
 			this->isInGoalReplay = false;
 		}
 	);
 	gameWrapper->HookEventPost(
 		"Function GameEvent_Soccar_TA.Countdown.EndState", // Called at the beginning/reset of freeplay.
-		[this](std::string eventname)
+		[this](...)
 		{
 			if (!this->shouldExecute()) return;
 
@@ -240,7 +240,7 @@ void KickoffPractice::onLoad()
 	);
 	gameWrapper->HookEvent(
 		"Function TAGame.PlayerController_TA.PlayerResetTraining", // Called when resetting freeplay.
-		[this](std::string eventName)
+		[this](...)
 		{
 			// Allow to break out of auto-restart by resetting freeplay.
 			if (this->autoRestart && this->kickoffState != KickoffState::nothing)
@@ -264,7 +264,7 @@ bool KickoffPractice::shouldExecute()
 void KickoffPractice::setTimeoutChecked(float seconds, std::function<void()> callback)
 {
 	gameWrapper->SetTimeout(
-		[this, callback](GameWrapper* _)
+		[this, callback](...)
 		{
 			if (!this->shouldExecute())
 				return;

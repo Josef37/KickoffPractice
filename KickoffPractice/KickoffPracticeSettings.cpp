@@ -11,7 +11,7 @@ static void SpacedSeparator()
 static void CommandButton(KickoffPractice* that, const std::string& label, const std::string& command)
 {
 	if (ImGui::Button(label.c_str()))
-		that->gameWrapper->Execute([that, command](GameWrapper* gw)
+		that->gameWrapper->Execute([that, command](...)
 			{
 				that->cvarManager->executeCommand(command + ";closemenu settings");
 			});
@@ -51,7 +51,7 @@ void KickoffPractice::RenderSettings()
 	ImGui::Spacing();
 
 	if (ImGui::Button("Reset Training/Recording"))
-		gameWrapper->Execute([this](GameWrapper* gw) { this->reset(); });
+		gameWrapper->Execute([this](...) { this->reset(); });
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Reset back to normal freeplay.");
 
@@ -122,7 +122,7 @@ void KickoffPractice::RenderSettings()
 	}
 	ImGui::Spacing();
 	if (ImGui::Button("Save last attempt"))
-		gameWrapper->Execute([this](GameWrapper* gw)
+		gameWrapper->Execute([this](...)
 			{
 				cvarManager->executeCommand(SAVE_COMMAND);
 			});
