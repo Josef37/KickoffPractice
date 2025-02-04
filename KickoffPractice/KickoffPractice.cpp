@@ -461,6 +461,13 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 		player.SetbDriving(this->kickoffState != KickoffState::waitingToStart);
 
+		// If the player is holding boost when starting training, it won't stop consuming boost.
+		// Disabling was quite messy (with `PlayerController::ToggleBoost` or `BoostComponent::SetbActive`),
+		// which resulted in weird game states. So we just fill the tank every tick.
+		if (auto boost = player.GetBoostComponent())
+			if (this->kickoffState == KickoffState::waitingToStart)
+				boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
+
 		if (this->kickoffState != KickoffState::started)
 			return;
 
