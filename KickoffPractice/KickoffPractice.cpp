@@ -209,7 +209,10 @@ void KickoffPractice::onLoad()
 		}
 	);
 
-	this->isInGoalReplay = gameWrapper->IsInReplay();
+	// Initially set `isInGoalReplay` if we load the plugin during replay.
+	if (auto server = gameWrapper->GetCurrentGameState())
+		if (auto director = server.GetReplayDirector())
+			this->isInGoalReplay = director.GetReplayTimeSeconds() > 0;
 
 	gameWrapper->HookEventPost(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.BeginState",
