@@ -154,8 +154,6 @@ private:
 	int kickoffCounter = 0;
 	// Set after scoring a goal to prevent execution.
 	bool isInGoalReplay = false;
-	// Can only update car attributes after it spawned.
-	bool botJustSpawned = false;
 	
 	// How long (in seconds) after hitting the ball we end the kickoff.
 	float timeAfterBackToNormal = 0.5;

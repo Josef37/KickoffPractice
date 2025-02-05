@@ -184,14 +184,14 @@ void KickoffPractice::onLoad()
 
 			ServerWrapper server = gameWrapper->GetCurrentGameState();
 			if (!server) return;
-			// `SpawnInstance` gets called multiple times for the same car.
-			// We make sure to execute the following code only once.
-			if (!this->botJustSpawned) return;
 			if (!this->currentKickoff) return;
 
 			for (auto car : server.GetCars())
 			{
 				if (!this->isBot(car)) continue;
+
+				auto boost = car.GetBoostComponent();
+				if (!boost) continue;
 
 				Vector  locationBot = KickoffPractice::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange);
 				Rotator rotationBot = KickoffPractice::getKickoffRotation(this->currentKickoffPosition, KickoffSide::Orange);
@@ -203,10 +203,12 @@ void KickoffPractice::onLoad()
 				// But then the `SetVehicleInput` hook would not fire for the bot.
 				// So we don't disable the controller, but overwrite the inputs inside the hook.
 
+				applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
+				boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
+
 				auto settings = this->currentKickoff->settings;
 				car.GetPRI().SetUserCarPreferences(settings.DodgeInputThreshold, settings.SteeringSensitivity, settings.AirControlSensitivity);
 			}
-			this->botJustSpawned = false;
 		}
 	);
 
@@ -339,7 +341,6 @@ void KickoffPractice::setupKickoff()
 	{
 		auto carBody = this->currentKickoff->carBody;
 		server.SpawnBot(carBody, BOT_CAR_NAME);
-		this->botJustSpawned = true;
 	}
 
 	player.SetLocation(locationPlayer);
