@@ -16,8 +16,6 @@ static const BoostSettings INITIAL_BOOST_SETTINGS = BoostSettings{
 
 static const std::string PLUGIN_FOLDER = "kickoffPractice";
 static const std::string CONFIG_FILE = "config.cfg";
-static const std::string DEFAULT_BOT_FOLDER = "bot";
-static const std::string DEFAULT_RECORDING_FOLDER = "recorded";
 static const std::string FILE_EXT = ".kinputs";
 static const std::string BOT_CAR_NAME = "Kickoff Bot";
 
@@ -195,8 +193,11 @@ void KickoffPractice::onLoad()
 			{
 				if (!this->isBot(car)) continue;
 
-				car.SetLocation(this->locationBot);
-				car.SetCarRotation(this->rotationBot);
+				Vector  locationBot = KickoffPractice::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange);
+				Rotator rotationBot = KickoffPractice::getKickoffRotation(this->currentKickoffPosition, KickoffSide::Orange);
+
+				car.SetLocation(locationBot);
+				car.SetCarRotation(rotationBot);
 				car.Stop();
 				// To disable the bot moving by itself we would call `car.GetAIController().DoNothing()` here.
 				// But then the `SetVehicleInput` hook would not fire for the bot.
@@ -331,10 +332,9 @@ void KickoffPractice::setupKickoff()
 	if (!ball) return;
 
 	KickoffSide playerSide = this->mode == KickoffMode::Recording ? KickoffSide::Orange : KickoffSide::Blue;
-	Vector locationPlayer = KickoffPractice::getKickoffLocation(this->currentKickoffPosition, playerSide);
-	Rotator rotationPlayer = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffPosition, playerSide) * CONST_RadToUnrRot), 0);
-	this->locationBot = KickoffPractice::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange);
-	this->rotationBot = Rotator(0, std::lroundf(KickoffPractice::getKickoffYaw(this->currentKickoffPosition, KickoffSide::Orange) * CONST_RadToUnrRot), 0);
+	Vector  locationPlayer = KickoffPractice::getKickoffLocation(this->currentKickoffPosition, playerSide);
+	Rotator rotationPlayer = KickoffPractice::getKickoffRotation(this->currentKickoffPosition, playerSide);
+
 	if (this->mode != KickoffMode::Recording && this->currentKickoff)
 	{
 		auto carBody = this->currentKickoff->carBody;
@@ -493,7 +493,6 @@ void KickoffPractice::reset()
 	this->removeBots();
 	this->kickoffState = KickoffState::nothing;
 	this->resetBoostSettings();
-	this->isInGoalReplay = false;
 }
 
 void KickoffPractice::saveRecording()
@@ -560,7 +559,7 @@ std::string KickoffPractice::getNewRecordingName() const
 	oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H-%M-%S");
 	std::string timestamp = oss.str();
 
-	std::string kickoffName = KickoffPractice::getKickoffName(this->currentKickoffPosition);
+	std::string kickoffName = KickoffPractice::getKickoffPositionName(this->currentKickoffPosition);
 
 	return timestamp + " " + kickoffName;
 }
@@ -966,7 +965,13 @@ float KickoffPractice::getKickoffYaw(int kickoff, KickoffSide side)
 	}
 }
 
-std::string KickoffPractice::getKickoffName(int kickoff)
+Rotator KickoffPractice::getKickoffRotation(int kickoff, KickoffSide side)
+{
+	float yaw = KickoffPractice::getKickoffYaw(kickoff, side);
+	return Rotator(0, std::lroundf(yaw * CONST_RadToUnrRot), 0);
+}
+
+std::string KickoffPractice::getKickoffPositionName(int kickoff)
 {
 	switch (kickoff)
 	{
@@ -996,12 +1001,11 @@ std::optional<KickoffPosition> KickoffPractice::parseKickoffArg(std::string arg)
 	return static_cast<KickoffPosition>(kickoffNumber - 1);
 }
 
-// Use a string mask for usability in commands.
 std::string KickoffPractice::getActivePositionsMask()
 {
 	std::string mask = "00000";
 	for (auto position : activePositions)
-		mask[position] = '1';
+		if (position < mask.size()) mask[position] = '1';
 	return mask;
 }
 void KickoffPractice::setActivePositionFromMask(std::string mask)
@@ -1009,6 +1013,6 @@ void KickoffPractice::setActivePositionFromMask(std::string mask)
 	activePositions.clear();
 
 	for (int i = 0; i < 5; i++)
-		if (mask[i] == '1')
+		if (i < mask.size() && mask.at(i) == '1')
 			activePositions.insert(static_cast<KickoffPosition>(i));
 }

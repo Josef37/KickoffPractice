@@ -69,7 +69,7 @@ void KickoffPractice::RenderSettings()
 	{
 		if (position > 0) ImGui::SameLine();
 
-		auto label = "Train " + getKickoffName(position);
+		auto label = "Train " + getKickoffPositionName(position);
 		auto command = TRAIN_COMMAND + " " + std::to_string(position + 1);
 
 		CommandButton(label, command);
@@ -85,7 +85,7 @@ void KickoffPractice::RenderSettings()
 		KickoffPosition position = static_cast<KickoffPosition>(i);
 
 		bool active = activePositions.contains(position);
-		auto positionName = getKickoffName(position);
+		auto positionName = getKickoffPositionName(position);
 		if (ImGui::Checkbox(positionName.c_str(), &active))
 		{
 			if (active) activePositions.insert(position);
@@ -122,7 +122,7 @@ void KickoffPractice::RenderSettings()
 		if (position > 0) ImGui::SameLine();
 
 		auto command = RECORD_COMMAND + " " + std::to_string(position + 1);
-		auto label = "Record " + getKickoffName(position);
+		auto label = "Record " + getKickoffPositionName(position);
 
 		CommandButton(label, command);
 	}
@@ -156,7 +156,7 @@ void KickoffPractice::RenderSettings()
 
 	for (int position = 0; position < 5; position++)
 	{
-		auto positionName = getKickoffName(position);
+		auto positionName = getKickoffPositionName(position);
 		ImGui::Text(positionName.c_str());
 
 		if (kickoffsByPosition[position].empty())
