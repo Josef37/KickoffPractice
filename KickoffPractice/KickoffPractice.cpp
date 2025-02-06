@@ -170,8 +170,12 @@ void KickoffPractice::onLoad()
 			if (!this->isBot(car))
 				this->speedFlipTrainer->OnBallHit(car);
 
+			auto timeout = this->timeAfterBackToNormal;
+			if (auto server = gameWrapper->GetCurrentGameState())
+				timeout /= server.GetGameSpeed();
+
 			this->setTimeoutChecked(
-				this->timeAfterBackToNormal,
+				timeout,
 				[this]()
 				{
 					if (this->kickoffState != KickoffState::started) return;
