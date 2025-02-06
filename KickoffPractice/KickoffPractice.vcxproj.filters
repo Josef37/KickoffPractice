@@ -34,6 +34,15 @@
     <Filter Include="Plugin\src">
       <UniqueIdentifier>{33ae5c6a-718c-410e-bdb8-9c032f65c710}</UniqueIdentifier>
     </Filter>
+    <Filter Include="SpeedFlipTrainer">
+      <UniqueIdentifier>{7c04e61b-f98b-4cc5-9dd9-7d52937fb23f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SpeedFlipTrainer\header">
+      <UniqueIdentifier>{ba80bb2e-1eda-475a-8091-31699d5fac99}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SpeedFlipTrainer\src">
+      <UniqueIdentifier>{e9fe2326-7178-4a65-a276-88bb7284951b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="imgui\imgui.cpp">
@@ -86,6 +95,12 @@
     </ClCompile>
     <ClCompile Include="PersistentStorage.cpp">
       <Filter>Plugin\src</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderMeter.cpp">
+      <Filter>SpeedFlipTrainer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="SpeedFlipTrainer.cpp">
+      <Filter>SpeedFlipTrainer\src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -148,6 +163,15 @@
     </ClInclude>
     <ClInclude Include="PersistentStorage.h">
       <Filter>Plugin\header</Filter>
+    </ClInclude>
+    <ClInclude Include="Attempt.h">
+      <Filter>SpeedFlipTrainer\header</Filter>
+    </ClInclude>
+    <ClInclude Include="SpeedFlipTrainer.h">
+      <Filter>SpeedFlipTrainer\header</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderMeter.h">
+      <Filter>SpeedFlipTrainer\header</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

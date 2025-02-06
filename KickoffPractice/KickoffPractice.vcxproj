@@ -111,8 +111,11 @@
     <ClCompile Include="KickoffPracticeSettings.cpp" />
     <ClCompile Include="GuiBase.cpp" />
     <ClCompile Include="PersistentStorage.cpp" />
+    <ClCompile Include="RenderMeter.cpp" />
+    <ClCompile Include="SpeedFlipTrainer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Attempt.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
     <ClInclude Include="imgui\imguivariouscontrols.h" />
@@ -132,6 +135,8 @@
     <ClInclude Include="GuiBase.h" />
     <ClInclude Include="KickoffPractice.h" />
     <ClInclude Include="PersistentStorage.h" />
+    <ClInclude Include="RenderMeter.h" />
+    <ClInclude Include="SpeedFlipTrainer.h" />
     <ClInclude Include="version.h" />
   </ItemGroup>
   <ItemGroup>

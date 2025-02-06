@@ -26,6 +26,11 @@ void KickoffPractice::onLoad()
 	// initialize the random number generator seed
 	srand((int)time(0));
 
+	speedFlipTrainer = std::make_unique<SpeedFlipTrainer>(
+		gameWrapper,
+		cvarManager,
+		[this]() { return showSpeedFlipTrainer && shouldExecute(); }
+	);
 
 	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffPractice", true, true);
 
@@ -44,6 +49,9 @@ void KickoffPractice::onLoad()
 
 	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_INDICATOR, "1")
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { showIndicator = cvar.getBoolValue(); });
+
+	persistentStorage->RegisterPersistentCvar(CVAR_SPEEDFLIP_TRAINER, "1")
+		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { showSpeedFlipTrainer = cvar.getBoolValue(); });
 
 	persistentStorage->RegisterPersistentCvar(CVAR_BACK_TO_NORMAL, "0.5")
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { timeAfterBackToNormal = cvar.getFloatValue(); });
@@ -145,6 +153,7 @@ void KickoffPractice::onLoad()
 		[this](CarWrapper car, void* params, std::string eventName)
 		{
 			if (!this->shouldExecute()) return;
+			if (!params) return;
 
 			ControllerInput* input = static_cast<ControllerInput*>(params);
 			this->onVehicleInput(car, input);
@@ -153,10 +162,13 @@ void KickoffPractice::onLoad()
 
 	gameWrapper->HookEventWithCallerPost<CarWrapper>(
 		"Function TAGame.Car_TA.OnHitBall",
-		[this](CarWrapper caller, void* params, std::string eventname)
+		[this](CarWrapper car, void* params, std::string eventname)
 		{
 			if (!this->shouldExecute()) return;
 			if (this->kickoffState != KickoffState::started) return;
+
+			if (!this->isBot(car))
+				this->speedFlipTrainer->OnBallHit(car);
 
 			this->setTimeoutChecked(
 				this->timeAfterBackToNormal,
@@ -251,7 +263,12 @@ void KickoffPractice::onLoad()
 	gameWrapper->RegisterDrawable(
 		[this](CanvasWrapper canvas)
 		{
+			if (!shouldExecute()) return;
+			if (gameWrapper->IsPaused()) return;
+			if (kickoffState == KickoffState::nothing) return;
+
 			this->renderIndicator(canvas);
+			this->speedFlipTrainer->RenderMeters(canvas);
 		}
 	);
 }
@@ -342,7 +359,7 @@ void KickoffPractice::setupKickoff()
 		auto carBody = this->currentKickoff->carBody;
 		server.SpawnBot(carBody, BOT_CAR_NAME);
 	}
-	
+
 	player.SetLocation(locationPlayer);
 	player.SetRotation(rotationPlayer);
 	player.Stop();
@@ -472,6 +489,8 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 		}
 
 		this->recordedInputs.push_back(*input);
+
+		this->speedFlipTrainer->OnVehicleInput(player, input);
 	}
 }
 
@@ -495,6 +514,7 @@ void KickoffPractice::reset()
 	this->removeBots();
 	this->kickoffState = KickoffState::nothing;
 	this->resetBoostSettings();
+	this->speedFlipTrainer->Reset();
 }
 
 void KickoffPractice::saveRecording()
@@ -907,8 +927,6 @@ void KickoffPractice::applyBoostSettings(BoostWrapper boost, BoostSettings setti
 void KickoffPractice::renderIndicator(CanvasWrapper canvas)
 {
 	if (!showIndicator) return;
-	if (!shouldExecute()) return;
-	if (kickoffState == KickoffState::nothing) return;
 
 	canvas.SetColor(LinearColor(255, 255, 255, 255));
 

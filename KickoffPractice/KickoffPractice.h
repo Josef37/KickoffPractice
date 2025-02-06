@@ -10,6 +10,7 @@
 #include "version.h"
 
 #include "PersistentStorage.h"
+#include "SpeedFlipTrainer.h"
 
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
@@ -22,6 +23,7 @@ static const std::string CVAR_ENABLED = "kickoff_train_enabled";
 static const std::string CVAR_RESTART_ON_RESET = "kickoff_train_restart_on_reset";
 static const std::string CVAR_AUTO_RESTART = "kickoff_train_auto_restart";
 static const std::string CVAR_SHOW_INDICATOR = "kickoff_train_show_indicator";
+static const std::string CVAR_SPEEDFLIP_TRAINER = "kickoff_train_speedflip";
 static const std::string CVAR_BACK_TO_NORMAL = "kickoff_train_back_to_normal";
 static const std::string CVAR_ACTIVE_POSITIONS = "kickoff_train_active_positions";
 
@@ -83,6 +85,8 @@ class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public Settin
 {
 private:
 	std::shared_ptr<PersistentStorage> persistentStorage;
+
+	std::shared_ptr<SpeedFlipTrainer> speedFlipTrainer;
 
 	bool pluginEnabled = true;
 	bool shouldExecute();
@@ -177,6 +181,8 @@ private:
 	// Shows some information about the current state on-screen.
 	bool showIndicator = true;
 	void renderIndicator(CanvasWrapper canvas);
+	// SpeedFlipTrainer integration, but we use our own state for enabling.
+	bool showSpeedFlipTrainer = true;
 
 	// Used for renaming kickoffs in the UI.
 	std::string tempName;

@@ -53,6 +53,15 @@ void KickoffPractice::RenderSettings()
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Display a text showing what the plugin is currently doing.");
 
+	if (ImGui::Checkbox("Show Speedflip Trainer", &showSpeedFlipTrainer))
+		cvarManager->getCvar(CVAR_SPEEDFLIP_TRAINER).setValue(showSpeedFlipTrainer);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip(
+			"If you want to change more display options for the Speedflip Trainer overlay, install the Speedflip Trainer plugin and reload this plugin.\n"
+			"This setting here is not shared with the Speedflip Trainer plugin.\n"
+			"If you enable this plugin before the Speedflip Trainer, the settings are not synchronized."
+		);
+
 	ImGui::Spacing();
 
 	if (ImGui::Button("Reset Training/Recording"))

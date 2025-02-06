@@ -4,6 +4,8 @@ Kickoff Practice is a BakkesMod plugin for RocketLeague that helps you train you
 
 With this plugin you can record a kickoff sequence then go in freeplay and spawn a bot to face you on kickoff, the bot will then use the pre-recorded sequence and thus copy your movements.
 
+This plugin also uses the core of the great [Speedflip Trainer Plugin](https://bakkesplugins.com/plugins/view/286) to guide you to better kickoffs.
+
 
 ## How it works
 
@@ -28,7 +30,7 @@ and join the [BakkesMod programming discord](https://discord.gg/s97RgrgkxE).
 
 ### Quick Start
 
-- Install [BakkesMod](https://bakkesplugins.com/)  (PC only).
+- Install [BakkesMod](https://bakkesplugins.com/) (PC only).
 - Install Plugin through the [BakkesMod website](https://bakkesplugins.com/plugin-search/1/kickoff).
 - Open settings "Kickoff Practice".
 - Click "Record Left Corner" (or any other position you're interested in).
@@ -76,6 +78,8 @@ and join the [BakkesMod programming discord](https://discord.gg/s97RgrgkxE).
 - If you don't want the plugin to start when resetting freeplay, uncheck "Restart on Freeplay Reset".
 - "Time before back to normal": This settings affects how much time after hitting the ball is still considered a kickoff.\
   This also affects recording length. Changing this setting won't update old recordings (obviously).
+- "Show Speedflip Trainer" will enable the [Speedflip Trainer Plugin](https://bakkesplugins.com/plugins/view/286) overlay. Install the Speedflip Trainer Plugin to actually configure the values in the display.\
+  I only ported the applicable features of this plugin (for example the automatic game speed adaption got lost). Make sure to check out the original, too.
 
 ## Technical Details
 
