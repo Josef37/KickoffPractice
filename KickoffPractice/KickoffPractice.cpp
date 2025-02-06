@@ -342,7 +342,7 @@ void KickoffPractice::setupKickoff()
 		auto carBody = this->currentKickoff->carBody;
 		server.SpawnBot(carBody, BOT_CAR_NAME);
 	}
-
+	
 	player.SetLocation(locationPlayer);
 	player.SetRotation(rotationPlayer);
 	player.Stop();
@@ -350,9 +350,10 @@ void KickoffPractice::setupKickoff()
 	KickoffPractice::applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
 	boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
 
-	// Reset boost pickups, because moving the player can cause picking up boost.
+	// Reset boost pickups a few frames in, because moving the player can cause picking up boost.
+	// Moving the player isn't done instantly, but takes a few frames.
 	this->setTimeoutChecked(
-		gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
+		12 * gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
 		[this]()
 		{
 			if (auto server = gameWrapper->GetCurrentGameState())
