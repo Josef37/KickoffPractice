@@ -22,14 +22,25 @@ static float distance(Vector a, Vector b)
 	return delta.magnitude();
 }
 
+static float sidewaysOffset(Vector forwards, Vector movement)
+{
+	movement.Z = 0;
+	forwards.Z = 0;
+	forwards.normalize();
+	auto forwardsMovement = forwards * Vector::dot(forwards, movement);
+	auto sidewaysMovement = movement - forwardsMovement;
+	auto isLeft = Vector::cross(movement, forwards).Z > 0;
+	return (isLeft ? -1 : 1) * sidewaysMovement.magnitude();
+}
+
 void SpeedFlipTrainer::Measure(CarWrapper& car, ControllerInput& input)
 {
 	int currentPhysicsFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	int currentTick = currentPhysicsFrame - startingPhysicsFrame;
 
-	auto loc = car.GetLocation();
-	attempt.traveledY += abs(loc.Y - attempt.positionY);
-	attempt.positionY = loc.Y;
+	auto movement = car.GetLocation() - attempt.currentLocation;
+	attempt.traveledSideways += abs(sidewaysOffset(attempt.kickoffDirection, movement));
+	attempt.currentLocation = car.GetLocation();
 
 	if (!attempt.jumped && car.GetbJumped())
 	{
@@ -43,9 +54,7 @@ void SpeedFlipTrainer::Measure(CarWrapper& car, ControllerInput& input)
 		attempt.dodgedTick = currentTick;
 		auto dodge = car.GetDodgeComponent();
 		if (!dodge.IsNull())
-		{
 			attempt.dodgeAngle = ComputeDodgeAngle(dodge);
-		}
 	}
 
 	if (input.Throttle != 1)
@@ -68,13 +77,22 @@ void SpeedFlipTrainer::OnVehicleInput(CarWrapper& car, ControllerInput* input)
 	if (car.IsNull())
 		return;
 
+	auto server = gameWrapper->GetCurrentGameState();
+	if (server.IsNull()) return;
+
+	auto ball = server.GetBall();
+	if (ball.IsNull()) return;
+
 	if (startingPhysicsFrame < 0)
 	{
 		startingPhysicsFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 		startingTime = gameWrapper->GetEngine().GetPhysicsTime();
 
 		attempt = Attempt();
-		attempt.positionY = car.GetLocation().Y;
+
+		attempt.startingLocation = car.GetLocation();
+		attempt.currentLocation = car.GetLocation();
+		attempt.kickoffDirection = ball.GetLocation() - car.GetLocation();
 
 		if (!car.IsOnGround())
 			attempt.startedInAir = true;
@@ -193,12 +211,11 @@ void SpeedFlipTrainer::RenderMeters(CanvasWrapper canvas)
 		RenderFirstJumpMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
 }
 
-// TODO: Fix position meter
 void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWidth, float screenHeight) const
 {
-	float mid = -1.1;
 	int range = 200;
-	int relLocation = (-1 * attempt.positionY) + range;
+	float position = sidewaysOffset(attempt.kickoffDirection, attempt.currentLocation - attempt.startingLocation);
+	int relLocation = lroundf(position) + range;
 	int totalUnits = range * 2;
 
 	float opacity = 1.0;
@@ -239,22 +256,13 @@ void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWid
 
 	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, false);
 
-	//draw speed label	
-	auto speedCvar = _globalCvarManager->getCvar("sv_soccar_gamespeed");
-	float speed = speedCvar.getFloatValue();
-	string msg = std::format("Game speed: {0}%", (int)(speed * 100));
-	int width = (msg.length() * 8.5) - 10;
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(Vector2{ startPos.X + boxSize.X - width, (int)(startPos.Y - 20) });
-	canvas.DrawString(msg, 1, 1, true, false);
-
 	int ms = (int)(attempt.ticksNotPressingBoost / 120.0 * 1000.0);
 	if (ms != 0)
 	{
 		canvas.SetColor(255, 255, 50, (char)(255 * opacity));
 		//draw time not pressing boost label
-		msg = std::format("Not pressing Boost: {0}ms", ms);
-		width = 200;
+		string msg = std::format("Not pressing Boost: {0}ms", ms);
+		int width = 200;
 		canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 10) });
 		canvas.DrawString(msg, 1, 1, true, false);
 	}
@@ -264,8 +272,8 @@ void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWid
 	{
 		canvas.SetColor(255, 255, 50, (char)(255 * opacity));
 		//draw time not pressing throttle label
-		msg = std::format("Not pressing Throttle: {0}ms", ms);
-		width = 200;
+		string msg = std::format("Not pressing Throttle: {0}ms", ms);
+		int width = 200;
 		canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 25) });
 		canvas.DrawString(msg, 1, 1, true, false);
 	}
@@ -391,7 +399,7 @@ void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenW
 	canvas.SetPosition(Vector2{ (int)(startPos.X - 16), (int)(startPos.Y + boxSize.Y + 8) });
 	canvas.DrawString(msg, 1, 1, true, false);
 
-	auto ms = (int)(tickBeforeCancel * 1.0 / 120.0 * 1000.0 / 1.0);
+	int ms = attempt.flipCanceled ? lroundf(tickBeforeCancel / 120.0 * 1000.0) : 0;
 	msg = to_string(ms) + " ms";
 	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 8 + 15) });
 	canvas.DrawString(msg, 1, 1, true, false);
@@ -513,13 +521,13 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 		canvas.DrawString(msg, 1, 1, true, false);
 	}
 
-	string msg = std::format("Horizontal distance traveled: {0:.1f}", attempt.traveledY);
+	//draw sideways travel label
+	string msg = std::format("Horizontal distance traveled: {0:.1f}", attempt.traveledSideways);
 	int width = (msg.length() * 6.6);
 
-	//draw angle label
-	if (attempt.traveledY < 225)
+	if (attempt.traveledSideways < 225)
 		canvas.SetColor(50, 255, 50, (char)(255 * opacity));
-	else if (attempt.traveledY < 425)
+	else if (attempt.traveledSideways < 425)
 		canvas.SetColor(255, 255, 50, (char)(255 * opacity));
 	else
 		canvas.SetColor(255, 10, 10, (char)(255 * opacity));

@@ -21,10 +21,11 @@ struct Attempt
 	int dodgedTick = 0;
 	bool dodged = false;
 
-	// Variable to keep track of Y position
-	// TODO: This is broken for normal kickoff positions.
-	float positionY = 0;
-	float traveledY = 0;
+	// Tracking sideways movement
+	float traveledSideways = 0;
+	Vector kickoffDirection = Vector(0, 0, 0);
+	Vector startingLocation = Vector(0, 0, 0);
+	Vector currentLocation = Vector(0, 0, 0);
 
 	// Number of ticks taken to reach the ball
 	int ticksToBall = 0;
