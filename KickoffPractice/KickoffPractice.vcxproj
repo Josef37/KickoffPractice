@@ -112,6 +112,7 @@
     <ClCompile Include="GuiBase.cpp" />
     <ClCompile Include="PersistentStorage.cpp" />
     <ClCompile Include="RenderMeter.cpp" />
+    <ClCompile Include="ReplayRecorder.cpp" />
     <ClCompile Include="SpeedFlipTrainer.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -137,6 +138,7 @@
     <ClInclude Include="KickoffPractice.h" />
     <ClInclude Include="PersistentStorage.h" />
     <ClInclude Include="RenderMeter.h" />
+    <ClInclude Include="ReplayRecorder.h" />
     <ClInclude Include="SpeedFlipTrainer.h" />
     <ClInclude Include="version.h" />
   </ItemGroup>

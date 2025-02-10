@@ -32,6 +32,11 @@ void KickoffPractice::onLoad()
 		[this]() { return showSpeedFlipTrainer && shouldExecute(); }
 	);
 
+	replayRecorder = std::make_unique<ReplayRecorder>(
+		gameWrapper,
+		cvarManager
+	);
+
 	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffPractice", true, true);
 
 	// TODO: Add description. Store cvar, title and description in variable to use it in UI, too.
@@ -149,6 +154,35 @@ void KickoffPractice::onLoad()
 		PERMISSION_FREEPLAY
 	);
 
+	cvarManager->registerNotifier(FROM_REPLAY_COMMAND,
+		[this](...)
+		{
+			if (!pluginEnabled) return;
+
+			if (shouldRecordReplay)
+			{
+				shouldRecordReplay = false;
+				replayRecorder->stopRecording();
+			}
+			else
+			{
+				shouldRecordReplay = true;
+				LOG("Waiting for the next kickoff...");
+				// The actual recording starts when the countdown finishes.
+			}
+		},
+		"Watch a player during kickoff to record this kickoff.",
+		PERMISSION_REPLAY
+	);
+
+	gameWrapper->HookEvent("Function TAGame.EngineShare_TA.EventPostPhysicsStep",
+		[this](...)
+		{
+			if (pluginEnabled && shouldRecordReplay)
+				replayRecorder->recordCurrentInput();
+		}
+	);
+
 	gameWrapper->HookEventWithCaller<CarWrapper>(
 		"Function TAGame.Car_TA.SetVehicleInput",
 		[this](CarWrapper car, void* params, std::string eventName)
@@ -165,6 +199,25 @@ void KickoffPractice::onLoad()
 		"Function TAGame.Car_TA.OnHitBall",
 		[this](CarWrapper car, void* params, std::string eventname)
 		{
+			auto timeout = this->timeAfterBackToNormal;
+			if (auto server = gameWrapper->GetCurrentGameState())
+				timeout /= server.GetGameSpeed();
+
+			if (pluginEnabled && shouldRecordReplay)
+			{
+				gameWrapper->SetTimeout([this](...)
+					{
+						if (!shouldRecordReplay) return;
+
+						shouldRecordReplay = false;
+						replayRecorder->stopRecording();
+						auto recording = replayRecorder->getRecording();
+						writeRecording(recording);
+					},
+					timeout
+				);
+			}
+
 			if (!this->shouldExecute()) return;
 
 			if (this->kickoffState == KickoffState::started && !this->isBot(car))
@@ -172,22 +225,22 @@ void KickoffPractice::onLoad()
 
 			if (this->kickoffState == KickoffState::started)
 			{
-			this->setTimeoutChecked(
-				timeout,
-				[this]()
-				{
-					if (this->kickoffState != KickoffState::started) return;
+				this->setTimeoutChecked(
+					timeout,
+					[this]()
+					{
+						if (this->kickoffState != KickoffState::started) return;
 
-					if (this->mode == KickoffMode::Recording)
-						this->saveRecording();
+						if (this->mode == KickoffMode::Recording)
+							this->saveRecording();
 
-					this->reset();
+						this->reset();
 
-					if (this->autoRestart)
-						this->start();
-				}
-			);
-		}
+						if (this->autoRestart)
+							this->start();
+					}
+				);
+			}
 		}
 	);
 
@@ -246,6 +299,9 @@ void KickoffPractice::onLoad()
 		"Function GameEvent_Soccar_TA.Countdown.EndState",
 		[this](...)
 		{
+			if (pluginEnabled && shouldRecordReplay)
+				replayRecorder->startRecording();
+
 			if (!this->shouldExecute()) return;
 
 			this->recordBoostSettings();
@@ -588,8 +644,6 @@ std::string KickoffPractice::getNewRecordingName() const
 {
 	std::string timestamp = Utils::getCurrentTimestamp();
 	std::string kickoffName = Utils::getKickoffPositionName(this->currentKickoffPosition);
-
-	std::string kickoffName = KickoffPractice::getKickoffPositionName(this->currentKickoffPosition);
 
 	return timestamp + " " + kickoffName;
 }

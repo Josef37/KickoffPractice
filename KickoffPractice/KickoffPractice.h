@@ -12,6 +12,7 @@
 #include "Common.h"
 #include "PersistentStorage.h"
 #include "SpeedFlipTrainer.h"
+#include "ReplayRecorder.h"
 
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
@@ -19,6 +20,7 @@ static const std::string TRAIN_COMMAND = "kickoff_train";
 static const std::string RECORD_COMMAND = "kickoff_train_record";
 static const std::string REPLAY_COMMAND = "kickoff_train_replay";
 static const std::string SAVE_COMMAND = "kickoff_train_save";
+static const std::string FROM_REPLAY_COMMAND = "kickoff_train_from_replay";
 
 static const std::string CVAR_ENABLED = "kickoff_train_enabled";
 static const std::string CVAR_RESTART_ON_RESET = "kickoff_train_restart_on_reset";
@@ -42,6 +44,9 @@ private:
 	std::shared_ptr<PersistentStorage> persistentStorage;
 
 	std::unique_ptr<SpeedFlipTrainer> speedFlipTrainer;
+
+	std::unique_ptr<ReplayRecorder> replayRecorder;
+	bool shouldRecordReplay = false;
 
 	bool pluginEnabled = true;
 	bool shouldExecute();
