@@ -1,6 +1,5 @@
 #pragma once
 
-#include <fstream>
 #include <set>
 
 #include "GuiBase.h"
@@ -12,6 +11,7 @@
 #include "Common.h"
 #include "PersistentStorage.h"
 #include "SpeedFlipTrainer.h"
+#include "KickoffStorage.h"
 
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
@@ -42,6 +42,8 @@ private:
 	std::shared_ptr<PersistentStorage> persistentStorage;
 
 	std::unique_ptr<SpeedFlipTrainer> speedFlipTrainer;
+
+	std::unique_ptr<KickoffStorage> kickoffStorage;
 
 	bool pluginEnabled = true;
 	bool shouldExecute();
@@ -84,28 +86,16 @@ private:
 	// Inputs for the last kickoff regardless of `mode`. Resets the next time the countdown finishes.
 	std::vector<ControllerInput> recordedInputs;
 
+	// Gets all necessary information and persists them.
+	void saveRecording();
+	std::string getNewRecordingName() const;
+	void readKickoffsFromFile();
+	void renameKickoffFile(std::string oldName, std::string newName, std::function<void()> onSuccess);
+	void deleteKickoffFile(std::string name, std::function<void()> onSuccess);
+
 	void removeBots();
 	void removeBot(CarWrapper car);
 	bool isBot(CarWrapper car);
-
-	// Base folder for all files.
-	std::filesystem::path configPath;
-	// Gets all necessary information and calls `writeRecording()`.
-	void saveRecording();
-	std::string getNewRecordingName() const;
-	// Adds the last attempt to `loadedKickoffs` and saves it to file.
-	void writeRecording(RecordedKickoff& kickoff);
-	// Writes the names of all active/selected kickoffs to a file.
-	void writeActiveKickoffs();
-	void readActiveKickoffs();
-
-	void readKickoffFiles();
-	RecordedKickoff readKickoffFile(std::filesystem::path filePath);
-
-	// Also renames the recording file.
-	void renameKickoffFile(std::string oldName, std::string newName, std::function<void()> onSuccess);
-	// Also deletes the recording file. Make sure `kickoff` points to some element of `loadedKickoffs`.
-	void deleteKickoffFile(std::string name, std::function<void()> onSuccess);
 
 	// To avoid interrupting the freeplay experience for the player...
 	void recordBoostSettings();
@@ -128,13 +118,7 @@ private:
 	// How long (in seconds) after hitting the ball we end the kickoff.
 	float timeAfterBackToNormal = 0.5;
 	// Kickoff positions currently selected for training.
-	std::set<KickoffPosition> activePositions = {
-		KickoffPosition::CornerRight,
-		KickoffPosition::CornerLeft,
-		KickoffPosition::BackRight,
-		KickoffPosition::BackLeft,
-		KickoffPosition::BackCenter
-	};
+	std::set<KickoffPosition> activePositions = std::set<KickoffPosition>(Utils::allKickoffPositions.begin(), Utils::allKickoffPositions.end());
 	// Readable serialization of `activePositions`
 	std::string getActivePositionsMask();
 	void setActivePositionFromMask(std::string mask);

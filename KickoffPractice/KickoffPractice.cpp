@@ -4,7 +4,6 @@
 BAKKESMOD_PLUGIN(KickoffPractice, "Kickoff Practice", plugin_version, PLUGINTYPE_FREEPLAY);
 
 std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
-namespace fs = std::filesystem;
 
 static const float INITIAL_BOOST_AMOUNT = 0.333f;
 static const BoostSettings INITIAL_BOOST_SETTINGS = BoostSettings{
@@ -15,8 +14,6 @@ static const BoostSettings INITIAL_BOOST_SETTINGS = BoostSettings{
 };
 
 static const std::string PLUGIN_FOLDER = "kickoffPractice";
-static const std::string CONFIG_FILE = "config.cfg";
-static const std::string FILE_EXT = ".kinputs";
 static const std::string BOT_CAR_NAME = "Kickoff Bot";
 
 void KickoffPractice::onLoad()
@@ -60,12 +57,12 @@ void KickoffPractice::onLoad()
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { setActivePositionFromMask(cvar.getStringValue()); });
 
 
-	this->configPath = gameWrapper->GetDataFolder() / PLUGIN_FOLDER;
-	if (!fs::exists(this->configPath) || !fs::is_directory(this->configPath))
-		if (!fs::create_directory(this->configPath))
-			LOG("Can't create config directory in bakkesmod data folder");
+	kickoffStorage = std::make_unique<KickoffStorage>(
+		gameWrapper->GetDataFolder() / PLUGIN_FOLDER
+	);
 
-	this->readKickoffFiles();
+	readKickoffsFromFile();
+
 
 	cvarManager->registerNotifier(TRAIN_COMMAND,
 		[this](std::vector<std::string> args)
@@ -602,49 +599,9 @@ void KickoffPractice::saveRecording()
 	kickoff.inputs = this->recordedInputs;
 	kickoff.isActive = true; // Automatically select the newly recorded kickoff.
 
-	writeRecording(kickoff);
-}
-
-void KickoffPractice::writeRecording(RecordedKickoff& kickoff)
-{
+	kickoffStorage->saveRecording(kickoff);
 	loadKickoff(kickoff);
-	this->writeActiveKickoffs();
-
-	auto filename = kickoff.name + FILE_EXT;
-	std::ofstream inputFile(this->configPath / filename);
-	if (!inputFile.is_open())
-	{
-		LOG("ERROR : can't create recording file");
-		return;
-	}
-
-	inputFile << "position:" << Utils::toInt(kickoff.position) << "\n";
-	inputFile << "carBody:" << kickoff.carBody << "\n";
-
-	inputFile << "settings:" << kickoff.settings.ControllerDeadzone
-		<< "," << kickoff.settings.DodgeInputThreshold
-		<< "," << kickoff.settings.SteeringSensitivity
-		<< "," << kickoff.settings.AirControlSensitivity
-		<< "\n";
-
-	inputFile << "inputs" << "\n";
-	for (const ControllerInput& input : kickoff.inputs)
-	{
-		inputFile << input.Throttle
-			<< "," << input.Steer
-			<< "," << input.Pitch
-			<< "," << input.Yaw
-			<< "," << input.Roll
-			<< "," << input.DodgeForward
-			<< "," << input.DodgeStrafe
-			<< "," << input.Handbrake
-			<< "," << input.Jump
-			<< "," << input.ActivateBoost
-			<< "," << input.HoldingBoost
-			<< "," << input.Jumped
-			<< "\n";
-	}
-	inputFile.close();
+	kickoffStorage->saveActiveKickoffs(loadedKickoffs);
 }
 
 std::string KickoffPractice::getNewRecordingName() const
@@ -653,6 +610,39 @@ std::string KickoffPractice::getNewRecordingName() const
 	std::string kickoffName = Utils::getKickoffPositionName(this->currentKickoffPosition);
 
 	return timestamp + " " + kickoffName;
+}
+
+void KickoffPractice::readKickoffsFromFile()
+{
+	clearLoadedKickoffs();
+
+	for (auto& kickoff : kickoffStorage->readRecordings())
+		loadKickoff(kickoff);
+}
+
+void KickoffPractice::renameKickoffFile(std::string oldName, std::string newName, std::function<void()> onSuccess)
+{
+	if (newName.empty()) return;
+	if (!kickoffIndexByName.contains(oldName)) return;
+	if (kickoffIndexByName.contains(newName)) return;
+
+	if (!kickoffStorage->renameKickoffFile(oldName, newName)) return;
+
+	renameKickoff(oldName, newName);
+
+	onSuccess();
+}
+
+void KickoffPractice::deleteKickoffFile(std::string name, std::function<void()> onSuccess)
+{
+	if (!kickoffIndexByName.contains(name))
+		return;
+
+	if (!kickoffStorage->deleteKickoffFile(name)) return;
+
+	unloadKickoff(name);
+
+	onSuccess();
 }
 
 void KickoffPractice::removeBots()
@@ -683,264 +673,6 @@ void KickoffPractice::removeBot(CarWrapper car)
 bool KickoffPractice::isBot(CarWrapper car)
 {
 	return car.GetOwnerName() == BOT_CAR_NAME && car.GetPRI().GetbBot();
-}
-
-void KickoffPractice::writeActiveKickoffs()
-{
-	auto filename = this->configPath / CONFIG_FILE;
-
-	std::ofstream inputFile(filename);
-
-	if (!inputFile.is_open())
-	{
-		LOG("Can't create the config file");
-		return;
-	}
-
-	for (auto& kickoff : this->loadedKickoffs)
-	{
-		if (!kickoff.isActive) continue;
-		inputFile << kickoff.name << "\n";
-	}
-	inputFile.close();
-}
-
-void KickoffPractice::readActiveKickoffs()
-{
-	auto filename = this->configPath / CONFIG_FILE;
-
-	if (!fs::exists(filename))
-		return;
-
-	std::fstream file(filename, std::ios::in);
-
-	if (!file.is_open())
-	{
-		LOG("Can't open the config file");
-		return;
-	}
-
-	std::string line;
-
-	while (getline(file, line))
-	{
-		if (kickoffIndexByName.contains(line))
-			loadedKickoffs[kickoffIndexByName[line]].isActive = true;
-	}
-	file.close();
-}
-
-void KickoffPractice::readKickoffFiles()
-{
-	clearLoadedKickoffs();
-
-	try
-	{
-		for (const auto& entry : fs::directory_iterator(this->configPath))
-		{
-			if (entry.is_regular_file() && entry.path().extension() == FILE_EXT)
-			{
-				auto kickoff = readKickoffFile(entry.path());
-				loadKickoff(kickoff);
-			}
-		}
-	}
-	catch (fs::filesystem_error const& ex)
-	{
-		LOG("ERROR : {}", ex.code().message());
-	}
-
-	this->readActiveKickoffs();
-}
-
-RecordedKickoff KickoffPractice::readKickoffFile(fs::path filePath)
-{
-	std::optional<KickoffPosition> position;
-	std::optional<int> carBody;
-	std::optional<GamepadSettings> settings;
-	std::vector<ControllerInput> inputs;
-
-	std::vector<std::string> row;
-	std::string line, word;
-
-	std::fstream file(filePath, std::ios::in);
-	if (file.is_open())
-	{
-		int i = 0;
-		bool inHeader = true;
-		while (getline(file, line))
-		{
-			i++;
-			row.clear();
-
-			std::stringstream str(line);
-
-			if (inHeader)
-			{
-				std::string header;
-				getline(str, header, ':');
-
-				while (getline(str, word, ','))
-					row.push_back(word);
-
-				if (header == "inputs")
-				{
-					inHeader = false;
-					continue;
-				}
-				else if (header == "carBody")
-				{
-					if (row.size() == 1)
-						carBody = std::stoi(row[0]);
-					else
-						LOG("Error on line {}: size of {} instead of 1", i, row.size());
-				}
-				else if (header == "position")
-				{
-					if (row.size() == 1)
-						position = Utils::fromInt(std::stoi(row[0]));
-					else
-						LOG("Error on line {}: size of {} instead of 1", i, row.size());
-				}
-				else if (header == "settings")
-				{
-					if (row.size() == 4)
-					{
-						settings = GamepadSettings{};
-						settings->ControllerDeadzone = std::stof(row[0]);
-						settings->DodgeInputThreshold = std::stof(row[1]);
-						settings->SteeringSensitivity = std::stof(row[2]);
-						settings->AirControlSensitivity = std::stof(row[3]);
-					}
-					else
-						LOG("Error on line {}: size of {} instead of 4", i, row.size());
-				}
-				else
-				{
-					// Unknown header... Don't log it, because it could spam the console.
-				}
-
-				continue;
-			}
-
-			while (getline(str, word, ','))
-				row.push_back(word);
-
-			if (row.size() != 12)
-			{
-				LOG("Error on line {} : size of {} instead of 12", i, row.size());
-				continue;
-			}
-
-			ControllerInput input;
-			input.Throttle = std::stof(row[0]);
-			input.Steer = std::stof(row[1]);
-			input.Pitch = std::stof(row[2]);
-			input.Yaw = std::stof(row[3]);
-			input.Roll = std::stof(row[4]);
-			input.DodgeForward = std::stof(row[5]);
-			input.DodgeStrafe = std::stof(row[6]);
-			input.Handbrake = std::stoul(row[7]);
-			input.Jump = std::stoul(row[8]);
-			input.ActivateBoost = std::stoul(row[9]);
-			input.HoldingBoost = std::stoul(row[10]);
-			input.Jumped = std::stoul(row[11]);
-
-			inputs.push_back(input);
-		}
-	}
-	else
-	{
-		LOG("Can't open {}", filePath.string());
-	}
-
-	LOG("{}: {} inputs loaded", filePath.filename().string(), inputs.size());
-
-	RecordedKickoff kickoff;
-	kickoff.name = filePath.stem().string();
-
-	if (position.has_value())
-		kickoff.position = *position;
-	else
-		LOG("Header `position` not found.");
-
-	if (carBody.has_value())
-		kickoff.carBody = *carBody;
-	else
-		LOG("Header `carBody` not found.");
-
-	if (settings.has_value())
-		kickoff.settings = *settings;
-	else
-		LOG("Header `settings` not found.");
-
-	kickoff.inputs = inputs;
-	if (inputs.empty())
-		LOG("No inputs found.");
-
-	return kickoff;
-}
-
-void KickoffPractice::renameKickoffFile(std::string oldName, std::string newName, std::function<void()> onSuccess)
-{
-	if (newName.empty()) return;
-	if (!kickoffIndexByName.contains(oldName)) return;
-	if (kickoffIndexByName.contains(newName)) return;
-
-	try
-	{
-		auto oldPath = this->configPath / (oldName + FILE_EXT);
-		auto newPath = this->configPath / (newName + FILE_EXT);
-
-		if (!fs::is_regular_file(oldPath))
-		{
-			LOG("No recording file found with this name: {}", oldName);
-			return;
-		}
-		if (fs::exists(newPath))
-		{
-			LOG("Already found a recording with this name: {}", newName);
-			return;
-		}
-
-		fs::rename(oldPath, newPath);
-
-		renameKickoff(oldName, newName);
-
-		onSuccess();
-	}
-	catch (const fs::filesystem_error)
-	{
-		LOG("Failed to rename recording file");
-	}
-}
-
-void KickoffPractice::deleteKickoffFile(std::string name, std::function<void()> onSuccess)
-{
-	if (!kickoffIndexByName.contains(name))
-		return;
-
-	try
-	{
-		auto fileName = name + FILE_EXT;
-		auto filePath = this->configPath / fileName;
-
-		if (fs::exists(filePath) && !fs::is_regular_file(filePath))
-		{
-			LOG("Recording is no regular file: {}", name);
-			return;
-		}
-
-		fs::remove(filePath);
-
-		unloadKickoff(name);
-
-		onSuccess();
-	}
-	catch (const fs::filesystem_error)
-	{
-		LOG("Failed to remove recording file");
-	}
 }
 
 void KickoffPractice::recordBoostSettings()

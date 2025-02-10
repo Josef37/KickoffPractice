@@ -152,7 +152,7 @@ void KickoffPractice::RenderSettings()
 	ImGui::Spacing();
 
 	if (ImGui::Button("Reload kickoffs"))
-		readKickoffFiles();
+		readKickoffsFromFile();
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Reload recorded kickoffs from files.");
 
@@ -260,5 +260,5 @@ void KickoffPractice::RenderSettings()
 	}
 
 	if (changedActiveKickoffs)
-		writeActiveKickoffs();
+		kickoffStorage->saveActiveKickoffs(loadedKickoffs);
 }
