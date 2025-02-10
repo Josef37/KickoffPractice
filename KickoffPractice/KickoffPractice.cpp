@@ -176,22 +176,22 @@ void KickoffPractice::onLoad()
 				if (auto server = gameWrapper->GetCurrentGameState())
 					timeout /= server.GetGameSpeed();
 
-			this->setTimeoutChecked(
-				timeout,
-				[this]()
-				{
-					if (this->kickoffState != KickoffState::started) return;
+				this->setTimeoutChecked(
+					timeout,
+					[this]()
+					{
+						if (this->kickoffState != KickoffState::started) return;
 
-					if (this->mode == KickoffMode::Recording)
-						this->saveRecording();
+						if (this->mode == KickoffMode::Recording)
+							this->saveRecording();
 
-					this->reset();
+						this->reset();
 
-					if (this->autoRestart)
-						this->start();
-				}
-			);
-		}
+						if (this->autoRestart)
+							this->start();
+					}
+				);
+			}
 		}
 	);
 
@@ -559,7 +559,7 @@ void KickoffPractice::writeRecording(RecordedKickoff& kickoff)
 		return;
 	}
 
-	inputFile << "position:" << kickoff.position << "\n";
+	inputFile << "position:" << Utils::toInt(kickoff.position) << "\n";
 	inputFile << "carBody:" << kickoff.carBody << "\n";
 
 	inputFile << "settings:" << kickoff.settings.ControllerDeadzone
@@ -749,7 +749,7 @@ RecordedKickoff KickoffPractice::readKickoffFile(fs::path filePath)
 				else if (header == "position")
 				{
 					if (row.size() == 1)
-						position = static_cast<KickoffPosition>(std::stoi(row[0]));
+						position = Utils::fromInt(std::stoi(row[0]));
 					else
 						LOG("Error on line {}: size of {} instead of 1", i, row.size());
 				}
@@ -959,21 +959,29 @@ std::optional<KickoffPosition> KickoffPractice::parseKickoffArg(std::string arg)
 		LOG("The kickoff number argument should be between 1 and 5 (included).");
 		return std::nullopt;
 	}
-	return static_cast<KickoffPosition>(kickoffNumber - 1);
+	return Utils::fromInt(kickoffNumber - 1);
+}
+std::string KickoffPractice::getKickoffArg(KickoffPosition position)
+{
+	auto kickoffNumber = Utils::toInt(position);
+	return std::to_string(kickoffNumber + 1);
 }
 
 std::string KickoffPractice::getActivePositionsMask()
 {
 	std::string mask = "00000";
 	for (auto position : activePositions)
-		if (position < mask.size()) mask[position] = '1';
+	{
+		auto index = Utils::toInt(position);
+		if (index < mask.size()) mask[index] = '1';
+	}
 	return mask;
 }
 void KickoffPractice::setActivePositionFromMask(std::string mask)
 {
 	activePositions.clear();
 
-	for (int i = 0; i < 5; i++)
-		if (i < mask.size() && mask.at(i) == '1')
-			activePositions.insert(static_cast<KickoffPosition>(i));
+	for (int index = 0; index < 5; index++)
+		if (index < mask.size() && mask.at(index) == '1')
+			activePositions.insert(Utils::fromInt(index));
 }

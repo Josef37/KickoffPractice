@@ -74,12 +74,14 @@ void KickoffPractice::RenderSettings()
 	ImGui::Text("Training");
 	ImGui::Spacing();
 
-	for (int position = 0; position < 5; position++)
+	for (int i = 0; i < Utils::allKickoffPositions.size(); i++)
 	{
-		if (position > 0) ImGui::SameLine();
+		auto position = Utils::allKickoffPositions[i];
+
+		if (i > 0) ImGui::SameLine();
 
 		auto label = "Train " + Utils::getKickoffPositionName(position);
-		auto command = TRAIN_COMMAND + " " + std::to_string(position + 1);
+		auto command = TRAIN_COMMAND + " " + getKickoffArg(position);
 
 		CommandButton(label, command);
 	}
@@ -87,11 +89,9 @@ void KickoffPractice::RenderSettings()
 
 	CommandButton("Train Selected", TRAIN_COMMAND);
 
-	for (int i = 0; i < 5; i++)
+	for (KickoffPosition position : Utils::allKickoffPositions)
 	{
 		ImGui::SameLine();
-
-		KickoffPosition position = static_cast<KickoffPosition>(i);
 
 		bool active = activePositions.contains(position);
 		auto positionName = Utils::getKickoffPositionName(position);
@@ -126,11 +126,13 @@ void KickoffPractice::RenderSettings()
 	ImGui::Text("Recording");
 	ImGui::Spacing();
 
-	for (int position = 0; position < 5; position++)
+	for (int i = 0; i < Utils::allKickoffPositions.size(); i++)
 	{
-		if (position > 0) ImGui::SameLine();
+		auto position = Utils::allKickoffPositions[i];
 
-		auto command = RECORD_COMMAND + " " + std::to_string(position + 1);
+		if (i > 0) ImGui::SameLine();
+
+		auto command = RECORD_COMMAND + " " + getKickoffArg(position);
 		auto label = "Record " + Utils::getKickoffPositionName(position);
 
 		CommandButton(label, command);
@@ -159,11 +161,11 @@ void KickoffPractice::RenderSettings()
 	bool changedActiveKickoffs = false;
 
 	// TODO: Don't compute every loop.
-	std::map<int, std::vector<RecordedKickoff*>> kickoffsByPosition;
+	std::map<KickoffPosition, std::vector<RecordedKickoff*>> kickoffsByPosition;
 	for (auto& kickoff : loadedKickoffs)
 		kickoffsByPosition[kickoff.position].push_back(&kickoff);
 
-	for (int position = 0; position < 5; position++)
+	for (KickoffPosition position : Utils::allKickoffPositions)
 	{
 		auto positionName = Utils::getKickoffPositionName(position);
 		ImGui::Text(positionName.c_str());

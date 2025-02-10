@@ -148,6 +148,7 @@ private:
 
 	// Number 1-5 to `KickoffPosition`.
 	static std::optional<KickoffPosition> parseKickoffArg(std::string arg);
+	static std::string getKickoffArg(KickoffPosition position);
 public:
 	void onLoad() override;
 	void onUnload() override;

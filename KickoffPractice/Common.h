@@ -7,7 +7,7 @@
 
 #include "bakkesmod/wrappers/wrapperstructs.h"
 
-enum KickoffPosition
+enum class KickoffPosition
 {
 	CornerRight = 0,
 	CornerLeft = 1,
@@ -66,16 +66,23 @@ namespace Utils
 		return oss.str();
 	}
 
-	// TODO: Use this whenever looping all positions.
-	inline std::vector<KickoffPosition> getAllKickoffPositions()
+	inline const std::vector<KickoffPosition> allKickoffPositions = {
+		CornerRight,
+		CornerLeft,
+		BackRight,
+		BackLeft,
+		BackCenter
+	};
+
+	inline int toInt(KickoffPosition position)
 	{
-		return {
-			CornerRight,
-			CornerLeft,
-			BackRight,
-			BackLeft,
-			BackCenter
-		};
+		// Avoid casting everywhere... Do it only here!
+		return static_cast<int>(position);
+	}
+	inline KickoffPosition fromInt(int position)
+	{
+		// Avoid casting everywhere... Do it only here!
+		return static_cast<KickoffPosition>(position);
 	}
 
 	inline Vector getKickoffLocation(KickoffPosition kickoff, KickoffSide side)
@@ -108,7 +115,7 @@ namespace Utils
 
 		for (KickoffSide side : { Blue, Orange })
 		{
-			for (KickoffPosition position : getAllKickoffPositions())
+			for (KickoffPosition position : allKickoffPositions)
 			{
 				auto kickoffLoation = getKickoffLocation(position, side);
 				auto distance = (kickoffLoation - location).magnitude();
@@ -151,7 +158,7 @@ namespace Utils
 		return Rotator(0, std::lroundf(yaw * CONST_RadToUnrRot), 0);
 	}
 
-	inline std::string getKickoffPositionName(int kickoff)
+	inline std::string getKickoffPositionName(KickoffPosition kickoff)
 	{
 		switch (kickoff)
 		{
