@@ -122,15 +122,12 @@ void KickoffPractice::onLoad()
 				return;
 			}
 			auto& kickoffName = args[1];
-			auto findByName = [&](const RecordedKickoff& kickoff) { return kickoff.name == kickoffName; };
-			auto it = std::find_if(this->loadedKickoffs.begin(), this->loadedKickoffs.end(), findByName);
-			if (it == this->loadedKickoffs.end())
+			if (!kickoffIndexByName.contains(kickoffName))
 			{
 				LOG("No kickoff found with the specified name: {}", kickoffName);
 				return;
 			}
-			auto& foundKickoff = *it;
-			this->setCurrentKickoff(&foundKickoff);
+			this->setCurrentKickoffIndex(kickoffIndexByName[kickoffName]);
 
 			this->start();
 		},
@@ -203,7 +200,7 @@ void KickoffPractice::onLoad()
 
 			ServerWrapper server = gameWrapper->GetCurrentGameState();
 			if (!server) return;
-			if (!this->currentKickoff) return;
+			if (!currentKickoffIndex.has_value()) return;
 
 			for (auto car : server.GetCars())
 			{
@@ -225,7 +222,7 @@ void KickoffPractice::onLoad()
 				applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
 				boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
 
-				auto settings = this->currentKickoff->settings;
+				auto& settings = loadedKickoffs[*currentKickoffIndex].settings;
 				car.GetPRI().SetUserCarPreferences(settings.DodgeInputThreshold, settings.SteeringSensitivity, settings.AirControlSensitivity);
 			}
 		}
@@ -317,9 +314,11 @@ void KickoffPractice::start()
 	// resetting freeplay to repeat the last command (and not repeat the same kickoff).
 	if (this->mode == KickoffMode::Training)
 	{
-		std::vector<RecordedKickoff*> suitableKickoffs;
-		for (auto& kickoff : this->loadedKickoffs)
+		std::vector<int> suitableKickoffIndices;
+		for (int index = 0; index < loadedKickoffs.size(); index++)
 		{
+			auto& kickoff = loadedKickoffs[index];
+
 			bool isSuitable = kickoff.isActive;
 
 			if (this->positionOverride.has_value())
@@ -328,16 +327,16 @@ void KickoffPractice::start()
 				isSuitable = isSuitable && this->activePositions.contains(kickoff.position);
 
 			if (isSuitable)
-				suitableKickoffs.push_back(&kickoff);
+				suitableKickoffIndices.push_back(index);
 		}
 
-		if (suitableKickoffs.empty())
+		if (suitableKickoffIndices.empty())
 		{
 			LOG("No suitable kickoff recording found! Make sure there are active kickoffs for your selected positions.");
 			return;
 		}
 
-		this->setCurrentKickoff(suitableKickoffs[rand() % suitableKickoffs.size()]);
+		this->setCurrentKickoffIndex(suitableKickoffIndices[rand() % suitableKickoffIndices.size()]);
 	}
 
 	// We wait a little before updating the game state, because we want the reset to finish first.
@@ -363,9 +362,9 @@ void KickoffPractice::setupKickoff()
 	Vector  locationPlayer = Utils::getKickoffLocation(this->currentKickoffPosition, playerSide);
 	Rotator rotationPlayer = Utils::getKickoffRotation(this->currentKickoffPosition, playerSide);
 
-	if (this->mode != KickoffMode::Recording && this->currentKickoff)
+	if (this->mode != KickoffMode::Recording && currentKickoffIndex.has_value())
 	{
-		auto carBody = this->currentKickoff->carBody;
+		auto carBody = loadedKickoffs[*currentKickoffIndex].carBody;
 		server.SpawnBot(carBody, BOT_CAR_NAME);
 	}
 
@@ -505,10 +504,10 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 std::optional<ControllerInput> KickoffPractice::getRecordedInput()
 {
-	if (this->currentKickoff == nullptr)
+	if (currentKickoffIndex == std::nullopt)
 		return std::nullopt;
 
-	auto& inputs = this->currentKickoff->inputs;
+	auto& inputs = loadedKickoffs[*currentKickoffIndex].inputs;
 	auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	auto tick = currentFrame - this->startingFrame;
 
@@ -524,6 +523,66 @@ void KickoffPractice::reset()
 	this->kickoffState = KickoffState::nothing;
 	this->resetBoostSettings();
 	this->speedFlipTrainer->Reset();
+}
+
+void KickoffPractice::clearLoadedKickoffs()
+{
+	loadedKickoffs.clear();
+	kickoffIndexByName.clear();
+	kickoffIndexByPosition.clear();
+	setCurrentKickoffIndex(std::nullopt);
+}
+void KickoffPractice::loadKickoff(RecordedKickoff& kickoff)
+{
+	loadedKickoffs.push_back(kickoff);
+	auto index = loadedKickoffs.size() - 1;
+	kickoffIndexByName[kickoff.name] = index;
+	kickoffIndexByPosition[kickoff.position].push_back(index);
+}
+void KickoffPractice::renameKickoff(std::string oldName, std::string newName)
+{
+	if (!kickoffIndexByName.contains(oldName)) return;
+	if (kickoffIndexByName.contains(newName)) return;
+
+	auto index = kickoffIndexByName[oldName];
+	loadedKickoffs[index].name = newName;
+
+	kickoffIndexByName.erase(oldName);
+	kickoffIndexByName[newName] = index;
+}
+void KickoffPractice::unloadKickoff(std::string name)
+{
+	if (!kickoffIndexByName.contains(name)) return;
+
+	auto index = kickoffIndexByName[name];
+	loadedKickoffs.erase(loadedKickoffs.begin() + index);
+
+	if (currentKickoffIndex.has_value())
+	{
+		if (index == currentKickoffIndex) setCurrentKickoffIndex(std::nullopt);
+		else if (index < currentKickoffIndex) setCurrentKickoffIndex(*currentKickoffIndex - 1);
+	}
+
+	// Re-create the lookup maps because of index shift.
+	kickoffIndexByName.clear();
+	kickoffIndexByPosition.clear();
+	for (int i = 0; i < loadedKickoffs.size(); i++)
+	{
+		auto& kickoff = loadedKickoffs[i];
+		kickoffIndexByName[kickoff.name] = i;
+		kickoffIndexByPosition[kickoff.position].push_back(i);
+	}
+}
+void KickoffPractice::setCurrentKickoffIndex(std::optional<int> index)
+{
+	if (index == std::nullopt || 0 > *index || *index >= loadedKickoffs.size())
+	{
+		currentKickoffIndex = std::nullopt;
+		return;
+	}
+
+	currentKickoffIndex = index;
+	currentKickoffPosition = loadedKickoffs[*index].position;
 }
 
 void KickoffPractice::saveRecording()
@@ -548,7 +607,7 @@ void KickoffPractice::saveRecording()
 
 void KickoffPractice::writeRecording(RecordedKickoff& kickoff)
 {
-	this->loadedKickoffs.push_back(kickoff);
+	loadKickoff(kickoff);
 	this->writeActiveKickoffs();
 
 	auto filename = kickoff.name + FILE_EXT;
@@ -594,12 +653,6 @@ std::string KickoffPractice::getNewRecordingName() const
 	std::string kickoffName = Utils::getKickoffPositionName(this->currentKickoffPosition);
 
 	return timestamp + " " + kickoffName;
-}
-
-void KickoffPractice::setCurrentKickoff(RecordedKickoff* kickoff)
-{
-	this->currentKickoff = kickoff;
-	if (kickoff) this->currentKickoffPosition = kickoff->position;
 }
 
 void KickoffPractice::removeBots()
@@ -671,20 +724,15 @@ void KickoffPractice::readActiveKickoffs()
 
 	while (getline(file, line))
 	{
-		// TODO: Avoid iterating every line.
-		for (auto& kickoff : this->loadedKickoffs)
-		{
-			if (kickoff.name == line)
-				kickoff.isActive = true;
-		}
+		if (kickoffIndexByName.contains(line))
+			loadedKickoffs[kickoffIndexByName[line]].isActive = true;
 	}
 	file.close();
 }
 
 void KickoffPractice::readKickoffFiles()
 {
-	this->loadedKickoffs.clear();
-	this->setCurrentKickoff(nullptr);
+	clearLoadedKickoffs();
 
 	try
 	{
@@ -692,7 +740,8 @@ void KickoffPractice::readKickoffFiles()
 		{
 			if (entry.is_regular_file() && entry.path().extension() == FILE_EXT)
 			{
-				this->loadedKickoffs.push_back(this->readKickoffFile(entry.path()));
+				auto kickoff = readKickoffFile(entry.path());
+				loadKickoff(kickoff);
 			}
 		}
 	}
@@ -832,19 +881,20 @@ RecordedKickoff KickoffPractice::readKickoffFile(fs::path filePath)
 	return kickoff;
 }
 
-void KickoffPractice::renameKickoff(RecordedKickoff* kickoff, std::string newName, std::function<void()> onSuccess) const
+void KickoffPractice::renameKickoffFile(std::string oldName, std::string newName, std::function<void()> onSuccess)
 {
-	if (!kickoff) return;
 	if (newName.empty()) return;
+	if (!kickoffIndexByName.contains(oldName)) return;
+	if (kickoffIndexByName.contains(newName)) return;
 
 	try
 	{
-		auto oldPath = this->configPath / (kickoff->name + FILE_EXT);
+		auto oldPath = this->configPath / (oldName + FILE_EXT);
 		auto newPath = this->configPath / (newName + FILE_EXT);
 
 		if (!fs::is_regular_file(oldPath))
 		{
-			LOG("No recording file found with this name: {}", kickoff->name);
+			LOG("No recording file found with this name: {}", oldName);
 			return;
 		}
 		if (fs::exists(newPath))
@@ -855,7 +905,7 @@ void KickoffPractice::renameKickoff(RecordedKickoff* kickoff, std::string newNam
 
 		fs::rename(oldPath, newPath);
 
-		kickoff->name = newName;
+		renameKickoff(oldName, newName);
 
 		onSuccess();
 	}
@@ -865,27 +915,25 @@ void KickoffPractice::renameKickoff(RecordedKickoff* kickoff, std::string newNam
 	}
 }
 
-void KickoffPractice::deleteKickoff(RecordedKickoff* kickoff, std::function<void()> onSuccess)
+void KickoffPractice::deleteKickoffFile(std::string name, std::function<void()> onSuccess)
 {
-	if (!kickoff) return;
+	if (!kickoffIndexByName.contains(name))
+		return;
 
 	try
 	{
-		auto fileName = kickoff->name + FILE_EXT;
+		auto fileName = name + FILE_EXT;
 		auto filePath = this->configPath / fileName;
 
 		if (fs::exists(filePath) && !fs::is_regular_file(filePath))
 		{
-			LOG("Recording is no regular file: {}", kickoff->name);
+			LOG("Recording is no regular file: {}", name);
 			return;
 		}
 
 		fs::remove(filePath);
 
-		auto it = std::find_if(loadedKickoffs.begin(), loadedKickoffs.end(),
-			[kickoff](const RecordedKickoff& other) { return &other == kickoff; }
-		);
-		if (it != loadedKickoffs.end()) loadedKickoffs.erase(it);
+		unloadKickoff(name);
 
 		onSuccess();
 	}

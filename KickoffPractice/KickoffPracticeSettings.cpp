@@ -160,34 +160,35 @@ void KickoffPractice::RenderSettings()
 
 	bool changedActiveKickoffs = false;
 
-	// TODO: Don't compute every loop.
-	std::map<KickoffPosition, std::vector<RecordedKickoff*>> kickoffsByPosition;
-	for (auto& kickoff : loadedKickoffs)
-		kickoffsByPosition[kickoff.position].push_back(&kickoff);
-
 	for (KickoffPosition position : Utils::allKickoffPositions)
 	{
 		auto positionName = Utils::getKickoffPositionName(position);
 		ImGui::Text(positionName.c_str());
 
-		if (kickoffsByPosition[position].empty())
-			ImGui::Text("(no kickoffs recorded)");
-
-		for (auto kickoff : kickoffsByPosition[position])
+		if (kickoffIndexByPosition[position].empty())
 		{
-			ImGui::PushID(kickoff->name.c_str());
+			ImGui::Text("(no kickoffs recorded)");
+			ImGui::Spacing();
+			continue;
+		}
 
-			if (kickoff == this->currentKickoff)
+		for (auto index : kickoffIndexByPosition[position])
+		{
+			auto& kickoff = loadedKickoffs[index];
+
+			ImGui::PushID(kickoff.name.c_str());
+
+			if (index == this->currentKickoffIndex)
 				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.5f, 1.0f));
 
-			if (ImGui::Checkbox(kickoff->name.c_str(), &kickoff->isActive))
+			if (ImGui::Checkbox(kickoff.name.c_str(), &kickoff.isActive))
 				changedActiveKickoffs = true;
 
-			if (kickoff == this->currentKickoff)
+			if (index == this->currentKickoffIndex)
 				ImGui::PopStyleColor();
 
 			auto label = "Replay";
-			auto command = REPLAY_COMMAND + " \"" + kickoff->name + "\"";
+			auto command = REPLAY_COMMAND + " \"" + kickoff.name + "\"";
 
 			ImGui::SameLine();
 			CommandButton(label, command);
@@ -197,7 +198,7 @@ void KickoffPractice::RenderSettings()
 			ImGui::SameLine();
 			if (ImGui::Button("Rename"))
 			{
-				tempName = kickoff->name;
+				tempName = kickoff.name;
 				ImGui::OpenPopup("Rename Recording");
 			}
 
@@ -211,7 +212,7 @@ void KickoffPractice::RenderSettings()
 
 				if (ImGui::Button("Rename", ImVec2(120, 0)))
 				{
-					this->renameKickoff(kickoff, tempName, [&]()
+					this->renameKickoffFile(kickoff.name, tempName, [&]()
 						{
 							changedActiveKickoffs = true;
 							ImGui::CloseCurrentPopup();
@@ -233,7 +234,7 @@ void KickoffPractice::RenderSettings()
 
 			if (ImGui::BeginPopupModal("Delete Recording", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 			{
-				auto text = std::format("Confirm you want to delete this recording:\n{}", kickoff->name);
+				auto text = std::format("Confirm you want to delete this recording:\n{}", kickoff.name);
 				ImGui::Text(text.c_str());
 				ImGui::Spacing();
 				ImGui::Text("This operation cannot be undone!");
@@ -241,7 +242,7 @@ void KickoffPractice::RenderSettings()
 
 				if (ImGui::Button("Delete", ImVec2(120, 0)))
 				{
-					this->deleteKickoff(kickoff, [&]()
+					this->deleteKickoffFile(kickoff.name, [&]()
 						{
 							changedActiveKickoffs = true;
 							ImGui::CloseCurrentPopup();

@@ -68,10 +68,19 @@ private:
 	// Reverts everything the plugin did.
 	void reset();
 
+	// Currently available kickoffs. Don't write directly, as other fields depend on it...
 	std::vector<RecordedKickoff> loadedKickoffs;
-	// Only set through `setCurrentKickoff()`.
-	RecordedKickoff* currentKickoff = nullptr;
-	void setCurrentKickoff(RecordedKickoff* kickoff);
+	std::map<KickoffPosition, std::vector<int>> kickoffIndexByPosition;
+	std::map<std::string, int> kickoffIndexByName;
+	// Don't write directly. Use `setCurrentKickoff()`.
+	std::optional<int> currentKickoffIndex = std::nullopt;
+
+	void clearLoadedKickoffs();
+	void loadKickoff(RecordedKickoff& kickoff);
+	void renameKickoff(std::string oldName, std::string newName);
+	void unloadKickoff(std::string name);
+	void setCurrentKickoffIndex(std::optional<int> index);
+
 	// Inputs for the last kickoff regardless of `mode`. Resets the next time the countdown finishes.
 	std::vector<ControllerInput> recordedInputs;
 
@@ -94,9 +103,9 @@ private:
 	RecordedKickoff readKickoffFile(std::filesystem::path filePath);
 
 	// Also renames the recording file.
-	void renameKickoff(RecordedKickoff* kickoff, std::string newName, std::function<void()> onSuccess) const;
+	void renameKickoffFile(std::string oldName, std::string newName, std::function<void()> onSuccess);
 	// Also deletes the recording file. Make sure `kickoff` points to some element of `loadedKickoffs`.
-	void deleteKickoff(RecordedKickoff* kickoff, std::function<void()> onSuccess);
+	void deleteKickoffFile(std::string name, std::function<void()> onSuccess);
 
 	// To avoid interrupting the freeplay experience for the player...
 	void recordBoostSettings();
@@ -115,7 +124,7 @@ private:
 	int kickoffCounter = 0;
 	// Set after scoring a goal to prevent execution.
 	bool isInGoalReplay = false;
-	
+
 	// How long (in seconds) after hitting the ball we end the kickoff.
 	float timeAfterBackToNormal = 0.5;
 	// Kickoff positions currently selected for training.
@@ -124,7 +133,7 @@ private:
 		KickoffPosition::CornerLeft,
 		KickoffPosition::BackRight,
 		KickoffPosition::BackLeft,
-		KickoffPosition::BackCenter 
+		KickoffPosition::BackCenter
 	};
 	// Readable serialization of `activePositions`
 	std::string getActivePositionsMask();
