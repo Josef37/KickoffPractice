@@ -172,6 +172,10 @@ void KickoffPractice::onLoad()
 
 			if (this->kickoffState == KickoffState::started)
 			{
+				auto timeout = this->timeAfterBackToNormal;
+				if (auto server = gameWrapper->GetCurrentGameState())
+					timeout /= server.GetGameSpeed();
+
 			this->setTimeoutChecked(
 				timeout,
 				[this]()
@@ -588,8 +592,6 @@ std::string KickoffPractice::getNewRecordingName() const
 {
 	std::string timestamp = Utils::getCurrentTimestamp();
 	std::string kickoffName = Utils::getKickoffPositionName(this->currentKickoffPosition);
-
-	std::string kickoffName = KickoffPractice::getKickoffPositionName(this->currentKickoffPosition);
 
 	return timestamp + " " + kickoffName;
 }
