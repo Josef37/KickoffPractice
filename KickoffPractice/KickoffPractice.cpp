@@ -141,7 +141,8 @@ void KickoffPractice::onLoad()
 	cvarManager->registerNotifier(SAVE_COMMAND,
 		[this](std::vector<std::string> args)
 		{
-			// Don't check `shouldExecute()`. We always allow saving.
+			if (!pluginEnabled) return;
+
 			this->saveRecording();
 		},
 		"Save the last kickoff. Recordings are saved automatically.",
@@ -165,15 +166,12 @@ void KickoffPractice::onLoad()
 		[this](CarWrapper car, void* params, std::string eventname)
 		{
 			if (!this->shouldExecute()) return;
-			if (this->kickoffState != KickoffState::started) return;
 
-			if (!this->isBot(car))
+			if (this->kickoffState == KickoffState::started && !this->isBot(car))
 				this->speedFlipTrainer->OnBallHit(car);
 
-			auto timeout = this->timeAfterBackToNormal;
-			if (auto server = gameWrapper->GetCurrentGameState())
-				timeout /= server.GetGameSpeed();
-
+			if (this->kickoffState == KickoffState::started)
+			{
 			this->setTimeoutChecked(
 				timeout,
 				[this]()
@@ -189,6 +187,7 @@ void KickoffPractice::onLoad()
 						this->start();
 				}
 			);
+		}
 		}
 	);
 
@@ -209,8 +208,8 @@ void KickoffPractice::onLoad()
 				auto boost = car.GetBoostComponent();
 				if (!boost) continue;
 
-				Vector  locationBot = KickoffPractice::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange);
-				Rotator rotationBot = KickoffPractice::getKickoffRotation(this->currentKickoffPosition, KickoffSide::Orange);
+				Vector  locationBot = Utils::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange);
+				Rotator rotationBot = Utils::getKickoffRotation(this->currentKickoffPosition, KickoffSide::Orange);
 
 				car.SetLocation(locationBot);
 				car.SetCarRotation(rotationBot);
@@ -243,7 +242,8 @@ void KickoffPractice::onLoad()
 	);
 
 	gameWrapper->HookEventPost(
-		"Function GameEvent_Soccar_TA.Countdown.EndState", // Called at the beginning/reset of freeplay.
+		// Called at the beginning/reset of freeplay and when a kickoff starts.
+		"Function GameEvent_Soccar_TA.Countdown.EndState",
 		[this](...)
 		{
 			if (!this->shouldExecute()) return;
@@ -253,7 +253,8 @@ void KickoffPractice::onLoad()
 		}
 	);
 	gameWrapper->HookEvent(
-		"Function TAGame.PlayerController_TA.PlayerResetTraining", // Called when resetting freeplay.
+		// Called when resetting freeplay.
+		"Function TAGame.PlayerController_TA.PlayerResetTraining",
 		[this](...)
 		{
 			// Allow to break out of auto-restart by resetting freeplay.
@@ -355,8 +356,8 @@ void KickoffPractice::setupKickoff()
 	if (!ball) return;
 
 	KickoffSide playerSide = this->mode == KickoffMode::Recording ? KickoffSide::Orange : KickoffSide::Blue;
-	Vector  locationPlayer = KickoffPractice::getKickoffLocation(this->currentKickoffPosition, playerSide);
-	Rotator rotationPlayer = KickoffPractice::getKickoffRotation(this->currentKickoffPosition, playerSide);
+	Vector  locationPlayer = Utils::getKickoffLocation(this->currentKickoffPosition, playerSide);
+	Rotator rotationPlayer = Utils::getKickoffRotation(this->currentKickoffPosition, playerSide);
 
 	if (this->mode != KickoffMode::Recording && this->currentKickoff)
 	{
@@ -538,6 +539,11 @@ void KickoffPractice::saveRecording()
 	kickoff.inputs = this->recordedInputs;
 	kickoff.isActive = true; // Automatically select the newly recorded kickoff.
 
+	writeRecording(kickoff);
+}
+
+void KickoffPractice::writeRecording(RecordedKickoff& kickoff)
+{
 	this->loadedKickoffs.push_back(kickoff);
 	this->writeActiveKickoffs();
 
@@ -580,10 +586,8 @@ void KickoffPractice::saveRecording()
 
 std::string KickoffPractice::getNewRecordingName() const
 {
-	auto time = std::time(nullptr);
-	std::ostringstream oss;
-	oss << std::put_time(std::localtime(&time), "%Y-%m-%d %H-%M-%S");
-	std::string timestamp = oss.str();
+	std::string timestamp = Utils::getCurrentTimestamp();
+	std::string kickoffName = Utils::getKickoffPositionName(this->currentKickoffPosition);
 
 	std::string kickoffName = KickoffPractice::getKickoffPositionName(this->currentKickoffPosition);
 
@@ -943,75 +947,6 @@ void KickoffPractice::renderIndicator(CanvasWrapper canvas)
 
 	canvas.SetPosition((Vector2F{ offset, offset }) * canvas.GetSize());
 	canvas.DrawString(text, scale, scale);
-}
-
-Vector KickoffPractice::getKickoffLocation(int kickoff, KickoffSide side)
-{
-	const Vector heightOffset = Vector(0, 0, 20);
-
-	if (side == KickoffSide::Blue)
-	{
-		if (kickoff == KickoffPosition::CornerRight)
-			return Vector(-2048, -2560, 0) + heightOffset;
-		if (kickoff == KickoffPosition::CornerLeft)
-			return Vector(2048, -2560, 0) + heightOffset;
-		if (kickoff == KickoffPosition::BackRight)
-			return Vector(-256, -3840, 0) + heightOffset;
-		if (kickoff == KickoffPosition::BackLeft)
-			return Vector(256.0, -3840, 0) + heightOffset;
-		if (kickoff == KickoffPosition::BackCenter)
-			return Vector(0.0, -4608, 0) + heightOffset;
-	}
-	else
-	{
-		return -1 * KickoffPractice::getKickoffLocation(kickoff, KickoffSide::Blue) + (2 * heightOffset);
-	}
-}
-
-float KickoffPractice::getKickoffYaw(int kickoff, KickoffSide side)
-{
-	if (side == KickoffSide::Blue)
-	{
-		if (kickoff == KickoffPosition::CornerRight)
-			return 0.25f * CONST_PI_F;
-		if (kickoff == KickoffPosition::CornerLeft)
-			return 0.75f * CONST_PI_F;
-		if (kickoff == KickoffPosition::BackRight)
-			return 0.5f * CONST_PI_F;
-		if (kickoff == KickoffPosition::BackLeft)
-			return 0.5f * CONST_PI_F;
-		if (kickoff == KickoffPosition::BackCenter)
-			return 0.5f * CONST_PI_F;
-	}
-	else
-	{
-		return KickoffPractice::getKickoffYaw(kickoff, KickoffSide::Blue) - CONST_PI_F;
-	}
-}
-
-Rotator KickoffPractice::getKickoffRotation(int kickoff, KickoffSide side)
-{
-	float yaw = KickoffPractice::getKickoffYaw(kickoff, side);
-	return Rotator(0, std::lroundf(yaw * CONST_RadToUnrRot), 0);
-}
-
-std::string KickoffPractice::getKickoffPositionName(int kickoff)
-{
-	switch (kickoff)
-	{
-	case 0:
-		return "Right Corner";
-	case 1:
-		return "Left Corner";
-	case 2:
-		return "Back Right";
-	case 3:
-		return "Back Left";
-	case 4:
-		return "Back Center";
-	default:
-		return "Unknown";
-	}
 }
 
 std::optional<KickoffPosition> KickoffPractice::parseKickoffArg(std::string arg)

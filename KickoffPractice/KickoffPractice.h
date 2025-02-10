@@ -9,6 +9,7 @@
 #include "bakkesmod/plugin/PluginSettingsWindow.h"
 #include "version.h"
 
+#include "Common.h"
 #include "PersistentStorage.h"
 #include "SpeedFlipTrainer.h"
 
@@ -27,52 +28,6 @@ static const std::string CVAR_SPEEDFLIP_TRAINER = "kickoff_train_speedflip";
 static const std::string CVAR_BACK_TO_NORMAL = "kickoff_train_back_to_normal";
 static const std::string CVAR_ACTIVE_POSITIONS = "kickoff_train_active_positions";
 
-enum KickoffPosition
-{
-	CornerRight = 0,
-	CornerLeft = 1,
-	BackRight = 2,
-	BackLeft = 3,
-	BackCenter = 4,
-};
-enum KickoffSide
-{
-	Blue = true,
-	Orange = false,
-};
-enum class KickoffState
-{
-	// Kickoff is over or countdown wasn't started.
-	nothing,
-	// Countdown is active. Cars are not moving.
-	waitingToStart,
-	// Countdown is over. Bot and player are moving.
-	// Kickoff is considered over after ball hit + `timeAfterBackToNormal`. 
-	started
-};
-enum class KickoffMode
-{
-	Training,
-	Recording,
-	Replaying
-};
-
-struct RecordedKickoff
-{
-	// Equals the file name (without extension).
-	std::string name;
-	// Is it selected for training?
-	bool isActive = false;
-
-	// Recording header/config
-	KickoffPosition position = KickoffPosition::CornerLeft;
-	int carBody = 23; // Octane
-	GamepadSettings settings = GamepadSettings(0, 0.5, 1, 1);
-
-	// Recorded inputs
-	std::vector<ControllerInput> inputs;
-};
-
 struct BoostSettings
 {
 	int UnlimitedBoostRefCount;
@@ -86,7 +41,7 @@ class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public Settin
 private:
 	std::shared_ptr<PersistentStorage> persistentStorage;
 
-	std::shared_ptr<SpeedFlipTrainer> speedFlipTrainer;
+	std::unique_ptr<SpeedFlipTrainer> speedFlipTrainer;
 
 	bool pluginEnabled = true;
 	bool shouldExecute();
@@ -126,9 +81,11 @@ private:
 
 	// Base folder for all files.
 	std::filesystem::path configPath;
-	// Adds the last attempt to `loadedKickoffs` and saves it to file.
+	// Gets all necessary information and calls `writeRecording()`.
 	void saveRecording();
 	std::string getNewRecordingName() const;
+	// Adds the last attempt to `loadedKickoffs` and saves it to file.
+	void writeRecording(RecordedKickoff& kickoff);
 	// Writes the names of all active/selected kickoffs to a file.
 	void writeActiveKickoffs();
 	void readActiveKickoffs();
@@ -188,11 +145,6 @@ private:
 	std::string tempName;
 	// Execute command from UI, close menu and show command on hover.
 	void CommandButton(const std::string& label, const std::string& command);
-
-	static Vector getKickoffLocation(int kickoff, KickoffSide side);
-	static float getKickoffYaw(int kickoff, KickoffSide side);
-	static Rotator getKickoffRotation(int kickoff, KickoffSide side);
-	static std::string getKickoffPositionName(int kickoff);
 
 	// Number 1-5 to `KickoffPosition`.
 	static std::optional<KickoffPosition> parseKickoffArg(std::string arg);
