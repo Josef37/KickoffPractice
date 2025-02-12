@@ -45,6 +45,11 @@ private:
 
 	std::unique_ptr<KickoffStorage> kickoffStorage;
 
+	void registerCvars();
+	void registerCommands();
+	void hookEvents();
+	void registerDrawables();
+
 	bool pluginEnabled = true;
 	bool shouldExecute();
 	// Checks `shouldExecute()` after the timeout.

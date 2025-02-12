@@ -29,6 +29,27 @@ void KickoffPractice::onLoad()
 		[this]() { return showSpeedFlipTrainer && shouldExecute(); }
 	);
 
+	kickoffStorage = std::make_unique<KickoffStorage>(
+		gameWrapper->GetDataFolder() / PLUGIN_FOLDER
+	);
+	readKickoffsFromFile();
+
+	registerCvars();
+
+	registerCommands();
+
+	hookEvents();
+
+	registerDrawables();
+
+	// Initially set `isInGoalReplay` if we load the plugin during goal replay.
+	if (auto server = gameWrapper->GetCurrentGameState())
+		if (auto director = server.GetReplayDirector())
+			this->isInGoalReplay = director.GetReplayTimeSeconds() > 0;
+}
+
+void KickoffPractice::registerCvars()
+{
 	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffPractice", true, true);
 
 	// TODO: Add description. Store cvar, title and description in variable to use it in UI, too.
@@ -55,15 +76,10 @@ void KickoffPractice::onLoad()
 
 	persistentStorage->RegisterPersistentCvar(CVAR_ACTIVE_POSITIONS, getActivePositionsMask())
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { setActivePositionFromMask(cvar.getStringValue()); });
+}
 
-
-	kickoffStorage = std::make_unique<KickoffStorage>(
-		gameWrapper->GetDataFolder() / PLUGIN_FOLDER
-	);
-
-	readKickoffsFromFile();
-
-
+void KickoffPractice::registerCommands()
+{
 	cvarManager->registerNotifier(TRAIN_COMMAND,
 		[this](std::vector<std::string> args)
 		{
@@ -142,7 +158,10 @@ void KickoffPractice::onLoad()
 		"Save the last kickoff. Recordings are saved automatically.",
 		PERMISSION_FREEPLAY
 	);
+}
 
+void KickoffPractice::hookEvents()
+{
 	gameWrapper->HookEventWithCaller<CarWrapper>(
 		"Function TAGame.Car_TA.SetVehicleInput",
 		[this](CarWrapper car, void* params, std::string eventName)
@@ -225,11 +244,6 @@ void KickoffPractice::onLoad()
 		}
 	);
 
-	// Initially set `isInGoalReplay` if we load the plugin during replay.
-	if (auto server = gameWrapper->GetCurrentGameState())
-		if (auto director = server.GetReplayDirector())
-			this->isInGoalReplay = director.GetReplayTimeSeconds() > 0;
-
 	gameWrapper->HookEventPost(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.BeginState",
 		[this](...) { this->isInGoalReplay = true; }
@@ -262,7 +276,10 @@ void KickoffPractice::onLoad()
 				this->start();
 		}
 	);
+}
 
+void KickoffPractice::registerDrawables()
+{
 	gameWrapper->RegisterDrawable(
 		[this](CanvasWrapper canvas)
 		{
