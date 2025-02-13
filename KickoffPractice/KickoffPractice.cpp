@@ -374,9 +374,14 @@ void KickoffPractice::hookEvents()
 				Vector  locationBot = Utils::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange);
 				Rotator rotationBot = Utils::getKickoffRotation(this->currentKickoffPosition, KickoffSide::Orange);
 
-				car.SetLocation(locationBot);
-				car.SetCarRotation(rotationBot);
-				car.Stop();
+				RBState botState;
+				botState.Location = locationBot;
+				botState.Quaternion = RotatorToQuat(rotationBot);
+				car.SetPhysicsState(botState);
+				// We need to set this flag, otherwise the car will be slightly offset when the kickoff starts,
+				// even when we overwrite all inputs.
+				car.SetbDriving(false);
+
 				// To disable the bot moving by itself we would call `car.GetAIController().DoNothing()` here.
 				// But then the `SetVehicleInput` hook would not fire for the bot.
 				// So we don't disable the controller, but overwrite the inputs inside the hook.
@@ -557,9 +562,10 @@ void KickoffPractice::setupKickoff()
 	}
 
 	// TODO: Set at the same time as the bot (to avoid them hitting each other).
-	player.SetLocation(locationPlayer);
-	player.SetRotation(rotationPlayer);
-	player.Stop();
+	RBState playerState;
+	playerState.Location = locationPlayer;
+	playerState.Quaternion = RotatorToQuat(rotationPlayer);
+	player.SetPhysicsState(playerState);
 
 	KickoffPractice::applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
 	boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
@@ -575,10 +581,9 @@ void KickoffPractice::setupKickoff()
 		}
 	);
 
-	ball.SetLocation(Vector(0, 0, ball.GetRadius()));
-	ball.SetVelocity(Vector(0, 0, 0));
-	ball.SetAngularVelocity(Vector(0, 0, 0), false);
-	ball.SetRotation(Rotator(0, 0, 0));
+	RBState ballState;
+	ballState.Location = Vector(0, 0, ball.GetRadius());
+	ball.SetPhysicsState(ballState);
 
 	this->kickoffState = KickoffState::WaitingToStart;
 
@@ -651,6 +656,11 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 		*input = EMPTY_INPUT;
 
+		// Don't set the flag when waiting, because the bot spawns later
+		// and updating the position wouldn't work anymore with the flag set.
+		if (this->kickoffState != KickoffState::WaitingToStart)
+			bot.SetbDriving(true);
+
 		if (this->kickoffState != KickoffState::Started)
 			return;
 
@@ -666,6 +676,7 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 	{
 		auto& player = car;
 
+		// TODO: Can we do it the same way as with the bot?
 		player.SetbDriving(this->kickoffState != KickoffState::WaitingToStart);
 
 		// If the player is holding boost when starting training, it won't stop consuming boost.
