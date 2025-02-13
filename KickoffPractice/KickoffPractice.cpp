@@ -176,7 +176,7 @@ void KickoffPractice::hookEvents()
 
 	gameWrapper->HookEventWithCallerPost<CarWrapper>(
 		"Function TAGame.Car_TA.OnHitBall",
-		[this](CarWrapper car, void* params, std::string eventname)
+		[this](CarWrapper car, void* params, std::string eventName)
 		{
 			if (!this->shouldExecute()) return;
 
@@ -208,14 +208,17 @@ void KickoffPractice::hookEvents()
 		}
 	);
 
-	gameWrapper->HookEvent(
-		"Function Engine.Actor.SpawnInstance",
+	gameWrapper->HookEventPost(
+		// This hook is called after spawning a bot and setting its name, location and other properties,
+		// so we can safely set our own properties without them being overwritten.
+		"Function TAGame.GameEvent_Team_TA.UpdateBotCount",
 		[this](...)
 		{
 			if (!this->shouldExecute()) return;
 
-			ServerWrapper server = gameWrapper->GetCurrentGameState();
+			auto server = gameWrapper->GetCurrentGameState();
 			if (!server) return;
+
 			if (!currentKickoffIndex.has_value()) return;
 
 			for (auto car : server.GetCars())
