@@ -27,6 +27,7 @@ void KickoffStorage::saveRecording(RecordedKickoff& kickoff)
 		return;
 	}
 
+	inputFile << "version: 1.0" << "\n";
 	inputFile << "position:" << Utils::toInt(kickoff.position) << "\n";
 	inputFile << "carBody:" << kickoff.carBody << "\n";
 
@@ -84,6 +85,25 @@ std::vector<RecordedKickoff> KickoffStorage::readRecordings()
 	return kickoffs;
 }
 
+/*
+ * Expected format for version 1.0
+ * 
+ * ```
+ * version: 1.0
+ * position: <position>
+ * carBody: <carBody>
+ * settings: <ControllerDeadzone>,<DodgeInputThreshold>,<SteeringSensitivity>,<AirControlSensitivity>
+ * inputs
+ * <Throttle>,<Steer>,<Pitch>,<Yaw>,<Roll>,<DodgeForward>,<DodgeStrafe>,<Handbrake>,<Jump>,<ActivateBoost>,<HoldingBoost>,<Jumped>
+ * <Throttle>,<Steer>,<Pitch>,...
+ * ...
+ * ```
+ * 
+ * position: 0 to 4
+ * carBody: CarWrapper::GetLoadoutBody()
+ * settings: SettingsWrapper::GetGamepadSettings()
+ * inputs: one line equals one physics frame (tick) taken from hook "Function TAGame.Car_TA.SetVehicleInput"
+ */
 RecordedKickoff KickoffStorage::readRecording(fs::path filePath)
 {
 	std::optional<KickoffPosition> position;
@@ -118,6 +138,11 @@ RecordedKickoff KickoffStorage::readRecording(fs::path filePath)
 				{
 					inHeader = false;
 					continue;
+				}
+				else if (header == "version")
+				{
+					// Nothing to do here now. 
+					// Only for supporting future changes.
 				}
 				else if (header == "carBody")
 				{
