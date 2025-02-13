@@ -41,6 +41,7 @@ struct TestState
 {
 	int tick;
 	RBState state;
+	ControllerInput input;
 };
 
 class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public SettingsWindowBase
@@ -48,7 +49,7 @@ class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public Settin
 private:
 	// For testing recording/replay accuracy...
 	bool testing = false;
-	void recordCarState(CarWrapper car);
+	void recordCarState(CarWrapper car, ControllerInput input);
 	std::vector<TestState> botStates;
 	std::vector<TestState> playerStates;
 	void writeStates(std::string filename, std::vector<TestState> states);

@@ -170,6 +170,7 @@ void KickoffPractice::registerCommands()
 			if (!shouldExecute()) return;
 
 			autoRestart = false;
+			timeAfterBackToNormal = 0;
 			testing = true;
 
 			// Record a kickoff (with user inputs).
@@ -217,14 +218,14 @@ void KickoffPractice::registerCommands()
 	);
 }
 
-void KickoffPractice::recordCarState(CarWrapper car)
+void KickoffPractice::recordCarState(CarWrapper car, ControllerInput input)
 {
 	auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	auto tick = currentFrame - this->startingFrame;
 
 	auto& container = isBot(car) ? botStates : playerStates;
 
-	container.push_back({ tick, car.GetCurrentRBState() });
+	container.push_back({ tick, car.GetCurrentRBState(), input });
 }
 void KickoffPractice::writeStates(std::string filename, std::vector<TestState> states)
 {
@@ -238,16 +239,20 @@ void KickoffPractice::writeStates(std::string filename, std::vector<TestState> s
 		<< "," << "Location.X"
 		<< "," << "Location.Y"
 		<< "," << "Location.Z"
-		<< "," << "LinearVelocity.magnitude()"
+		<< "," << "LinearVelocity"
+		<< "," << "input.Steer"
+		<< "," << "input.Boost"
 		<< "\n";
 
-	for (const auto& [tick, state] : states)
+	for (const auto& [tick, state, input] : states)
 	{
 		outFile << tick
 			<< "," << state.Location.X
 			<< "," << state.Location.Y
 			<< "," << state.Location.Z
 			<< "," << state.LinearVelocity.magnitude()
+			<< "," << input.Steer
+			<< "," << input.ActivateBoost
 			<< "\n";
 	}
 
@@ -303,6 +308,9 @@ void KickoffPractice::hookEvents()
 
 			ControllerInput* input = static_cast<ControllerInput*>(params);
 			this->onVehicleInput(car, input);
+
+			if (testing && this->kickoffState == KickoffState::Started)
+				recordCarState(car, *input);
 		}
 	);
 
@@ -681,9 +689,6 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 		this->speedFlipTrainer->OnVehicleInput(player, input);
 	}
-
-	if (testing && kickoffState == KickoffState::Started)
-		recordCarState(car);
 }
 
 std::optional<ControllerInput> KickoffPractice::getRecordedInput()
@@ -694,6 +699,9 @@ std::optional<ControllerInput> KickoffPractice::getRecordedInput()
 	auto& inputs = loadedKickoffs[*currentKickoffIndex].inputs;
 	auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	auto tick = currentFrame - this->startingFrame;
+
+	// TODO: Properly fix off-by-one issue.
+	if (tick > 0) tick -= 1;
 
 	if (0 > tick || tick >= inputs.size())
 		return std::nullopt;
