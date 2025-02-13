@@ -724,9 +724,6 @@ std::optional<ControllerInput> KickoffPractice::getRecordedInput()
 	auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	auto tick = currentFrame - this->startingFrame;
 
-	// TODO: Properly fix off-by-one issue.
-	if (tick > 0) tick -= 1;
-
 	if (0 > tick || tick >= inputs.size())
 		return std::nullopt;
 
