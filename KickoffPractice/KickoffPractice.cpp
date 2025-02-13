@@ -247,6 +247,19 @@ void KickoffPractice::hookEvents()
 		}
 	);
 
+	gameWrapper->HookEventWithCallerPost<CarWrapper>(
+		"Function TAGame.Car_TA.Demolish",
+		[this](CarWrapper car, void* params, std::string eventName)
+		{
+			if (!shouldExecute()) return;
+			if (kickoffState == KickoffState::Nothing) return;
+
+			// Respawn all cars on demo - also bots.
+			// If we didn't the bot could respawn for the next shot a few seconds later.
+			car.RespawnInPlace();
+		}
+	);
+
 	gameWrapper->HookEventPost(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.BeginState",
 		[this](...) { this->isInGoalReplay = true; }
