@@ -532,8 +532,8 @@ void KickoffPractice::start()
 		this->setCurrentKickoffIndex(suitableKickoffIndices[rand() % suitableKickoffIndices.size()]);
 	}
 
-	// We wait a little before updating the game state, because we want the reset to finish first.
-	// Otherwise `player.SetLocation()` won't work properly, because `player.SetbDriving(false)` still affects it.
+	// Make sure to wait a little before updating the game state, because we want the reset to finish first.
+	// Otherwise updating locations won't work properly, because `SetbDriving(false)` still affects cars.
 	this->setTimeoutChecked(
 		gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
 		[this]() { this->setupKickoff(); }
@@ -588,50 +588,43 @@ void KickoffPractice::setupKickoff()
 	ballState.Location = Vector(0, 0, ball.GetRadius());
 	ball.SetPhysicsState(ballState);
 
-	// TODO: Align the countdown end with the physics frames for more consistency.
-	startCountdown(
-		this->mode == KickoffMode::Replaying ? 1 : 3,
-		this->kickoffCounter,
-		[this]()
-		{
-			this->recordedInputs.clear();
-			this->kickoffState = KickoffState::Started;
-			this->startingFrame = gameWrapper->GetEngine().GetPhysicsFrame();
-		}
-	);
+	initCountdown(this->mode == KickoffMode::Replaying ? 1 : 3);
 }
 
-void KickoffPractice::startCountdown(int seconds, int kickoffCounterAtStart, std::function<void()> onCompleted)
+void KickoffPractice::initCountdown(int seconds)
 {
-	ServerWrapper server = gameWrapper->GetCurrentGameState();
-	if (!server) return;
+	auto engine = gameWrapper->GetEngine();
+	if (!engine) return;
+	
+	// Add one additional frame, so we can catch the "first" second in `doCountdown()`.
+	int framesLeft = 1 + seconds * lroundf(engine.GetPhysicsFramerate());
+	startingFrame = engine.GetPhysicsFrame() + framesLeft;
+}
 
+void KickoffPractice::doCountdown()
+{
 	if (this->kickoffState != KickoffState::WaitingToStart) return;
 
-	// Abort the countdown, if we restarted or aborted the kickoff.
-	if (this->kickoffCounter != kickoffCounterAtStart) return;
+	auto server = gameWrapper->GetCurrentGameState();
+	if (!server) return;
+	auto engine = gameWrapper->GetEngine();
+	if (!engine) return;
 
-	if (seconds <= 0)
+	int framesLeft = startingFrame - engine.GetPhysicsFrame();
+	int frameRate = lroundf(engine.GetPhysicsFramerate());
+
+	if (framesLeft == 0)
 	{
 		server.SendGoMessage(gameWrapper->GetPlayerController());
-		onCompleted();
 
-		return;
+		recordedInputs.clear();
+		kickoffState = KickoffState::Started;
 	}
-
-	// TODO: Actually pause the countdown.
-	if (!gameWrapper->IsPaused())
+	else if (framesLeft % frameRate == 0)
+	{
+		auto seconds = framesLeft / frameRate;
 		server.SendCountdownMessage(seconds, gameWrapper->GetPlayerController());
-
-	// TODO: Verify the countdown is not delayed too much because the timeout might only be a lower bound.
-	this->setTimeoutChecked(
-		1.0f,
-		[this, seconds, kickoffCounterAtStart, onCompleted]()
-		{
-			auto newDelay = gameWrapper->IsPaused() ? seconds : seconds - 1;
-			this->startCountdown(newDelay, kickoffCounterAtStart, onCompleted);
-		}
-	);
+	}
 }
 
 static const ControllerInput EMPTY_INPUT = ControllerInput{
@@ -657,6 +650,15 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 		auto loc = car.GetRBState().Location;
 		if (abs(loc.X - roundf(loc.X)) > 0.0001f) LOG("X Location drifting! {}", loc.X);
 		if (abs(loc.Y - roundf(loc.Y)) > 0.0001f) LOG("Y Location drifting! {}", loc.Y);
+	}
+
+	if (!isBot(car))
+	{
+		// These functions should execute once per tick,
+		// but the hook gets called multiple times per tick for the bot.
+		// Additionally, we want them to execute before processing inputs.
+
+		doCountdown();
 	}
 
 	if (this->isBot(car))

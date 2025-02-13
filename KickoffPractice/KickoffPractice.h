@@ -86,8 +86,9 @@ private:
 	// Also expects that we do not freeze the players in the current physics frame (i.e. during waiting for kickoff).
 	// Best to not call it directly and use `start()` instead.
 	void setupKickoff();
-	// Works while waiting and only for the current kickoff.
-	void startCountdown(int seconds, int kickoffCounterAtStart, std::function<void()> onCompleted);
+	// Countdown logic: Aligned with physics frames.
+	void initCountdown(int seconds);
+	void doCountdown();
 	// Controls bot (and player during replay) by overriding inputs. Also records inputs.
 	// Freezes the player in place and sets boost amount while waiting.
 	void onVehicleInput(CarWrapper car, ControllerInput* input);
