@@ -109,7 +109,7 @@ private:
 	BoostSettings boostSettings{};
 
 	KickoffMode mode = KickoffMode::Training; // TODO: Link mode to current position/kickoff values to check what's required.
-	KickoffState kickoffState = KickoffState::nothing;
+	KickoffState kickoffState = KickoffState::Nothing;
 	// Often set from `currentKickoff`, but necessary for recording (where the is no current kickoff).
 	KickoffPosition currentKickoffPosition = KickoffPosition::BackCenter;
 

@@ -23,12 +23,12 @@ enum class KickoffSide
 enum class KickoffState
 {
 	// Kickoff is over or countdown wasn't started.
-	nothing,
+	Nothing,
 	// Countdown is active. Cars are not moving.
-	waitingToStart,
+	WaitingToStart,
 	// Countdown is over. Bot and player are moving.
 	// Kickoff is considered over after ball hit + `timeAfterBackToNormal`. 
-	started
+	Started
 };
 enum class KickoffMode
 {

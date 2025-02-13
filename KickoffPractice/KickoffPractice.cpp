@@ -180,10 +180,10 @@ void KickoffPractice::hookEvents()
 		{
 			if (!this->shouldExecute()) return;
 
-			if (this->kickoffState == KickoffState::started && !this->isBot(car))
+			if (this->kickoffState == KickoffState::Started && !this->isBot(car))
 				this->speedFlipTrainer->OnBallHit(car);
 
-			if (this->kickoffState == KickoffState::started)
+			if (this->kickoffState == KickoffState::Started)
 			{
 				auto timeout = this->timeAfterBackToNormal;
 				if (auto server = gameWrapper->GetCurrentGameState())
@@ -193,7 +193,7 @@ void KickoffPractice::hookEvents()
 					timeout,
 					[this]()
 					{
-						if (this->kickoffState != KickoffState::started) return;
+						if (this->kickoffState != KickoffState::Started) return;
 
 						if (this->mode == KickoffMode::Recording)
 							this->saveRecording();
@@ -286,7 +286,7 @@ void KickoffPractice::hookEvents()
 		[this](...)
 		{
 			// Allow to break out of auto-restart by resetting freeplay.
-			if (this->autoRestart && this->kickoffState != KickoffState::nothing)
+			if (this->autoRestart && this->kickoffState != KickoffState::Nothing)
 				return;
 			if (this->restartOnTrainingReset)
 				this->start();
@@ -301,7 +301,7 @@ void KickoffPractice::registerDrawables()
 		{
 			if (!shouldExecute()) return;
 			if (gameWrapper->IsPaused()) return;
-			if (kickoffState == KickoffState::nothing) return;
+			if (kickoffState == KickoffState::Nothing) return;
 
 			this->renderIndicator(canvas);
 			this->speedFlipTrainer->RenderMeters(canvas);
@@ -421,7 +421,7 @@ void KickoffPractice::setupKickoff()
 	ball.SetAngularVelocity(Vector(0, 0, 0), false);
 	ball.SetRotation(Rotator(0, 0, 0));
 
-	this->kickoffState = KickoffState::waitingToStart;
+	this->kickoffState = KickoffState::WaitingToStart;
 
 	// TODO: Align the countdown end with the physics frames for more consistency.
 	startCountdown(
@@ -430,7 +430,7 @@ void KickoffPractice::setupKickoff()
 		[this]()
 		{
 			this->recordedInputs.clear();
-			this->kickoffState = KickoffState::started;
+			this->kickoffState = KickoffState::Started;
 			this->startingFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 		}
 	);
@@ -441,7 +441,7 @@ void KickoffPractice::startCountdown(int seconds, int kickoffCounterAtStart, std
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
 
-	if (this->kickoffState != KickoffState::waitingToStart) return;
+	if (this->kickoffState != KickoffState::WaitingToStart) return;
 
 	// Abort the countdown, if we restarted or aborted the kickoff.
 	if (this->kickoffCounter != kickoffCounterAtStart) return;
@@ -492,7 +492,7 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 		*input = EMPTY_INPUT;
 
-		if (this->kickoffState != KickoffState::started)
+		if (this->kickoffState != KickoffState::Started)
 			return;
 
 		// The Bot Controller calls this functions multiple times per tick (varies by game speed).
@@ -507,16 +507,16 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 	{
 		auto& player = car;
 
-		player.SetbDriving(this->kickoffState != KickoffState::waitingToStart);
+		player.SetbDriving(this->kickoffState != KickoffState::WaitingToStart);
 
 		// If the player is holding boost when starting training, it won't stop consuming boost.
 		// Disabling was quite messy (with `PlayerController::ToggleBoost` or `BoostComponent::SetbActive`),
 		// which resulted in weird game states. So we just fill the tank every tick.
 		if (auto boost = player.GetBoostComponent())
-			if (this->kickoffState == KickoffState::waitingToStart)
+			if (this->kickoffState == KickoffState::WaitingToStart)
 				boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
 
-		if (this->kickoffState != KickoffState::started)
+		if (this->kickoffState != KickoffState::Started)
 			return;
 
 		if (this->mode == KickoffMode::Replaying)
@@ -550,7 +550,7 @@ std::optional<ControllerInput> KickoffPractice::getRecordedInput()
 void KickoffPractice::reset()
 {
 	this->removeBots();
-	this->kickoffState = KickoffState::nothing;
+	this->kickoffState = KickoffState::Nothing;
 	this->resetBoostSettings();
 	this->speedFlipTrainer->Reset();
 }
@@ -712,7 +712,7 @@ void KickoffPractice::recordBoostSettings()
 {
 	// Starting a new kickoff without finishing the previous one
 	// would result in us storing our overwritten boost setting.
-	if (this->kickoffState != KickoffState::nothing) return;
+	if (this->kickoffState != KickoffState::Nothing) return;
 
 	auto player = gameWrapper->GetLocalCar();
 	if (!player) return;
