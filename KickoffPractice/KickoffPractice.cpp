@@ -32,20 +32,20 @@ void KickoffPractice::onLoad()
 	kickoffStorage = std::make_unique<KickoffStorage>(
 		gameWrapper->GetDataFolder() / PLUGIN_FOLDER
 	);
-	readKickoffsFromFile();
 
 	registerCvars();
 
 	registerCommands();
 
-	hookEvents();
-
-	registerDrawables();
-
-	// Initially set `isInGoalReplay` if we load the plugin during goal replay.
-	if (auto server = gameWrapper->GetCurrentGameState())
-		if (auto director = server.GetReplayDirector())
-			this->isInGoalReplay = director.GetReplayTimeSeconds() > 0;
+	// Only enable functionality in freeplay.
+	gameWrapper->HookEventPost(
+		"Function TAGame.GameEvent_Soccar_TA.OnInit",
+		[this](...) { load(); }
+	);
+	gameWrapper->HookEventPost(
+		"Function TAGame.GameEvent_Soccar_TA.Destroyed",
+		[this](...) { unload(); }
+	);
 }
 
 void KickoffPractice::registerCvars()
@@ -56,7 +56,12 @@ void KickoffPractice::registerCvars()
 	persistentStorage->RegisterPersistentCvar(CVAR_ENABLED, "1").addOnValueChanged([this](std::string oldValue, CVarWrapper cvar)
 		{
 			pluginEnabled = cvar.getBoolValue();
-			if (!pluginEnabled) gameWrapper->Execute([this](...) { reset(); });
+
+			gameWrapper->Execute([this](...)
+				{
+					if (pluginEnabled) load();
+					else unload();
+				});
 		});
 
 	persistentStorage->RegisterPersistentCvar(CVAR_RESTART_ON_RESET, "1")
@@ -160,6 +165,34 @@ void KickoffPractice::registerCommands()
 	);
 }
 
+void KickoffPractice::load()
+{
+	if (!pluginEnabled) return;
+	if (!gameWrapper->IsInFreeplay()) return;
+
+	if (loaded) return;
+	loaded = true;
+
+	LOG("Loading plugin...");
+
+	hookEvents();
+	resetPluginState();
+	readKickoffsFromFile(); // TODO: Only read once?
+}
+
+void KickoffPractice::unload()
+{
+	if (!loaded) return;
+	loaded = false;
+
+	LOG("Unloading plugin...");
+
+	if (gameWrapper->IsInFreeplay() && kickoffState != KickoffState::Nothing)
+		resetGameState();
+	
+	unhookEvents();
+}
+
 void KickoffPractice::hookEvents()
 {
 	gameWrapper->HookEventWithCaller<CarWrapper>(
@@ -189,11 +222,14 @@ void KickoffPractice::hookEvents()
 				if (auto server = gameWrapper->GetCurrentGameState())
 					timeout /= server.GetGameSpeed();
 
+				auto kickoffCounterOnHit = kickoffCounter;
+
 				this->setTimeoutChecked(
 					timeout,
-					[this]()
+					[this, kickoffCounterOnHit]()
 					{
 						if (this->kickoffState != KickoffState::Started) return;
+						if (this->kickoffCounter != kickoffCounterOnHit) return;
 
 						if (this->mode == KickoffMode::Recording)
 							this->saveRecording();
@@ -260,7 +296,7 @@ void KickoffPractice::hookEvents()
 		}
 	);
 
-	gameWrapper->HookEventPost(
+	gameWrapper->HookEvent(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.BeginState",
 		[this](...) { this->isInGoalReplay = true; }
 	);
@@ -268,9 +304,13 @@ void KickoffPractice::hookEvents()
 		"Function GameEvent_Soccar_TA.ReplayPlayback.EndState",
 		[this](...) { this->isInGoalReplay = false; }
 	);
+	// Initially set `isInGoalReplay` if we load the plugin during goal replay.
+	if (auto server = gameWrapper->GetCurrentGameState())
+		if (auto director = server.GetReplayDirector())
+			this->isInGoalReplay = director.GetReplayTimeSeconds() > 0;
 
 	gameWrapper->HookEventPost(
-		// Called at the beginning/reset of freeplay and when a kickoff starts.
+		// Called at the beginning/reset of freeplay and when an in-game kickoff starts.
 		"Function GameEvent_Soccar_TA.Countdown.EndState",
 		[this](...)
 		{
@@ -280,7 +320,8 @@ void KickoffPractice::hookEvents()
 			this->reset();
 		}
 	);
-	gameWrapper->HookEvent(
+
+	gameWrapper->HookEventPost(
 		// Called when resetting freeplay.
 		"Function TAGame.PlayerController_TA.PlayerResetTraining",
 		[this](...)
@@ -292,10 +333,7 @@ void KickoffPractice::hookEvents()
 				this->start();
 		}
 	);
-}
 
-void KickoffPractice::registerDrawables()
-{
 	gameWrapper->RegisterDrawable(
 		[this](CanvasWrapper canvas)
 		{
@@ -309,9 +347,22 @@ void KickoffPractice::registerDrawables()
 	);
 }
 
+void KickoffPractice::unhookEvents()
+{
+	gameWrapper->UnhookEvent("Function TAGame.Car_TA.SetVehicleInput");
+	gameWrapper->UnhookEventPost("Function TAGame.Car_TA.OnHitBall");
+	gameWrapper->UnhookEventPost("Function TAGame.GameEvent_Team_TA.UpdateBotCount");
+	gameWrapper->UnhookEventPost("Function TAGame.Car_TA.Demolish");
+	gameWrapper->UnhookEvent("Function GameEvent_Soccar_TA.ReplayPlayback.BeginState");
+	gameWrapper->UnhookEventPost("Function GameEvent_Soccar_TA.ReplayPlayback.EndState");
+	gameWrapper->UnhookEventPost("Function GameEvent_Soccar_TA.Countdown.EndState");
+	gameWrapper->UnhookEventPost("Function TAGame.PlayerController_TA.PlayerResetTraining");
+	gameWrapper->UnregisterDrawables();
+}
+
 void KickoffPractice::onUnload()
 {
-	this->reset();
+	unload();
 }
 
 bool KickoffPractice::shouldExecute()
@@ -398,6 +449,7 @@ void KickoffPractice::setupKickoff()
 		server.SpawnBot(carBody, BOT_CAR_NAME);
 	}
 
+	// TODO: Set at the same time as the bot (to avoid them hitting each other).
 	player.SetLocation(locationPlayer);
 	player.SetRotation(rotationPlayer);
 	player.Stop();
@@ -405,10 +457,10 @@ void KickoffPractice::setupKickoff()
 	KickoffPractice::applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
 	boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
 
-	// Reset boost pickups a few frames in, because moving the player can cause picking up boost.
-	// Moving the player isn't done instantly, but takes a few frames.
+	// Reset boost pickups a few frames in, because moving the player/bot can cause picking up boost.
+	// Moving the player/bot isn't done instantly, but takes a few frames.
 	this->setTimeoutChecked(
-		12 * gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
+		60 * gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
 		[this]()
 		{
 			if (auto server = gameWrapper->GetCurrentGameState())
@@ -541,7 +593,7 @@ std::optional<ControllerInput> KickoffPractice::getRecordedInput()
 	auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	auto tick = currentFrame - this->startingFrame;
 
-	if (tick >= inputs.size())
+	if (0 > tick || tick >= inputs.size())
 		return std::nullopt;
 
 	return inputs[tick];
@@ -549,10 +601,18 @@ std::optional<ControllerInput> KickoffPractice::getRecordedInput()
 
 void KickoffPractice::reset()
 {
-	this->removeBots();
+	resetPluginState();
+	resetGameState();
+}
+void KickoffPractice::resetPluginState()
+{
 	this->kickoffState = KickoffState::Nothing;
-	this->resetBoostSettings();
 	this->speedFlipTrainer->Reset();
+}
+void KickoffPractice::resetGameState()
+{
+	this->removeBots();
+	this->resetBoostSettings();
 }
 
 void KickoffPractice::clearLoadedKickoffs()

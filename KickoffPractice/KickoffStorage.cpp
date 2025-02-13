@@ -210,8 +210,6 @@ RecordedKickoff KickoffStorage::readRecording(fs::path filePath)
 		LOG("Can't open {}", filePath.string());
 	}
 
-	LOG("{}: {} inputs loaded", filePath.filename().string(), inputs.size());
-
 	RecordedKickoff kickoff;
 	kickoff.name = filePath.stem().string();
 

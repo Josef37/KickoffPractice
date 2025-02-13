@@ -47,9 +47,14 @@ private:
 
 	void registerCvars();
 	void registerCommands();
+	void load();
+	void unload();
 	void hookEvents();
-	void registerDrawables();
+	void unhookEvents();
 
+	// Are all hooks loaded and files read?
+	bool loaded = false;
+	// Did the user enable the plugin?
 	bool pluginEnabled = true;
 	bool shouldExecute();
 	// Checks `shouldExecute()` after the timeout.
@@ -72,8 +77,12 @@ private:
 	void onVehicleInput(CarWrapper car, ControllerInput* input);
 	// Get input for the current tick for current recording.
 	std::optional<ControllerInput> getRecordedInput();
-	// Reverts everything the plugin did.
+	// Resets everything the plugin did.
 	void reset();
+	// Resets only the plugin-internal state.
+	void resetPluginState();
+	// Resets the external game-state.
+	void resetGameState();
 
 	// Currently available kickoffs. Don't write directly, as other fields depend on it...
 	std::vector<RecordedKickoff> loadedKickoffs;
