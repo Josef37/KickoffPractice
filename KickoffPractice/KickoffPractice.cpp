@@ -163,6 +163,105 @@ void KickoffPractice::registerCommands()
 		"Save the last kickoff. Recordings are saved automatically.",
 		PERMISSION_FREEPLAY
 	);
+
+	cvarManager->registerNotifier(TEST_COMMAND,
+		[this](std::vector<std::string> args)
+		{
+			if (!shouldExecute()) return;
+
+			autoRestart = false;
+			testing = true;
+
+			// Record a kickoff (with user inputs).
+			this->mode = KickoffMode::Recording;
+			this->currentKickoffPosition = KickoffPosition::CornerLeft;
+			this->start();
+
+			this->onKickoffDone([this]()
+				{
+					writeStates("recording-player", playerStates);
+					playerStates.clear();
+
+					// Replay the recorded kickoff.
+					this->mode = KickoffMode::Replaying;
+					this->setCurrentKickoffIndex(loadedKickoffs.size() - 1);
+					this->start();
+
+					this->onKickoffDone([this]()
+						{
+							writeStates("replaying-player", playerStates);
+							writeStates("replaying-bot", botStates);
+							playerStates.clear();
+							botStates.clear();
+
+							// Train against the recorded kickoff.
+							this->mode = KickoffMode::Training;
+							this->start();
+							this->setCurrentKickoffIndex(loadedKickoffs.size() - 1); // Should overwrite...
+
+							this->onKickoffDone([this]()
+								{
+									writeStates("training-bot", botStates);
+									botStates.clear();
+
+									testing = false;
+								}
+							);
+						}
+					);
+				}
+			);
+		},
+		"Tests the accuracy of a kickoff recording.",
+		PERMISSION_FREEPLAY
+	);
+}
+
+void KickoffPractice::recordCarState(CarWrapper car)
+{
+	auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
+	auto tick = currentFrame - this->startingFrame;
+
+	auto& container = isBot(car) ? botStates : playerStates;
+
+	container.push_back({ tick, car.GetCurrentRBState() });
+}
+void KickoffPractice::writeStates(std::string filename, std::vector<TestState> states)
+{
+	auto path = gameWrapper->GetDataFolder() / PLUGIN_FOLDER / (filename + ".csv");
+
+	std::ofstream outFile(path);
+
+	if (!outFile.is_open()) return;
+
+	outFile << "Tick"
+		<< "," << "Location.X"
+		<< "," << "Location.Y"
+		<< "," << "Location.Z"
+		<< "," << "LinearVelocity.magnitude()"
+		<< "\n";
+
+	for (const auto& [tick, state] : states)
+	{
+		outFile << tick
+			<< "," << state.Location.X
+			<< "," << state.Location.Y
+			<< "," << state.Location.Z
+			<< "," << state.LinearVelocity.magnitude()
+			<< "\n";
+	}
+
+	outFile.close();
+}
+void KickoffPractice::onKickoffDone(std::function<void()> callback)
+{
+	gameWrapper->SetTimeout([this, callback](...)
+		{
+			if (kickoffState == KickoffState::Nothing) callback();
+			else onKickoffDone(callback);
+		},
+		0.1f
+	);
 }
 
 void KickoffPractice::load()
@@ -189,7 +288,7 @@ void KickoffPractice::unload()
 
 	if (gameWrapper->IsInFreeplay() && kickoffState != KickoffState::Nothing)
 		resetGameState();
-	
+
 	unhookEvents();
 }
 
@@ -582,6 +681,9 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 		this->speedFlipTrainer->OnVehicleInput(player, input);
 	}
+
+	if (testing && kickoffState == KickoffState::Started)
+		recordCarState(car);
 }
 
 std::optional<ControllerInput> KickoffPractice::getRecordedInput()
