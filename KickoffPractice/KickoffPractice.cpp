@@ -170,7 +170,7 @@ void KickoffPractice::registerCommands()
 			if (!shouldExecute()) return;
 
 			autoRestart = false;
-			timeAfterBackToNormal = 0;
+			timeAfterBackToNormal = 0.1f;
 			testing = true;
 
 			// Record a kickoff (with user inputs).
@@ -555,6 +555,8 @@ void KickoffPractice::setupKickoff()
 	Vector  locationPlayer = Utils::getKickoffLocation(this->currentKickoffPosition, playerSide);
 	Rotator rotationPlayer = Utils::getKickoffRotation(this->currentKickoffPosition, playerSide);
 
+	this->kickoffState = KickoffState::WaitingToStart;
+
 	if (this->mode != KickoffMode::Recording && currentKickoffIndex.has_value())
 	{
 		auto carBody = loadedKickoffs[*currentKickoffIndex].carBody;
@@ -566,6 +568,7 @@ void KickoffPractice::setupKickoff()
 	playerState.Location = locationPlayer;
 	playerState.Quaternion = RotatorToQuat(rotationPlayer);
 	player.SetPhysicsState(playerState);
+	player.SetbDriving(false);
 
 	KickoffPractice::applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
 	boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
@@ -584,8 +587,6 @@ void KickoffPractice::setupKickoff()
 	RBState ballState;
 	ballState.Location = Vector(0, 0, ball.GetRadius());
 	ball.SetPhysicsState(ballState);
-
-	this->kickoffState = KickoffState::WaitingToStart;
 
 	// TODO: Align the countdown end with the physics frames for more consistency.
 	startCountdown(
@@ -650,13 +651,21 @@ static const ControllerInput EMPTY_INPUT = ControllerInput{
 
 void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 {
+	// TEST
+	if (this->kickoffState == KickoffState::WaitingToStart)
+	{
+		auto loc = car.GetRBState().Location;
+		if (abs(loc.X - roundf(loc.X)) > 0.0001f) LOG("X Location drifting! {}", loc.X);
+		if (abs(loc.Y - roundf(loc.Y)) > 0.0001f) LOG("Y Location drifting! {}", loc.Y);
+	}
+
 	if (this->isBot(car))
 	{
 		auto& bot = car;
 
 		*input = EMPTY_INPUT;
 
-		// Don't set the flag when waiting, because the bot spawns later
+		// Don't set the flag to `false` when waiting, because the bot spawns later
 		// and updating the position wouldn't work anymore with the flag set.
 		if (this->kickoffState != KickoffState::WaitingToStart)
 			bot.SetbDriving(true);
@@ -676,8 +685,10 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 	{
 		auto& player = car;
 
-		// TODO: Can we do it the same way as with the bot?
-		player.SetbDriving(this->kickoffState != KickoffState::WaitingToStart);
+		if (this->kickoffState != KickoffState::WaitingToStart)
+			player.SetbDriving(true);
+
+		// TODO: Allowing user inputs during waiting phase can cause minimal location offsets.
 
 		// If the player is holding boost when starting training, it won't stop consuming boost.
 		// Disabling was quite messy (with `PlayerController::ToggleBoost` or `BoostComponent::SetbActive`),
