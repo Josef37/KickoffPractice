@@ -19,6 +19,7 @@ static const std::string TRAIN_COMMAND = "kickoff_train";
 static const std::string RECORD_COMMAND = "kickoff_train_record";
 static const std::string REPLAY_COMMAND = "kickoff_train_replay";
 static const std::string SAVE_COMMAND = "kickoff_train_save";
+static const std::string RESET_COMMAND = "kickoff_train_reset";
 
 static const std::string CVAR_ENABLED = "kickoff_train_enabled";
 static const std::string CVAR_RESTART_ON_RESET = "kickoff_train_restart_on_reset";

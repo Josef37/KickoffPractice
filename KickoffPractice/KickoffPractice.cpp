@@ -163,6 +163,17 @@ void KickoffPractice::registerCommands()
 		"Save the last kickoff. Recordings are saved automatically.",
 		PERMISSION_FREEPLAY
 	);
+
+	cvarManager->registerNotifier(RESET_COMMAND,
+		[this](std::vector<std::string> args)
+		{
+			if (!shouldExecute()) return;
+
+			this->reset();
+		},
+		"Reset the plugin and game state.",
+		PERMISSION_FREEPLAY
+	);
 }
 
 void KickoffPractice::load()

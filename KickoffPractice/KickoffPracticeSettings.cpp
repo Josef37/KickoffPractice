@@ -65,8 +65,7 @@ void KickoffPractice::RenderSettings()
 
 	ImGui::Spacing();
 
-	if (ImGui::Button("Reset Training/Recording"))
-		gameWrapper->Execute([this](...) { this->reset(); });
+	CommandButton("Reset Training/Recording", RESET_COMMAND);
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Reset back to normal freeplay.");
 
