@@ -69,6 +69,12 @@ void KickoffPractice::RenderSettings()
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Reset back to normal freeplay.");
 
+	ImGui::SameLine();
+
+	CommandButton("Repeat Last Command", REPEAT_COMMAND);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Repeats the last train/record/replay command.");
+
 	SpacedSeparator();
 
 	ImGui::Text("Training");
@@ -138,11 +144,8 @@ void KickoffPractice::RenderSettings()
 		CommandButton(label, command);
 	}
 	ImGui::Spacing();
-	if (ImGui::Button("Save Last Attempt"))
-		gameWrapper->Execute([this](...)
-			{
-				cvarManager->executeCommand(SAVE_COMMAND);
-			});
+
+	CommandButton("Save Last Attempt", SAVE_COMMAND);
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Save the last kickoff you made. Recordings are saved automatically.");
 

@@ -153,6 +153,18 @@ void KickoffPractice::registerCommands()
 		PERMISSION_FREEPLAY
 	);
 
+	cvarManager->registerNotifier(REPEAT_COMMAND,
+		[this](std::vector<std::string> args)
+		{
+			if (!shouldExecute()) return;
+
+			this->reset();
+			this->start();
+		},
+		"Repeats the last train/record/replay command.",
+		PERMISSION_FREEPLAY
+	);
+
 	cvarManager->registerNotifier(SAVE_COMMAND,
 		[this](std::vector<std::string> args)
 		{
