@@ -88,7 +88,7 @@ void KickoffPractice::registerCommands()
 	cvarManager->registerNotifier(TRAIN_COMMAND,
 		[this](std::vector<std::string> args)
 		{
-			if (!this->shouldExecute()) return;
+			if (!shouldExecute(true)) return;
 
 			this->mode = KickoffMode::Training;
 
@@ -105,7 +105,7 @@ void KickoffPractice::registerCommands()
 	cvarManager->registerNotifier(RECORD_COMMAND,
 		[this](std::vector<std::string> args)
 		{
-			if (!this->shouldExecute()) return;
+			if (!shouldExecute(true)) return;
 
 			this->mode = KickoffMode::Recording;
 
@@ -130,7 +130,7 @@ void KickoffPractice::registerCommands()
 	cvarManager->registerNotifier(REPLAY_COMMAND,
 		[this](std::vector<std::string> args)
 		{
-			if (!this->shouldExecute()) return;
+			if (!shouldExecute(true)) return;
 
 			this->mode = KickoffMode::Replaying;
 
@@ -156,7 +156,7 @@ void KickoffPractice::registerCommands()
 	cvarManager->registerNotifier(REPEAT_COMMAND,
 		[this](std::vector<std::string> args)
 		{
-			if (!shouldExecute()) return;
+			if (!shouldExecute(true)) return;
 
 			this->reset();
 			this->start();
@@ -168,7 +168,7 @@ void KickoffPractice::registerCommands()
 	cvarManager->registerNotifier(RESET_COMMAND,
 		[this](std::vector<std::string> args)
 		{
-			if (!shouldExecute()) return;
+			if (!shouldExecute(true)) return;
 
 			this->reset();
 		},
@@ -179,7 +179,7 @@ void KickoffPractice::registerCommands()
 	cvarManager->registerNotifier(SAVE_COMMAND,
 		[this](std::vector<std::string> args)
 		{
-			if (!pluginEnabled) return;
+			// Always allow, because we can interact with cvars and settings.
 
 			this->saveRecording();
 		},
@@ -190,7 +190,7 @@ void KickoffPractice::registerCommands()
 	cvarManager->registerNotifier(SELECT_COMMAND,
 		[this](std::vector<std::string> args)
 		{
-			if (!pluginEnabled) return;
+			// Always allow, because we can interact with cvars and settings.
 
 			if (args.size() < 2)
 			{
@@ -212,7 +212,8 @@ void KickoffPractice::registerCommands()
 				? args[2] == "1" 
 				: !loadedKickoffs[index].isActive;
 		},
-		"Selects a kickoff for training. Arguments: <kickoff name> <(optional) state - 0:disable, 1:enable, missing:toggle>.",
+		"Selects a kickoff for training.\n"
+		"Arguments: <kickoff name> <(optional) state - 0:disable, 1:enable, missing:toggle>.",
 		PERMISSION_FREEPLAY
 	);
 }
@@ -394,9 +395,25 @@ void KickoffPractice::onUnload()
 	unload();
 }
 
-bool KickoffPractice::shouldExecute()
+bool KickoffPractice::shouldExecute(bool log)
 {
-	return pluginEnabled && gameWrapper->IsInFreeplay() && !this->isInGoalReplay;
+	if (!pluginEnabled)
+	{
+		if(log) LOG("Plugin disabled. Enable at the top of the settings or set `{}`.", CVAR_ENABLED);
+		return false;
+	}
+	if (!gameWrapper->IsInFreeplay())
+	{
+		if (log) LOG("Plugin only active in freeplay.");
+		return false;
+	}
+	if (this->isInGoalReplay)
+{
+		if (log) LOG("Plugin not active during replay.");
+		return false;
+	}
+
+	return true;
 }
 
 void KickoffPractice::start()

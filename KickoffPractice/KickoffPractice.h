@@ -59,7 +59,7 @@ private:
 	bool loaded = false;
 	// Did the user enable the plugin?
 	bool pluginEnabled = true;
-	bool shouldExecute();
+	bool shouldExecute(bool log = false);
 
 	// Requires the correct values to be set for each `mode`:
 	// - `KickoffMode::Training`: `loadedKickoffs` and (`positionOverride` or `activePositions`) to randomly select from
