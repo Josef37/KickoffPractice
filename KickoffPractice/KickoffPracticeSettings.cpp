@@ -163,7 +163,7 @@ void KickoffPractice::RenderSettings()
 		auto positionName = Utils::getKickoffPositionName(position);
 		ImGui::Text(positionName.c_str());
 
-		if (kickoffIndexByPosition[position].empty())
+		if (!kickoffIndexByPosition.contains(position) || kickoffIndexByPosition[position].empty())
 		{
 			ImGui::Text("(no kickoffs recorded)");
 			ImGui::Spacing();
@@ -172,6 +172,9 @@ void KickoffPractice::RenderSettings()
 
 		for (auto index : kickoffIndexByPosition[position])
 		{
+			// When deleting a kickoff, sometimes the indices can be out-of-sync for a frame.
+			if (index >= loadedKickoffs.size()) continue;
+
 			auto& kickoff = loadedKickoffs[index];
 
 			ImGui::PushID(kickoff.name.c_str());

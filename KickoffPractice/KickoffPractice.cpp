@@ -701,6 +701,7 @@ void KickoffPractice::unloadKickoff(std::string name)
 	if (!kickoffIndexByName.contains(name)) return;
 
 	auto index = kickoffIndexByName[name];
+
 	loadedKickoffs.erase(loadedKickoffs.begin() + index);
 
 	if (currentKickoffIndex.has_value())
