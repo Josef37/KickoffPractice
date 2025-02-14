@@ -13,7 +13,7 @@ void KickoffPractice::CommandButton(const std::string& label, const std::string&
 	if (ImGui::Button(label.c_str()))
 		this->gameWrapper->Execute([this, command](...)
 			{
-				this->cvarManager->executeCommand(command + ";closemenu settings");
+				this->cvarManager->executeCommand(command);
 			});
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip(command.c_str());
