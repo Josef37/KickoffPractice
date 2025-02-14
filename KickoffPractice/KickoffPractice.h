@@ -19,7 +19,6 @@ static const std::string TRAIN_COMMAND = "kickoff_train";
 static const std::string RECORD_COMMAND = "kickoff_train_record";
 static const std::string REPLAY_COMMAND = "kickoff_train_replay";
 static const std::string SAVE_COMMAND = "kickoff_train_save";
-static const std::string TEST_COMMAND = "kickoff_train_test";
 
 static const std::string CVAR_ENABLED = "kickoff_train_enabled";
 static const std::string CVAR_RESTART_ON_RESET = "kickoff_train_restart_on_reset";
@@ -37,24 +36,9 @@ struct BoostSettings
 	float RechargeRate;
 };
 
-struct TestState
-{
-	int tick;
-	RBState state;
-	ControllerInput input;
-};
-
 class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public SettingsWindowBase
 {
 private:
-	// For testing recording/replay accuracy...
-	bool testing = false;
-	void recordCarState(CarWrapper car, ControllerInput input);
-	std::vector<TestState> botStates;
-	std::vector<TestState> playerStates;
-	void writeStates(std::string filename, std::vector<TestState> states);
-	void onKickoffDone(std::function<void()> callback);
-
 	std::shared_ptr<PersistentStorage> persistentStorage;
 
 	std::unique_ptr<SpeedFlipTrainer> speedFlipTrainer;

@@ -163,110 +163,6 @@ void KickoffPractice::registerCommands()
 		"Save the last kickoff. Recordings are saved automatically.",
 		PERMISSION_FREEPLAY
 	);
-
-	cvarManager->registerNotifier(TEST_COMMAND,
-		[this](std::vector<std::string> args)
-		{
-			if (!shouldExecute()) return;
-
-			autoRestart = false;
-			timeAfterBackToNormal = 0.1f;
-			testing = true;
-
-			// Record a kickoff (with user inputs).
-			this->mode = KickoffMode::Recording;
-			this->currentKickoffPosition = KickoffPosition::CornerLeft;
-			this->start();
-
-			this->onKickoffDone([this]()
-				{
-					writeStates("recording-player", playerStates);
-					playerStates.clear();
-
-					// Replay the recorded kickoff.
-					this->mode = KickoffMode::Replaying;
-					this->setCurrentKickoffIndex(loadedKickoffs.size() - 1);
-					this->start();
-
-					this->onKickoffDone([this]()
-						{
-							writeStates("replaying-player", playerStates);
-							writeStates("replaying-bot", botStates);
-							playerStates.clear();
-							botStates.clear();
-
-							// Train against the recorded kickoff.
-							this->mode = KickoffMode::Training;
-							this->start();
-							this->setCurrentKickoffIndex(loadedKickoffs.size() - 1); // Should overwrite...
-
-							this->onKickoffDone([this]()
-								{
-									writeStates("training-bot", botStates);
-									botStates.clear();
-
-									testing = false;
-								}
-							);
-						}
-					);
-				}
-			);
-		},
-		"Tests the accuracy of a kickoff recording.",
-		PERMISSION_FREEPLAY
-	);
-}
-
-void KickoffPractice::recordCarState(CarWrapper car, ControllerInput input)
-{
-	auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
-	auto tick = currentFrame - this->startingFrame;
-
-	auto& container = isBot(car) ? botStates : playerStates;
-
-	container.push_back({ tick, car.GetCurrentRBState(), input });
-}
-void KickoffPractice::writeStates(std::string filename, std::vector<TestState> states)
-{
-	auto path = gameWrapper->GetDataFolder() / PLUGIN_FOLDER / (filename + ".csv");
-
-	std::ofstream outFile(path);
-
-	if (!outFile.is_open()) return;
-
-	outFile << "Tick"
-		<< "," << "Location.X"
-		<< "," << "Location.Y"
-		<< "," << "Location.Z"
-		<< "," << "LinearVelocity"
-		<< "," << "input.Steer"
-		<< "," << "input.Boost"
-		<< "\n";
-
-	for (const auto& [tick, state, input] : states)
-	{
-		outFile << tick
-			<< "," << state.Location.X
-			<< "," << state.Location.Y
-			<< "," << state.Location.Z
-			<< "," << state.LinearVelocity.magnitude()
-			<< "," << input.Steer
-			<< "," << input.ActivateBoost
-			<< "\n";
-	}
-
-	outFile.close();
-}
-void KickoffPractice::onKickoffDone(std::function<void()> callback)
-{
-	gameWrapper->SetTimeout([this, callback](...)
-		{
-			if (kickoffState == KickoffState::Nothing) callback();
-			else onKickoffDone(callback);
-		},
-		0.1f
-	);
 }
 
 void KickoffPractice::load()
@@ -316,9 +212,6 @@ void KickoffPractice::hookEvents()
 
 			ControllerInput* input = static_cast<ControllerInput*>(params);
 			this->onVehicleInput(car, input);
-
-			if (testing && this->kickoffState == KickoffState::Started)
-				recordCarState(car, *input);
 		}
 	);
 
@@ -655,14 +548,6 @@ static const ControllerInput EMPTY_INPUT = ControllerInput{
 void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 {
 	// TODO: When dodging or colliding before restarting, the position is slighly offset...
-	// TEST
-	if (this->kickoffState == KickoffState::WaitingToStart)
-	{
-		auto loc = car.GetRBState().Location;
-		if (abs(loc.X - roundf(loc.X)) > 0.0001f) LOG("X Location drifting! {}", loc.X);
-		if (abs(loc.Y - roundf(loc.Y)) > 0.0001f) LOG("Y Location drifting! {}", loc.Y);
-	}
-
 	if (this->isBot(car))
 	{
 		auto& bot = car;
