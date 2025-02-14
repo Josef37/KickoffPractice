@@ -41,12 +41,13 @@ void KickoffPractice::RenderSettings()
 	if (ImGui::Checkbox("Restart on Freeplay Reset", &restartOnTrainingReset))
 		cvarManager->getCvar(CVAR_RESTART_ON_RESET).setValue(restartOnTrainingReset);
 	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("Repeats the last command when resetting freeplay, i.e. using the \"Rest Ball\" binding.");
+		ImGui::SetTooltip("Repeats the last command when resetting freeplay, i.e. using the \"Rest Ball\" binding.\n"
+			"When used during a kickoff just resets freeplay. To restart in this case, reset twice.");
 
 	if (ImGui::Checkbox("Auto-Restart", &autoRestart))
 		cvarManager->getCvar(CVAR_AUTO_RESTART).setValue(autoRestart);
 	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("Automatically repeats the last command. Break out of auto-restart by resetting freeplay, exiting or using the reset button below.");
+		ImGui::SetTooltip("Automatically repeats the last command. Break out of auto-restart by resetting freeplay.");
 
 	if (ImGui::Checkbox("Show Indicator", &showIndicator))
 		cvarManager->getCvar(CVAR_SHOW_INDICATOR).setValue(showIndicator);

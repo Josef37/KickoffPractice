@@ -306,6 +306,14 @@ void KickoffPractice::hookEvents()
 			if (!this->shouldExecute()) return;
 			if (!params) return;
 
+			// For each physics frame the hooks seem to be called in the following order:
+			// - "SetVehicleInput" for player (one call)
+			// - "EventPostPhysicsStep"
+			// - "SetVehicleInput" for bot (multiple calls, depending on game speed)
+			// To process everything beforehand, we use the player "SetVehicleInput" hook.
+			if (!isBot(car))
+				onPhysicsFrame();
+
 			ControllerInput* input = static_cast<ControllerInput*>(params);
 			this->onVehicleInput(car, input);
 
@@ -352,46 +360,17 @@ void KickoffPractice::hookEvents()
 	);
 
 	gameWrapper->HookEventPost(
-		// This hook is called after spawning a bot and setting its name, location and other properties,
-		// so we can safely set our own properties without them being overwritten.
+		// This hook is called after spawning or destroying a bot and setting its properties.
+		// Then we can safely set our own properties without them being overwritten.
 		"Function TAGame.GameEvent_Team_TA.UpdateBotCount",
 		[this](...)
 		{
+			if (!spawnBotCalled) return;
+			spawnBotCalled = false;
+
 			if (!this->shouldExecute()) return;
 
-			auto server = gameWrapper->GetCurrentGameState();
-			if (!server) return;
-
-			if (!currentKickoffIndex.has_value()) return;
-
-			for (auto car : server.GetCars())
-			{
-				if (!this->isBot(car)) continue;
-
-				auto boost = car.GetBoostComponent();
-				if (!boost) continue;
-
-				Vector  locationBot = Utils::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange);
-				Rotator rotationBot = Utils::getKickoffRotation(this->currentKickoffPosition, KickoffSide::Orange);
-
-				RBState botState;
-				botState.Location = locationBot;
-				botState.Quaternion = RotatorToQuat(rotationBot);
-				car.SetPhysicsState(botState);
-				// We need to set this flag, otherwise the car will be slightly offset when the kickoff starts,
-				// even when we overwrite all inputs.
-				car.SetbDriving(false);
-
-				// To disable the bot moving by itself we would call `car.GetAIController().DoNothing()` here.
-				// But then the `SetVehicleInput` hook would not fire for the bot.
-				// So we don't disable the controller, but overwrite the inputs inside the hook.
-
-				applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
-				boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
-
-				auto& settings = loadedKickoffs[*currentKickoffIndex].settings;
-				car.GetPRI().SetUserCarPreferences(settings.DodgeInputThreshold, settings.SteeringSensitivity, settings.AirControlSensitivity);
-			}
+			shouldSetupKickoff = true;
 		}
 	);
 
@@ -403,7 +382,7 @@ void KickoffPractice::hookEvents()
 			if (kickoffState == KickoffState::Nothing) return;
 
 			// Respawn all cars on demo - also bots.
-			// If we didn't the bot could respawn for the next shot a few seconds later.
+			// If we didn't, the bot could respawn for the next shot a few seconds later.
 			car.RespawnInPlace();
 		}
 	);
@@ -422,27 +401,19 @@ void KickoffPractice::hookEvents()
 			this->isInGoalReplay = director.GetReplayTimeSeconds() > 0;
 
 	gameWrapper->HookEventPost(
-		// Called at the beginning/reset of freeplay and when an in-game kickoff starts.
-		"Function GameEvent_Soccar_TA.Countdown.EndState",
-		[this](...)
-		{
-			if (!this->shouldExecute()) return;
-
-			this->recordBoostSettings();
-			this->reset();
-		}
-	);
-
-	gameWrapper->HookEventPost(
 		// Called when resetting freeplay.
 		"Function TAGame.PlayerController_TA.PlayerResetTraining",
 		[this](...)
 		{
-			// Allow to break out of auto-restart by resetting freeplay.
-			if (this->autoRestart && this->kickoffState != KickoffState::Nothing)
-				return;
-			if (this->restartOnTrainingReset)
-				this->start();
+			if (!shouldExecute()) return;
+
+			// Always break out of the current kickoff.
+			auto shouldRestart = restartOnTrainingReset && kickoffState == KickoffState::Nothing;
+
+			reset();
+
+			if (shouldRestart)
+				start();
 		}
 	);
 
@@ -532,75 +503,114 @@ void KickoffPractice::start()
 		this->setCurrentKickoffIndex(suitableKickoffIndices[rand() % suitableKickoffIndices.size()]);
 	}
 
-	// Make sure to wait a little before updating the game state, because we want the reset to finish first.
-	// Otherwise updating locations won't work properly, because `SetbDriving(false)` still affects cars.
-	this->setTimeoutChecked(
-		gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
-		[this]() { this->setupKickoff(); }
-	);
+	if (this->mode == KickoffMode::Recording)
+	{
+		// When recording we don't need a bot to spawn.
+		shouldSetupKickoff = true;
+	}
+	else
+	{
+		auto server = gameWrapper->GetCurrentGameState();
+		if (!server) return;
+		if (!currentKickoffIndex.has_value()) return;
+
+		auto carBody = loadedKickoffs[*currentKickoffIndex].carBody;
+		server.SpawnBot(carBody, BOT_CAR_NAME);
+		spawnBotCalled = true;
+	}
+}
+
+void KickoffPractice::onPhysicsFrame()
+{
+	setupKickoff();
+	doCountdown();
 }
 
 void KickoffPractice::setupKickoff()
 {
-	ServerWrapper server = gameWrapper->GetCurrentGameState();
+	auto server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
-	CarWrapper player = gameWrapper->GetLocalCar();
-	if (!player) return;
-	BoostWrapper boost = player.GetBoostComponent();
-	if (!boost) return;
-	BallWrapper ball = server.GetBall();
-	if (!ball) return;
 
+	if (!shouldSetupKickoff) return;
+	shouldSetupKickoff = false;
+
+	for (auto car : server.GetCars())
+	{
+		if (isBot(car)) setupBot(car);
+		else			setupPlayer(car);
+	}
+
+	if (auto ball = server.GetBall())
+	{
+		RBState ballState;
+		ballState.Location = Vector(0, 0, ball.GetRadius());
+		ball.SetPhysicsState(ballState);
+	}
+
+	server.ResetPickups();
+
+	kickoffState = KickoffState::WaitingToStart;
+
+	initCountdown(mode == KickoffMode::Replaying ? 1 : 3);
+}
+void KickoffPractice::setupPlayer(CarWrapper player)
+{
 	KickoffSide playerSide = this->mode == KickoffMode::Recording ? KickoffSide::Orange : KickoffSide::Blue;
 	Vector  locationPlayer = Utils::getKickoffLocation(this->currentKickoffPosition, playerSide);
 	Rotator rotationPlayer = Utils::getKickoffRotation(this->currentKickoffPosition, playerSide);
 
-	this->kickoffState = KickoffState::WaitingToStart;
-
-	if (this->mode != KickoffMode::Recording && currentKickoffIndex.has_value())
-	{
-		auto carBody = loadedKickoffs[*currentKickoffIndex].carBody;
-		server.SpawnBot(carBody, BOT_CAR_NAME);
-	}
-
-	// TODO: Set at the same time as the bot (to avoid them hitting each other).
 	RBState playerState;
 	playerState.Location = locationPlayer;
 	playerState.Quaternion = RotatorToQuat(rotationPlayer);
 	player.SetPhysicsState(playerState);
 	player.SetbDriving(false);
 
-	KickoffPractice::applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
-	boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
+	if (BoostWrapper boost = player.GetBoostComponent())
+	{
+		applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
+		boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
+	}
+}
+void KickoffPractice::setupBot(CarWrapper bot)
+{
+	Vector  locationBot = Utils::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange);
+	Rotator rotationBot = Utils::getKickoffRotation(this->currentKickoffPosition, KickoffSide::Orange);
 
-	// Reset boost pickups a few frames in, because moving the player/bot can cause picking up boost.
-	// Moving the player/bot isn't done instantly, but takes a few frames.
-	this->setTimeoutChecked(
-		60 * gameWrapper->GetEngine().GetBulletFixedDeltaTime(),
-		[this]()
-		{
-			if (auto server = gameWrapper->GetCurrentGameState())
-				server.ResetPickups();
-		}
-	);
+	RBState botState;
+	botState.Location = locationBot;
+	botState.Quaternion = RotatorToQuat(rotationBot);
+	bot.SetPhysicsState(botState);
+	// We need to set this flag, otherwise the bot will be slightly offset when the kickoff starts,
+	// even when we overwrite all inputs.
+	bot.SetbDriving(false);
 
-	RBState ballState;
-	ballState.Location = Vector(0, 0, ball.GetRadius());
-	ball.SetPhysicsState(ballState);
+	// To disable the bot moving by itself we would call `car.GetAIController().DoNothing()` here.
+	// But then the `SetVehicleInput` hook would not fire for the bot.
+	// So we don't disable the controller, but overwrite the inputs inside the hook.
 
-	initCountdown(this->mode == KickoffMode::Replaying ? 1 : 3);
+	if (auto boost = bot.GetBoostComponent())
+	{
+		applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
+		boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
+	}
+
+	if (currentKickoffIndex.has_value())
+	{
+		auto& settings = loadedKickoffs[*currentKickoffIndex].settings;
+		bot.GetPRI().SetUserCarPreferences(settings.DodgeInputThreshold, settings.SteeringSensitivity, settings.AirControlSensitivity);
+	}
+	else
+		LOG("Unable to set sensitivities for bot from recording...");
 }
 
 void KickoffPractice::initCountdown(int seconds)
 {
 	auto engine = gameWrapper->GetEngine();
 	if (!engine) return;
-	
-	// Add one additional frame, so we can catch the "first" second in `doCountdown()`.
-	int framesLeft = 1 + seconds * lroundf(engine.GetPhysicsFramerate());
+
+	int framesLeft = seconds * lroundf(engine.GetPhysicsFramerate());
 	startingFrame = engine.GetPhysicsFrame() + framesLeft;
 }
-
 void KickoffPractice::doCountdown()
 {
 	if (this->kickoffState != KickoffState::WaitingToStart) return;
@@ -644,21 +654,13 @@ static const ControllerInput EMPTY_INPUT = ControllerInput{
 
 void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 {
+	// TODO: When dodging or colliding before restarting, the position is slighly offset...
 	// TEST
 	if (this->kickoffState == KickoffState::WaitingToStart)
 	{
 		auto loc = car.GetRBState().Location;
 		if (abs(loc.X - roundf(loc.X)) > 0.0001f) LOG("X Location drifting! {}", loc.X);
 		if (abs(loc.Y - roundf(loc.Y)) > 0.0001f) LOG("Y Location drifting! {}", loc.Y);
-	}
-
-	if (!isBot(car))
-	{
-		// These functions should execute once per tick,
-		// but the hook gets called multiple times per tick for the bot.
-		// Additionally, we want them to execute before processing inputs.
-
-		doCountdown();
 	}
 
 	if (this->isBot(car))
@@ -689,8 +691,6 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 		if (this->kickoffState != KickoffState::WaitingToStart)
 			player.SetbDriving(true);
-
-		// TODO: Allowing user inputs during waiting phase can cause minimal location offsets.
 
 		// If the player is holding boost when starting training, it won't stop consuming boost.
 		// Disabling was quite messy (with `PlayerController::ToggleBoost` or `BoostComponent::SetbActive`),
@@ -738,6 +738,7 @@ void KickoffPractice::reset()
 void KickoffPractice::resetPluginState()
 {
 	this->kickoffState = KickoffState::Nothing;
+	this->shouldSetupKickoff = false;
 	this->speedFlipTrainer->Reset();
 }
 void KickoffPractice::resetGameState()
