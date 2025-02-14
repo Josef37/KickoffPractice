@@ -165,6 +165,17 @@ void KickoffPractice::registerCommands()
 		PERMISSION_FREEPLAY
 	);
 
+	cvarManager->registerNotifier(RESET_COMMAND,
+		[this](std::vector<std::string> args)
+		{
+			if (!shouldExecute()) return;
+
+			this->reset();
+		},
+		"Reset the plugin and game state.",
+		PERMISSION_FREEPLAY
+	);
+
 	cvarManager->registerNotifier(SAVE_COMMAND,
 		[this](std::vector<std::string> args)
 		{
@@ -176,14 +187,32 @@ void KickoffPractice::registerCommands()
 		PERMISSION_FREEPLAY
 	);
 
-	cvarManager->registerNotifier(RESET_COMMAND,
+	cvarManager->registerNotifier(SELECT_COMMAND,
 		[this](std::vector<std::string> args)
 		{
-			if (!shouldExecute()) return;
+			if (!pluginEnabled) return;
 
-			this->reset();
+			if (args.size() < 2)
+			{
+				LOG("Kickoff name argument required.");
+				return;
+			}
+
+			auto& kickoffName = args[1];
+
+			if (!kickoffIndexByName.contains(kickoffName))
+			{
+				LOG("No kickoff found with the specified name: {}", kickoffName);
+				return;
+			}
+
+			auto& index = kickoffIndexByName[kickoffName];
+
+			loadedKickoffs[index].isActive = args.size() > 2 
+				? args[2] == "1" 
+				: !loadedKickoffs[index].isActive;
 		},
-		"Reset the plugin and game state.",
+		"Selects a kickoff for training. Arguments: <kickoff name> <(optional) state - 0:disable, 1:enable, missing:toggle>.",
 		PERMISSION_FREEPLAY
 	);
 }

@@ -112,12 +112,7 @@ void KickoffPractice::RenderSettings()
 	ImGui::SameLine();
 	if (ImGui::Button("Select All"))
 	{
-		activePositions.insert({
-			KickoffPosition::CornerRight,
-			KickoffPosition::CornerLeft,
-			KickoffPosition::BackRight,
-			KickoffPosition::BackLeft,
-			KickoffPosition::BackCenter });
+		activePositions.insert(Utils::allKickoffPositions.begin(), Utils::allKickoffPositions.end());
 		cvarManager->getCvar(CVAR_ACTIVE_POSITIONS).setValue(getActivePositionsMask());
 	}
 	ImGui::SameLine();
