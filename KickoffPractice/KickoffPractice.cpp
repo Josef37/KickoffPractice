@@ -232,10 +232,10 @@ void KickoffPractice::hookEvents()
 
 				auto kickoffCounterOnHit = kickoffCounter;
 
-				this->setTimeoutChecked(
-					timeout,
-					[this, kickoffCounterOnHit]()
+				gameWrapper->SetTimeout(
+					[this, kickoffCounterOnHit](...)
 					{
+						if (!this->shouldExecute()) return;
 						if (this->kickoffState != KickoffState::Started) return;
 						if (this->kickoffCounter != kickoffCounterOnHit) return;
 
@@ -246,7 +246,8 @@ void KickoffPractice::hookEvents()
 
 						if (this->autoRestart)
 							this->start();
-					}
+					},
+					timeout
 				);
 			}
 		}
@@ -344,20 +345,6 @@ void KickoffPractice::onUnload()
 bool KickoffPractice::shouldExecute()
 {
 	return pluginEnabled && gameWrapper->IsInFreeplay() && !this->isInGoalReplay;
-}
-
-void KickoffPractice::setTimeoutChecked(float seconds, std::function<void()> callback)
-{
-	gameWrapper->SetTimeout(
-		[this, callback](...)
-		{
-			if (!this->shouldExecute())
-				return;
-
-			callback();
-		},
-		seconds
-	);
 }
 
 void KickoffPractice::start()

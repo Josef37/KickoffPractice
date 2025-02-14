@@ -57,8 +57,6 @@ private:
 	// Did the user enable the plugin?
 	bool pluginEnabled = true;
 	bool shouldExecute();
-	// Checks `shouldExecute()` after the timeout.
-	void setTimeoutChecked(float seconds, std::function<void()> callback);
 
 	// Requires the correct values to be set for each `mode`:
 	// - `KickoffMode::Training`: `loadedKickoffs` and (`positionOverride` or `activePositions`) to randomly select from
