@@ -208,8 +208,8 @@ void KickoffPractice::registerCommands()
 
 			auto& index = kickoffIndexByName[kickoffName];
 
-			loadedKickoffs[index].isActive = args.size() > 2 
-				? args[2] == "1" 
+			loadedKickoffs[index].isActive = args.size() > 2
+				? args[2] == "1"
 				: !loadedKickoffs[index].isActive;
 		},
 		"Selects a kickoff for training.\n"
@@ -335,11 +335,20 @@ void KickoffPractice::hookEvents()
 	);
 
 	gameWrapper->HookEvent(
+		"Function TAGame.Ball_TA.OnHitGoal",
+		[this](...) { this->isInGoalReplay = true; }
+	);
+	gameWrapper->HookEvent(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.BeginState",
 		[this](...) { this->isInGoalReplay = true; }
 	);
 	gameWrapper->HookEventPost(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.EndState",
+		[this](...) { this->isInGoalReplay = false; }
+	);
+	gameWrapper->HookEventPost(
+		// Called at the beginning/reset of freeplay (or in-game kickoffs).
+		"Function GameEvent_Soccar_TA.Countdown.EndState",
 		[this](...) { this->isInGoalReplay = false; }
 	);
 	// Initially set `isInGoalReplay` if we load the plugin during goal replay.
@@ -383,6 +392,7 @@ void KickoffPractice::unhookEvents()
 	gameWrapper->UnhookEventPost("Function TAGame.Car_TA.OnHitBall");
 	gameWrapper->UnhookEventPost("Function TAGame.GameEvent_Team_TA.UpdateBotCount");
 	gameWrapper->UnhookEventPost("Function TAGame.Car_TA.Demolish");
+	gameWrapper->UnhookEvent("Function TAGame.Ball_TA.OnHitGoal");
 	gameWrapper->UnhookEvent("Function GameEvent_Soccar_TA.ReplayPlayback.BeginState");
 	gameWrapper->UnhookEventPost("Function GameEvent_Soccar_TA.ReplayPlayback.EndState");
 	gameWrapper->UnhookEventPost("Function GameEvent_Soccar_TA.Countdown.EndState");
@@ -399,7 +409,7 @@ bool KickoffPractice::shouldExecute(bool log)
 {
 	if (!pluginEnabled)
 	{
-		if(log) LOG("Plugin disabled. Enable at the top of the settings or set `{}`.", CVAR_ENABLED);
+		if (log) LOG("Plugin disabled. Enable at the top of the settings or set `{}`.", CVAR_ENABLED);
 		return false;
 	}
 	if (!gameWrapper->IsInFreeplay())
@@ -408,7 +418,7 @@ bool KickoffPractice::shouldExecute(bool log)
 		return false;
 	}
 	if (this->isInGoalReplay)
-{
+	{
 		if (log) LOG("Plugin not active during replay.");
 		return false;
 	}
