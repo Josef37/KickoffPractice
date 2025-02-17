@@ -113,7 +113,7 @@ private:
 	// Gets all necessary information and persists them.
 	void saveRecording();
 	std::string getNewRecordingName() const;
-	void readKickoffsFromFile();
+	void readKickoffsFromDisk();
 	void renameKickoffFile(std::string oldName, std::string newName, std::function<void()> onSuccess);
 	void deleteKickoffFile(std::string name, std::function<void()> onSuccess);
 

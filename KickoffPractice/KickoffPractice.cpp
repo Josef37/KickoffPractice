@@ -233,7 +233,7 @@ void KickoffPractice::load()
 
 	hookEvents();
 	resetPluginState();
-	readKickoffsFromFile(); // TODO: Only read once?
+	if(loadedKickoffs.empty()) readKickoffsFromDisk();
 }
 
 void KickoffPractice::unload()
@@ -791,7 +791,7 @@ std::string KickoffPractice::getNewRecordingName() const
 	return timestamp + " " + kickoffName;
 }
 
-void KickoffPractice::readKickoffsFromFile()
+void KickoffPractice::readKickoffsFromDisk()
 {
 	clearLoadedKickoffs();
 
