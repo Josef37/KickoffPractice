@@ -1,25 +1,27 @@
 #include "pch.h"
 #include "KickoffPractice.h"
 
-static void SpacedSeparator()
-{
-	ImGui::Spacing();
-	ImGui::Separator();
-	ImGui::Spacing();
-}
-
-void KickoffPractice::CommandButton(const std::string& label, const std::string& command)
-{
-	if (ImGui::Button(label.c_str()))
-		this->gameWrapper->Execute([this, command](...)
-			{
-				this->cvarManager->executeCommand(command);
-			});
-	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip(command.c_str());
-}
-
 void KickoffPractice::RenderSettings()
+{
+	if (ImGui::BeginTabBar("KickoffPractice"))
+	{
+		if (ImGui::BeginTabItem("Settings"))
+		{
+			RenderSettingsTab();
+
+			ImGui::EndTabItem();
+		}
+		if (ImGui::BeginTabItem("Readme"))
+		{
+			RenderReadmeTab();
+
+			ImGui::EndTabItem();
+		}
+		ImGui::EndTabBar();
+	}
+}
+
+void KickoffPractice::RenderSettingsTab()
 {
 	ImGui::Spacing();
 
@@ -262,4 +264,113 @@ void KickoffPractice::RenderSettings()
 
 	if (changedActiveKickoffs)
 		kickoffStorage->saveActiveKickoffs(loadedKickoffs);
+}
+
+void KickoffPractice::RenderReadmeTab()
+{
+	if (ImGui::TreeNode("How it works"))
+	{
+		ImGui::TextWrapped("The plugin works by recording your inputs at every game tick.");
+		ImGui::TextWrapped("When you want to practice, the plugin will spawn a bot in freeplay (and teleport you, limit your boost, set up a countdown, etc.) and then, at every tick, replay the pre-recorded inputs with the bot.");
+		ImGui::TextWrapped("That's the core of the plugin, the rest is just UI and little features.");
+
+		ImGui::Spacing(); ImGui::TreePop();
+	}
+
+	if (ImGui::TreeNode("Troubleshooting"))
+	{
+		ImGui::TextWrapped("Something now working as expected? Look at the BakkesMod console first (open with `F6`)! There might be some error message telling you what's wrong.");
+		ImGui::TextWrapped("If this still does not resolve your issue, don't hestitate to open a issue on GitHub. Please be as specific as possible when describing your issue.");
+
+		ImGui::Spacing(); ImGui::TreePop();
+	}
+
+	if (ImGui::TreeNode("Setup and Settings"))
+	{
+		if (ImGui::TreeNode("Quick Start"))
+		{
+			ImGui::BulletText("Install [BakkesMod](https://bakkesplugins.com/) (PC only).");
+			ImGui::BulletText("Install Plugin through the [BakkesMod website](https://bakkesplugins.com/plugin-search/1/kickoff).");
+			ImGui::BulletText("Open Bakkesmod settings (`F2`). Select the \"Plugins\" tab. Select \"Kickoff Practice\" on the left.");
+			ImGui::BulletText("Click \"Record Left Corner\" (or any other position you're interested in).");
+			ImGui::BulletText("(optional) Reset freeplay (with the default command) to record another attempt.\n_You can always save your last attempt - even when not recording. So just start training against your first recording._");
+			ImGui::BulletText("(optional) If you're satisfied with your attempts, uncheck the ones you don't want to train against (or delete them).\n_If you're unsure which recordings are good, use the \"Replay\" feature to check._");
+			ImGui::BulletText("Click \"Train Left Corner\" and do another attempt.");
+			ImGui::BulletText("Reset freeplay (with the default command) to make another attempt.\n_Congrats! You're training your kickoff._");
+			ImGui::BulletText("Click \"Save Last Attempt\" when you had a good kickoff you want to add to your training list.\n_It will automatically be selected for training._");
+			ImGui::BulletText("If you're done training, just keep driving after a completed kickoff.");
+			ImGui::BulletText("The plugin should also work for slower game speeds. So you can record and train in slow-motion.");
+
+			ImGui::Spacing(); ImGui::TreePop();
+		}
+
+		if (ImGui::TreeNode("Training Different Kickoffs"))
+		{
+			ImGui::BulletText("If you want to train one position only, use the \"Train _Position_\" buttons.");
+			ImGui::BulletText("If you want to select a random kickoff from a set of positions, use the \"Train Selected\" button.");
+			ImGui::BulletText("The next kickoff will be randomly selected from all suitable active recordings.\n_If you train \"Right Corner\" and \"Left Corner\", but you have twice the amount of \"Left Corner\" kickoffs selected, they will be two times as likely._");
+			ImGui::BulletText("Uncheck a recording, if you want to exclude it from training.\n_Click \"Replay\" next to the recording in question to check it._");
+
+			ImGui::Spacing(); ImGui::TreePop();
+		}
+
+		if (ImGui::TreeNode("Manually adding recordings"))
+		{
+			ImGui::BulletText("Go to the BakkesMod data folder (usually `%%appdata%%\\bakkesmod\\bakkesmod`) and open `.\\data\\kickoffPractice`.");
+			ImGui::BulletText("You can manually edit these recordings. Just make sure they end in `.kinputs` to be recognized by the plugin.");
+			ImGui::BulletText("If you made changes to these files while the game was running, click \"Reload Files\" to apply changes.\n_Renaming a recording file will deselect it._");
+
+			ImGui::Spacing(); ImGui::TreePop();
+		}
+
+
+		if (ImGui::TreeNode("Binding buttons"))
+		{
+			ImGui::BulletText("If you want to have custom bindings for different actions, most of them are accessible via commands.");
+			ImGui::BulletText("Hover over a button to see what command it uses or explore commands/variables starting with `kickoff_train` in the console (open with F6).\n_You could bind `kickoff_train_auto_restart 1; kickoff_train_active_positions 11000; kickoff_train` to train both corner kickoffs._");
+			ImGui::BulletText("I recommend the [Custom Bindings Plugin](https://bakkesplugins.com/plugins/view/228).\n_Example: Bind `kickoff_train 2` (Left Corner) to L3+Left and `kickoff_train 1` (Right Corner) to L3+Right._");
+
+			ImGui::Spacing(); ImGui::TreePop();
+		}
+
+
+		if (ImGui::TreeNode("Fine-Tuning"))
+		{
+			ImGui::BulletText("Enabling \"Auto-Restart\" will loop the last command indefinitely (Training, Recording or Replaying).\nBut it makes saving the last attempt harder... You have to pause before the countdown is over.\nExit the loop by resetting or exiting freeplay or clicking the \"Reset Training/Recording\" button.");
+			ImGui::BulletText("If you don't want the plugin to start when resetting freeplay, uncheck \"Restart on Freeplay Reset\".");
+			ImGui::BulletText("\"Time before back to normal\": This settings affects how much time after hitting the ball is still considered a kickoff.\nThis also affects recording length. Changing this setting won't update old recordings (obviously).");
+			ImGui::BulletText("\"Show Speedflip Trainer\" will enable the [Speedflip Trainer Plugin](https://bakkesplugins.com/plugins/view/286) overlay. Install the Speedflip Trainer Plugin to actually configure the values in the display.\nI only ported the applicable features of this plugin (for example the automatic game speed adaption got lost). Make sure to check out the original, too.");
+
+			ImGui::Spacing(); ImGui::TreePop();
+		}
+
+		ImGui::Spacing(); ImGui::TreePop();
+	}
+
+
+	if (ImGui::TreeNode("Technical Details"))
+	{
+		ImGui::BulletText("You can use any car or have any control settings you like. You can even change them later on.\nThe plugin will spawn the bot with the right car and settings to re-create the kickoff as good as possible.");
+		ImGui::BulletText("Since only the inputs are recorded, there can be slight inconsistencies when replaying it.\nI made sure to test it thoroughly and got it working well, but there might still be issues on other machines.\nIf you have such a case, please let me know!");
+
+		ImGui::Spacing(); ImGui::TreePop();
+	}
+}
+
+void KickoffPractice::CommandButton(const std::string& label, const std::string& command)
+{
+	if (ImGui::Button(label.c_str()))
+		this->gameWrapper->Execute([this, command](...)
+			{
+				this->cvarManager->executeCommand(command);
+			});
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip(command.c_str());
+}
+
+void KickoffPractice::SpacedSeparator()
+{
+	ImGui::Spacing();
+	ImGui::Separator();
+	ImGui::Spacing();
 }

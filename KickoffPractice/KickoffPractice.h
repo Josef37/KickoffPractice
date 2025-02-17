@@ -159,8 +159,10 @@ private:
 
 	// Used for renaming kickoffs in the UI.
 	std::string tempName;
-	// Execute command from UI, close menu and show command on hover.
+	void RenderSettingsTab();
+	void RenderReadmeTab();
 	void CommandButton(const std::string& label, const std::string& command);
+	void SpacedSeparator();
 
 	// Number 1-5 to `KickoffPosition`.
 	static std::optional<KickoffPosition> parseKickoffArg(std::string arg);
