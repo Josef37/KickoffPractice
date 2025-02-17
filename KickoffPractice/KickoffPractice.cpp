@@ -76,8 +76,11 @@ void KickoffPractice::registerCvars()
 	persistentStorage->RegisterPersistentCvar(CVAR_SPEEDFLIP_TRAINER, "1")
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { showSpeedFlipTrainer = cvar.getBoolValue(); });
 
-	persistentStorage->RegisterPersistentCvar(CVAR_BACK_TO_NORMAL, "0.5")
+	persistentStorage->RegisterPersistentCvar(CVAR_BACK_TO_NORMAL, "0.5", "", true, true, 0.0f)
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { timeAfterBackToNormal = cvar.getFloatValue(); });
+
+	persistentStorage->RegisterPersistentCvar(CVAR_COUNTDOWN_LENGTH, "3", "", true, true, 1.0f)
+		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { countdownLength = cvar.getIntValue(); });
 
 	persistentStorage->RegisterPersistentCvar(CVAR_ACTIVE_POSITIONS, getActivePositionsMask())
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { setActivePositionFromMask(cvar.getStringValue()); });
@@ -506,7 +509,7 @@ void KickoffPractice::setupKickoff()
 
 	kickoffState = KickoffState::WaitingToStart;
 
-	initCountdown(mode == KickoffMode::Replaying ? 1 : 3);
+	initCountdown();
 }
 void KickoffPractice::setupPlayer(CarWrapper player)
 {
@@ -558,10 +561,13 @@ void KickoffPractice::setupBot(CarWrapper bot)
 		LOG("Unable to set sensitivities for bot from recording...");
 }
 
-void KickoffPractice::initCountdown(int seconds)
+void KickoffPractice::initCountdown()
 {
 	auto engine = gameWrapper->GetEngine();
 	if (!engine) return;
+
+	int seconds = countdownLength;
+	if (mode == KickoffMode::Replaying) seconds = 1;
 
 	int framesLeft = seconds * lroundf(engine.GetPhysicsFramerate());
 	startingFrame = engine.GetPhysicsFrame() + framesLeft;

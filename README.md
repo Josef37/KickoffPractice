@@ -52,8 +52,6 @@ Please be as specific as possible when describing your issue.
   _Congrats! You're training your kickoff._
 - Click "Save Last Attempt" when you had a good kickoff you want to add to your training list.\
   _It will automatically be selected for training._
-- If you're done training, just keep driving after a completed kickoff.
-- The plugin should also work for slower game speeds. So you can record and train in slow-motion.
 
 ### Training Different Kickoffs
 
@@ -64,20 +62,26 @@ Please be as specific as possible when describing your issue.
 - Uncheck a recording, if you want to exclude it from training.\
   _Click "Replay" next to the recording in question to check it._
 
-### Manually adding recordings
+### Manually Adding Recordings
 
 - Go to the BakkesMod data folder (usually `%appdata%\bakkesmod\bakkesmod`) and open `.\data\kickoffPractice`.
 - You can manually edit these recordings. Just make sure they end in `.kinputs` to be recognized by the plugin.
 - If you made changes to these files while the game was running, click "Reload Files" to apply changes.\
   _Renaming a recording file will deselect it._
 
-### Binding buttons
+### Binding Buttons
 
 - If you want to have custom bindings for different actions, most of them are accessible via commands.
 - Hover over a button to see what command it uses or explore commands/variables starting with `kickoff_train` in the console (open with F6).\
   _You could bind `kickoff_train_auto_restart 1; kickoff_train_active_positions 11000; kickoff_train` to train both corner kickoffs._
 - I recommend the [Custom Bindings Plugin](https://bakkesplugins.com/plugins/view/228).\
   _Example: Bind `kickoff_train 2` (Left Corner) to L3+Left and `kickoff_train 1` (Right Corner) to L3+Right._
+
+### Slow-motion
+
+- The plugin also works for slower game speeds! So you can record and train in slow-motion.
+- You have to set the game-speed yourself. There is no automation for that in this plugin.
+- Slow-motion also affects countdowns. But you can adjust the countdown duration.
 
 ### Fine-Tuning
 

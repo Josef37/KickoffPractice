@@ -40,6 +40,14 @@ void KickoffPractice::RenderSettingsTab()
 
 	ImGui::Spacing();
 
+	ImGui::SetNextItemWidth(300);
+	if (ImGui::SliderInt("Countdown length", &countdownLength, 1, 5, countdownLength == 1 ? "%d second" : "%d seconds"))
+		cvarManager->getCvar(CVAR_COUNTDOWN_LENGTH).setValue(countdownLength);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Countdown length in seconds. Affected my slow-motion.");
+
+	ImGui::Spacing();
+
 	if (ImGui::Checkbox("Restart on Freeplay Reset", &restartOnTrainingReset))
 		cvarManager->getCvar(CVAR_RESTART_ON_RESET).setValue(restartOnTrainingReset);
 	if (ImGui::IsItemHovered())
@@ -298,8 +306,6 @@ void KickoffPractice::RenderReadmeTab()
 			ImGui::BulletText("Click \"Train Left Corner\" and do another attempt.");
 			ImGui::BulletText("Reset freeplay (with the default command) to make another attempt.\n_Congrats! You're training your kickoff._");
 			ImGui::BulletText("Click \"Save Last Attempt\" when you had a good kickoff you want to add to your training list.\n_It will automatically be selected for training._");
-			ImGui::BulletText("If you're done training, just keep driving after a completed kickoff.");
-			ImGui::BulletText("The plugin should also work for slower game speeds. So you can record and train in slow-motion.");
 
 			ImGui::Spacing(); ImGui::TreePop();
 		}
@@ -314,7 +320,7 @@ void KickoffPractice::RenderReadmeTab()
 			ImGui::Spacing(); ImGui::TreePop();
 		}
 
-		if (ImGui::TreeNode("Manually adding recordings"))
+		if (ImGui::TreeNode("Manually Adding Recordings"))
 		{
 			ImGui::BulletText("Go to the BakkesMod data folder (usually `%%appdata%%\\bakkesmod\\bakkesmod`) and open `.\\data\\kickoffPractice`.");
 			ImGui::BulletText("You can manually edit these recordings. Just make sure they end in `.kinputs` to be recognized by the plugin.");
@@ -323,8 +329,7 @@ void KickoffPractice::RenderReadmeTab()
 			ImGui::Spacing(); ImGui::TreePop();
 		}
 
-
-		if (ImGui::TreeNode("Binding buttons"))
+		if (ImGui::TreeNode("Binding Buttons"))
 		{
 			ImGui::BulletText("If you want to have custom bindings for different actions, most of them are accessible via commands.");
 			ImGui::BulletText("Hover over a button to see what command it uses or explore commands/variables starting with `kickoff_train` in the console (open with F6).\n_You could bind `kickoff_train_auto_restart 1; kickoff_train_active_positions 11000; kickoff_train` to train both corner kickoffs._");
@@ -333,6 +338,14 @@ void KickoffPractice::RenderReadmeTab()
 			ImGui::Spacing(); ImGui::TreePop();
 		}
 
+		if (ImGui::TreeNode("Slow-motion"))
+		{
+			ImGui::BulletText("The plugin also works for slower game speeds! So you can record and train in slow-motion.");
+			ImGui::BulletText("You have to set the game-speed yourself. There is no automation for that in this plugin.");
+			ImGui::BulletText("Slow-motion also affects countdowns. But you can adjust the countdown duration.");
+
+			ImGui::Spacing(); ImGui::TreePop();
+		}
 
 		if (ImGui::TreeNode("Fine-Tuning"))
 		{

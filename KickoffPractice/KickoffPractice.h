@@ -29,6 +29,7 @@ static const std::string CVAR_AUTO_RESTART = "kickoff_train_auto_restart";
 static const std::string CVAR_SHOW_INDICATOR = "kickoff_train_show_indicator";
 static const std::string CVAR_SPEEDFLIP_TRAINER = "kickoff_train_speedflip";
 static const std::string CVAR_BACK_TO_NORMAL = "kickoff_train_back_to_normal";
+static const std::string CVAR_COUNTDOWN_LENGTH = "kickoff_train_countdown_length";
 static const std::string CVAR_ACTIVE_POSITIONS = "kickoff_train_active_positions";
 
 struct BoostSettings
@@ -77,7 +78,7 @@ private:
 	void setupPlayer(CarWrapper player);
 	void setupBot(CarWrapper bot);
 	// Countdown logic: Aligned with physics frames.
-	void initCountdown(int seconds);
+	void initCountdown();
 	void doCountdown();
 	// Gets called once each physics frame before processing inputs.
 	void onPhysicsFrame();
@@ -140,6 +141,8 @@ private:
 
 	// How long (in seconds) after hitting the ball we end the kickoff.
 	float timeAfterBackToNormal = 0.5;
+	// Countdown length in seconds. Affected by slow-motion.
+	int countdownLength = 3;
 	// Kickoff positions currently selected for training.
 	std::set<KickoffPosition> activePositions = std::set<KickoffPosition>(Utils::allKickoffPositions.begin(), Utils::allKickoffPositions.end());
 	// Readable serialization of `activePositions`
