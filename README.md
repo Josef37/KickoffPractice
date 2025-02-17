@@ -26,13 +26,22 @@ If you don't know how to code plugins and want to learn it, please visit https:/
 and join the [BakkesMod programming discord](https://discord.gg/s97RgrgkxE).
 
 
+## Troubleshooting
+
+Something now working as expected? Look at the BakkesMod console first (open with `F6`)!
+There might be some error message telling you what's wrong.
+
+If this still does not resolve your issue, don't hestitate to open a issue on GitHub.
+Please be as specific as possible when describing your issue.
+
+
 ## Setup and Settings
 
 ### Quick Start
 
 - Install [BakkesMod](https://bakkesplugins.com/) (PC only).
 - Install Plugin through the [BakkesMod website](https://bakkesplugins.com/plugin-search/1/kickoff).
-- Open settings "Kickoff Practice".
+- Open Bakkesmod settings (`F2`). Select the "Plugins" tab. Select "Kickoff Practice" on the left.
 - Click "Record Left Corner" (or any other position you're interested in).
 - (optional) Reset freeplay (with the default command) to record another attempt.\
   _You can always save your last attempt - even when not recording. So just start training against your first recording._
@@ -86,7 +95,5 @@ and join the [BakkesMod programming discord](https://discord.gg/s97RgrgkxE).
 - You can use any car or have any control settings you like. You can even change them later on.\
   The plugin will spawn the bot with the right car and settings to re-create the kickoff as good as possible.
 - Since only the inputs are recorded, there can be slight inconsistencies when replaying it.\
-  The most notable difference is that in the first tick after starting to drive, the cars move different amounts for the first tick each time. This error accumulates over time.\
-  It could be due to sub-ticks in the physics simulation, but setting `EngineTAWrapper::SetMaxPhysicsSubsteps()` and `EngineTAWrapper::SetPhysicsFramerate()` didn't help either.\
-  When just boosting from a standstill, you can see that `ActorWrapper::GetVelocity()::magnitude()` and `VehicleWrapper::GetForwardSpeed()` don't coincide for the first tick.
-  Forward speed is consistent, but velocity just gets larger each attempt until it resets back. I have no idea why... For normal kickoffs this only results in a difference of a few centimeters.
+  I made sure to test it thoroughly and got it working well, but there might still be issues on other machines.\
+  If you have such a case, please let me know!
