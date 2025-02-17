@@ -135,7 +135,7 @@ private:
 	int startingFrame = 0;
 	// How often did we started a kickoff. Helps identifying kickoffs.
 	int kickoffCounter = 0;
-	// Set after scoring a goal to prevent execution.
+	// Set after scoring a goal to prevent execution. Can be incorrect at the start when loading the plugin after scoring.
 	bool isInGoalReplay = false;
 
 	// How long (in seconds) after hitting the ball we end the kickoff.

@@ -351,10 +351,6 @@ void KickoffPractice::hookEvents()
 		"Function GameEvent_Soccar_TA.Countdown.EndState",
 		[this](...) { this->isInGoalReplay = false; }
 	);
-	// Initially set `isInGoalReplay` if we load the plugin during goal replay.
-	if (auto server = gameWrapper->GetCurrentGameState())
-		if (auto director = server.GetReplayDirector())
-			this->isInGoalReplay = director.GetReplayTimeSeconds() > 0;
 
 	gameWrapper->HookEventPost(
 		// Called when resetting freeplay.
