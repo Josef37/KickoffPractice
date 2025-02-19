@@ -40,18 +40,21 @@ Please be as specific as possible when describing your issue.
 ### Quick Start
 
 - Install [BakkesMod](https://bakkesplugins.com/) (PC only).
-- Install Plugin through the [BakkesMod website](https://bakkesplugins.com/plugin-search/1/kickoff).
+- Install the plugin through the [BakkesMod website](https://bakkesplugins.com/plugin-search/1/kickoff).
 - Open Bakkesmod settings (`F2`). Select the "Plugins" tab. Select "Kickoff Practice" on the left.
-- Click "Record Left Corner" (or any other position you're interested in).
-- (optional) Reset freeplay (with the default command) to record another attempt.\
-  _You can always save your last attempt - even when not recording. So just start training against your first recording._
-- (optional) If you're satisfied with your attempts, uncheck the ones you don't want to train against (or delete them).\
-  _If you're unsure which recordings are good, use the "Replay" feature to check._
-- Click "Train Left Corner" and do another attempt.
-- Reset freeplay (with the default command) to make another attempt.\
-  _Congrats! You're training your kickoff._
-- Click "Save Last Attempt" when you had a good kickoff you want to add to your training list.\
+- In the "Training" section: Select the positions you want to train an click "Train Selected".
+  _You will start training against some pre-recorded kickoffs._
+- You will continue training until you reset freeplay.
+  _If you don't want to auto-restart the kickoff training, uncheck the "Auto-Restart" option._
+- If you made a good attempt you want to save, pause the game and click "Save Last Attempt" (in the "Recording" section).\
   _It will automatically be selected for training._
+- To continue training with the same settings, just reset freeplay again.
+
+### Recording Kickoffs
+
+- You would want to just use "Save Last Attempt" most of the time when training.
+- To record a kickoff without facing a bot, click one of the "Record ..." buttons.
+  _The recorded kickoffs will be saved and selected automatically._
 
 ### Training Different Kickoffs
 
@@ -65,7 +68,7 @@ Please be as specific as possible when describing your issue.
 ### Manually Adding Recordings
 
 - Go to the BakkesMod data folder (usually `%appdata%\bakkesmod\bakkesmod`) and open `.\data\kickoffPractice`.
-- You can manually edit these recordings. Just make sure they end in `.kinputs` to be recognized by the plugin.
+- You can manually add, rename or delete recordings. Just make sure they end in `.kinputs` to be recognized by the plugin.
 - If you made changes to these files while the game was running, click "Reload Files" to apply changes.\
   _Renaming a recording file will deselect it._
 
@@ -74,7 +77,7 @@ Please be as specific as possible when describing your issue.
 - If you want to have custom bindings for different actions, most of them are accessible via commands.
 - Hover over a button to see what command it uses or explore commands/variables starting with `kickoff_train` in the console (open with F6).\
   _You could bind `kickoff_train_auto_restart 1; kickoff_train_active_positions 11000; kickoff_train` to train both corner kickoffs._
-- I recommend the [Custom Bindings Plugin](https://bakkesplugins.com/plugins/view/228).\
+- I recommend the [Custom Bindings Plugin](https://bakkesplugins.com/plugins/view/228) even for keyboard users.\
   _Example: Bind `kickoff_train 2` (Left Corner) to L3+Left and `kickoff_train 1` (Right Corner) to L3+Right._
 
 ### Slow-motion

@@ -153,7 +153,7 @@ private:
 	// Hook into "Reset Freeplay" binding.
 	bool restartOnTrainingReset = true;
 	// Automatically repeat the last command.
-	bool autoRestart = false;
+	bool autoRestart = true;
 	// Shows some information about the current state on-screen.
 	bool showIndicator = true;
 	void renderIndicator(CanvasWrapper canvas);

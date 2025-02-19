@@ -67,7 +67,7 @@ void KickoffPractice::registerCvars()
 	persistentStorage->RegisterPersistentCvar(CVAR_RESTART_ON_RESET, "1")
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { restartOnTrainingReset = cvar.getBoolValue(); });
 
-	persistentStorage->RegisterPersistentCvar(CVAR_AUTO_RESTART, "0")
+	persistentStorage->RegisterPersistentCvar(CVAR_AUTO_RESTART, "1")
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { autoRestart = cvar.getBoolValue(); });
 
 	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_INDICATOR, "1")

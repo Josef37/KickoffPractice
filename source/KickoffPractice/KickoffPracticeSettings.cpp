@@ -76,14 +76,8 @@ void KickoffPractice::RenderSettingsTab()
 	ImGui::Spacing();
 
 	CommandButton("Reset Training/Recording", RESET_COMMAND);
-	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("Reset back to normal freeplay.");
-
 	ImGui::SameLine();
-
 	CommandButton("Repeat Last Command", REPEAT_COMMAND);
-	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("Repeats the last train/record/replay command.");
 
 	SpacedSeparator();
 
@@ -137,22 +131,21 @@ void KickoffPractice::RenderSettingsTab()
 	ImGui::Text("Recording");
 	ImGui::Spacing();
 
-	for (int i = 0; i < Utils::allKickoffPositions.size(); i++)
+	for (KickoffPosition position : Utils::allKickoffPositions)
 	{
-		auto position = Utils::allKickoffPositions[i];
-
-		if (i > 0) ImGui::SameLine();
-
 		auto command = RECORD_COMMAND + " " + getKickoffArg(position);
 		auto label = "Record " + Utils::getKickoffPositionName(position);
 
 		CommandButton(label, command);
+
+		ImGui::SameLine();
 	}
+	ImGui::Text("(saved automatically)");
 	ImGui::Spacing();
 
-	CommandButton("Save Last Attempt", SAVE_COMMAND);
-	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("Save the last kickoff you made. Recordings are saved automatically.");
+	CommandButton("Save Last Attempt", SAVE_COMMAND); 
+	ImGui::SameLine();
+	ImGui::Text("(use while not recording)");
 
 	SpacedSeparator();
 
@@ -198,13 +191,8 @@ void KickoffPractice::RenderSettingsTab()
 			if (index == this->currentKickoffIndex)
 				ImGui::PopStyleColor();
 
-			auto label = "Replay";
-			auto command = REPLAY_COMMAND + " \"" + kickoff.name + "\"";
-
 			ImGui::SameLine();
-			CommandButton(label, command);
-			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip("Replay a kickoff. Spawns a bot that replays the same recording. Only changes the bot car body.");
+			CommandButton("Replay", REPLAY_COMMAND + " \"" + kickoff.name + "\"");
 
 			ImGui::SameLine();
 			if (ImGui::Button("Rename"))
