@@ -44,7 +44,7 @@ void KickoffPractice::RenderSettingsTab()
 	if (ImGui::SliderInt("Countdown length", &countdownLength, 1, 5, countdownLength == 1 ? "%d second" : "%d seconds"))
 		cvarManager->getCvar(CVAR_COUNTDOWN_LENGTH).setValue(countdownLength);
 	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("Countdown length in seconds. Affected my slow-motion.");
+		ImGui::SetTooltip("Countdown length in seconds. Affected by slow-motion.");
 
 	ImGui::Spacing();
 
@@ -322,7 +322,7 @@ void KickoffPractice::RenderReadmeTab()
 
 		if (ImGui::TreeNode("Manually Adding Recordings"))
 		{
-			ImGui::BulletText("Go to the BakkesMod data folder (usually `%%appdata%%\\bakkesmod\\bakkesmod`) and open `.\\data\\kickoffPractice`.");
+			ImGui::BulletText("Go to the BakkesMod data folder (usually `%%appdata%%\\bakkesmod\\bakkesmod`) and open `.\\data\\kickoffpractice`.");
 			ImGui::BulletText("You can manually edit these recordings. Just make sure they end in `.kinputs` to be recognized by the plugin.");
 			ImGui::BulletText("If you made changes to these files while the game was running, click \"Reload Files\" to apply changes.\n_Renaming a recording file will deselect it._");
 

@@ -13,7 +13,7 @@ static const BoostSettings INITIAL_BOOST_SETTINGS = BoostSettings{
 	.RechargeRate = 0.f
 };
 
-static const std::string PLUGIN_FOLDER = "kickoffPractice";
+static const std::string PLUGIN_FOLDER = "kickoffpractice";
 static const std::string BOT_CAR_NAME = "Kickoff Bot";
 
 void KickoffPractice::onLoad()
@@ -50,7 +50,7 @@ void KickoffPractice::onLoad()
 
 void KickoffPractice::registerCvars()
 {
-	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffPractice", true, true);
+	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffpractice", true, true);
 
 	// TODO: Add description. Store cvar, title and description in variable to use it in UI, too.
 	persistentStorage->RegisterPersistentCvar(CVAR_ENABLED, "1").addOnValueChanged([this](std::string oldValue, CVarWrapper cvar)
