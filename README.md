@@ -26,6 +26,16 @@ If you don't know how to code plugins and want to learn it, please visit https:/
 and join the [BakkesMod programming discord](https://discord.gg/s97RgrgkxE).
 
 
+## Licensing
+
+This project is licensed under the GNU General Public License (GPL). See the [LICENSE](./LICENSE) file for details.
+
+This project is a fork of the MIT-licensed [kickoffPractice by @MrMoine](https://github.com/MrMoine/kickoffPractice). The MIT-licensed code retains its original copyright notice and license terms. See the [LICENSE-MIT](LICENSE-MIT) file for details.
+
+
+[Speedflip Trainer by @tynidev](https://github.com/tynidev/SpeedFlipTrainer) was integrated into this project was adjusted to make it work for this use-case.
+
+
 ## Troubleshooting
 
 Something now working as expected? Look at the BakkesMod console first (open with `F6`)!
