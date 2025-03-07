@@ -23,6 +23,8 @@ void KickoffPractice::onLoad()
 	// initialize the random number generator seed
 	srand((int)time(0));
 
+	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffpractice", true, true);
+
 	speedFlipTrainer = std::make_unique<SpeedFlipTrainer>(
 		gameWrapper,
 		cvarManager,
@@ -50,8 +52,6 @@ void KickoffPractice::onLoad()
 
 void KickoffPractice::registerCvars()
 {
-	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffpractice", true, true);
-
 	// TODO: Add description. Store cvar, title and description in variable to use it in UI, too.
 	persistentStorage->RegisterPersistentCvar(CVAR_ENABLED, "1").addOnValueChanged([this](std::string oldValue, CVarWrapper cvar)
 		{
@@ -84,6 +84,9 @@ void KickoffPractice::registerCvars()
 
 	persistentStorage->RegisterPersistentCvar(CVAR_ACTIVE_POSITIONS, getActivePositionsMask())
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { setActivePositionFromMask(cvar.getStringValue()); });
+
+
+	speedFlipTrainer->RegisterCvars(persistentStorage);
 }
 
 void KickoffPractice::registerCommands()

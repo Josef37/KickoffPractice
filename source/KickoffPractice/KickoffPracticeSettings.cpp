@@ -7,16 +7,22 @@ void KickoffPractice::RenderSettings()
 	{
 		if (ImGui::BeginTabItem("Settings"))
 		{
-			RenderSettingsTab();
-
+			RenderSettingsTab(); 
 			ImGui::EndTabItem();
 		}
+
+		if (ImGui::BeginTabItem("Speedflip"))
+		{
+			speedFlipTrainer->RenderSettings(CVAR_SPEEDFLIP_TRAINER); 
+			ImGui::EndTabItem();
+		}
+
 		if (ImGui::BeginTabItem("Readme"))
 		{
-			RenderReadmeTab();
-
+			RenderReadmeTab(); 
 			ImGui::EndTabItem();
 		}
+
 		ImGui::EndTabBar();
 	}
 }
@@ -67,11 +73,7 @@ void KickoffPractice::RenderSettingsTab()
 	if (ImGui::Checkbox("Show Speedflip Trainer", &showSpeedFlipTrainer))
 		cvarManager->getCvar(CVAR_SPEEDFLIP_TRAINER).setValue(showSpeedFlipTrainer);
 	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip(
-			"If you want to change more display options for the Speedflip Trainer overlay, install the Speedflip Trainer plugin and reload this plugin.\n"
-			"This setting here is not shared with the Speedflip Trainer plugin.\n"
-			"If you enable this plugin before the Speedflip Trainer, the settings are not synchronized."
-		);
+		ImGui::SetTooltip("Show Speedflip Trainer overlay while training kickoffs.\nSee the \"Speedflip\" tab for more settings.");
 
 	ImGui::Spacing();
 
@@ -143,7 +145,7 @@ void KickoffPractice::RenderSettingsTab()
 	ImGui::Text("(saved automatically)");
 	ImGui::Spacing();
 
-	CommandButton("Save Last Attempt", SAVE_COMMAND); 
+	CommandButton("Save Last Attempt", SAVE_COMMAND);
 	ImGui::SameLine();
 	ImGui::Text("(use while not recording)");
 

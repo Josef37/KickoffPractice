@@ -102,6 +102,12 @@
     <ClCompile Include="SpeedFlipTrainer.cpp">
       <Filter>SpeedFlipTrainer\src</Filter>
     </ClCompile>
+    <ClCompile Include="SpeedFlipTrainerSettings.cpp">
+      <Filter>SpeedFlipTrainer\src</Filter>
+    </ClCompile>
+    <ClCompile Include="KickoffStorage.cpp">
+      <Filter>Plugin\src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imgui_rangeslider.h">
@@ -172,6 +178,12 @@
     </ClInclude>
     <ClInclude Include="RenderMeter.h">
       <Filter>SpeedFlipTrainer\header</Filter>
+    </ClInclude>
+    <ClInclude Include="KickoffStorage.h">
+      <Filter>Plugin\header</Filter>
+    </ClInclude>
+    <ClInclude Include="Common.h">
+      <Filter>Plugin\header</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

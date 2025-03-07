@@ -2,7 +2,7 @@
 
 struct Color
 {
-	char red, green, blue = 0;
+	unsigned char red = 0, green = 0, blue = 0;
 	float opacity = 0;
 };
 
