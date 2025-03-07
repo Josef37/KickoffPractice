@@ -93,12 +93,6 @@ void SpeedFlipTrainer::OnVehicleInput(CarWrapper& car, ControllerInput* input)
 		attempt.startingLocation = car.GetLocation();
 		attempt.currentLocation = car.GetLocation();
 		attempt.kickoffDirection = ball.GetLocation() - car.GetLocation();
-
-		if (!car.IsOnGround())
-			attempt.startedInAir = true;
-
-		if (!input->ActivateBoost)
-			attempt.startedNoBoost = true;
 	}
 
 	if (!attempt.hit())
@@ -534,21 +528,4 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 
 	canvas.SetPosition(Vector2{ startPos.X + boxSize.X - width, (int)(startPos.Y - 20) });
 	canvas.DrawString(msg, 1, 1, true, false);
-
-	int start = 10;
-	if (attempt.startedInAir)
-	{
-		msg = "Started before car touched the ground! Wait for car to settle on next attempt.";
-		canvas.SetColor(255, 10, 10, (char)(255 * opacity));
-		canvas.SetPosition(Vector2{ startPos.X + (boxSize.X / 2) - 265, (int)(startPos.Y + boxSize.Y + start) });
-		canvas.DrawString(msg, 1, 1, true, false);
-		start += 15;
-	}
-	if (attempt.startedNoBoost)
-	{
-		msg = "Was not pressing boost when time started! Press boost before you press throttle on next attempt.";
-		canvas.SetColor(255, 10, 10, (char)(255 * opacity));
-		canvas.SetPosition(Vector2{ startPos.X + (boxSize.X / 2) - 330, (int)(startPos.Y + boxSize.Y + start) });
-		canvas.DrawString(msg, 1, 1, true, false);
-	}
 }
