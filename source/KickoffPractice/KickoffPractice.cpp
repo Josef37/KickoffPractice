@@ -236,7 +236,8 @@ void KickoffPractice::load()
 
 	hookEvents();
 	resetPluginState();
-	if(loadedKickoffs.empty()) readKickoffsFromDisk();
+	if (loadedKickoffs.empty()) readKickoffsFromDisk();
+	determineGameMode();
 }
 
 void KickoffPractice::unload()
@@ -340,6 +341,11 @@ void KickoffPractice::hookEvents()
 		}
 	);
 
+	gameWrapper->HookEventPost(
+		"Function TAGame.GameEvent_Soccar_TA.OnBallSpawned",
+		[this](...) { determineGameMode(); }
+	);
+
 	gameWrapper->HookEvent(
 		"Function TAGame.Ball_TA.OnHitGoal",
 		[this](...) { this->isInGoalReplay = true; }
@@ -394,12 +400,23 @@ void KickoffPractice::unhookEvents()
 	gameWrapper->UnhookEventPost("Function TAGame.Car_TA.OnHitBall");
 	gameWrapper->UnhookEventPost("Function TAGame.GameEvent_Team_TA.UpdateBotCount");
 	gameWrapper->UnhookEventPost("Function TAGame.Car_TA.Demolish");
+	gameWrapper->UnhookEventPost("Function TAGame.GameEvent_Soccar_TA.OnBallSpawned");
 	gameWrapper->UnhookEvent("Function TAGame.Ball_TA.OnHitGoal");
 	gameWrapper->UnhookEvent("Function GameEvent_Soccar_TA.ReplayPlayback.BeginState");
 	gameWrapper->UnhookEventPost("Function GameEvent_Soccar_TA.ReplayPlayback.EndState");
 	gameWrapper->UnhookEventPost("Function GameEvent_Soccar_TA.Countdown.EndState");
 	gameWrapper->UnhookEventPost("Function TAGame.PlayerController_TA.PlayerResetTraining");
 	gameWrapper->UnregisterDrawables();
+}
+
+void KickoffPractice::determineGameMode()
+{
+	auto server = gameWrapper->GetCurrentGameState();
+	if (!server) return;
+	auto ball = server.GetBall();
+	if (!ball) return;
+
+	gameMode = Utils::determineGameMode(ball);
 }
 
 void KickoffPractice::onUnload()
@@ -422,6 +439,11 @@ bool KickoffPractice::shouldExecute(bool log)
 	if (this->isInGoalReplay)
 	{
 		if (log) LOG("Plugin not active during replay.");
+		return false;
+	}
+	if (this->gameMode == std::nullopt)
+	{
+		if (log) LOG("Could not determine gamemode.");
 		return false;
 	}
 
@@ -485,6 +507,7 @@ void KickoffPractice::onPhysicsFrame()
 {
 	setupKickoff();
 	doCountdown();
+	updateBall();
 }
 
 void KickoffPractice::setupKickoff()
@@ -516,9 +539,11 @@ void KickoffPractice::setupKickoff()
 }
 void KickoffPractice::setupPlayer(CarWrapper player)
 {
+	if (!gameMode) return;
+
 	KickoffSide playerSide = this->mode == KickoffMode::Recording ? KickoffSide::Orange : KickoffSide::Blue;
-	Vector  locationPlayer = Utils::getKickoffLocation(this->currentKickoffPosition, playerSide);
-	Rotator rotationPlayer = Utils::getKickoffRotation(this->currentKickoffPosition, playerSide);
+	Vector  locationPlayer = Utils::getKickoffLocation(this->currentKickoffPosition, playerSide, *gameMode);
+	Rotator rotationPlayer = Utils::getKickoffRotation(this->currentKickoffPosition, playerSide, *gameMode);
 
 	RBState playerState;
 	playerState.Location = locationPlayer;
@@ -534,8 +559,10 @@ void KickoffPractice::setupPlayer(CarWrapper player)
 }
 void KickoffPractice::setupBot(CarWrapper bot)
 {
-	Vector  locationBot = Utils::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange);
-	Rotator rotationBot = Utils::getKickoffRotation(this->currentKickoffPosition, KickoffSide::Orange);
+	if (!gameMode) return;
+
+	Vector  locationBot = Utils::getKickoffLocation(this->currentKickoffPosition, KickoffSide::Orange, *gameMode);
+	Rotator rotationBot = Utils::getKickoffRotation(this->currentKickoffPosition, KickoffSide::Orange, *gameMode);
 
 	RBState botState;
 	botState.Location = locationBot;
@@ -598,6 +625,43 @@ void KickoffPractice::doCountdown()
 	{
 		auto seconds = framesLeft / frameRate;
 		server.SendCountdownMessage(seconds, gameWrapper->GetPlayerController());
+	}
+}
+
+void KickoffPractice::updateBall()
+{
+	auto server = gameWrapper->GetCurrentGameState();
+	if (!server) return;
+	auto ball = server.GetBall();
+	if (!ball) return;
+
+	if (!gameMode) return;
+
+	if (kickoffState == KickoffState::WaitingToStart)
+	{
+		// In hoops freeplay the ball will be launched some 200 ms after resetting freeplay.
+		// We want to keep it on the ground until kickoff start.
+		RBState ballState;
+		ballState.Location = Utils::getKickoffBallLocation(*gameMode);
+		ball.SetPhysicsState(ballState);
+	}
+
+	if (kickoffState == KickoffState::Started)
+	{
+		// 30 ticks after kickoff start was determined by measurement.
+		auto launchFrame = startingFrame + 30;
+
+		auto engine = gameWrapper->GetEngine();
+		if (!engine) return;
+		auto currentFrame = engine.GetPhysicsFrame();
+
+		if (launchFrame == currentFrame)
+		{
+			RBState ballState;
+			ballState.Location = Utils::getKickoffBallLocation(*gameMode);
+			ballState.LinearVelocity = Utils::getKickoffBallVelocity(*gameMode);
+			ball.SetPhysicsState(ballState);
+		}
 	}
 }
 

@@ -55,6 +55,7 @@ private:
 	void unload();
 	void hookEvents();
 	void unhookEvents();
+	void determineGameMode();
 
 	// Are all hooks loaded and files read?
 	bool loaded = false;
@@ -80,6 +81,7 @@ private:
 	// Countdown logic: Aligned with physics frames.
 	void initCountdown();
 	void doCountdown();
+	void updateBall();
 	// Gets called once each physics frame before processing inputs.
 	void onPhysicsFrame();
 	// Controls bot (and player during replay) by overriding inputs. Also records inputs.
@@ -127,6 +129,7 @@ private:
 	static void applyBoostSettings(BoostWrapper boost, BoostSettings settings);
 	BoostSettings boostSettings{};
 
+	std::optional<GameMode> gameMode;
 	KickoffMode mode = KickoffMode::Training; // TODO: Link mode to current position/kickoff values to check what's required.
 	KickoffState kickoffState = KickoffState::Nothing;
 	// Often set from `currentKickoff`, but necessary for recording (where the is no current kickoff).

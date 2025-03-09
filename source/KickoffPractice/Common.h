@@ -53,6 +53,14 @@ struct RecordedKickoff
 	std::vector<ControllerInput> inputs;
 };
 
+enum class GameMode
+{
+	Soccar,
+	Hoops,
+	Dropshot,
+	Snowday
+};
+
 namespace Utils
 {
 	using enum KickoffPosition;
@@ -85,95 +93,117 @@ namespace Utils
 		return static_cast<KickoffPosition>(position);
 	}
 
-	inline Vector getKickoffLocation(KickoffPosition kickoff, KickoffSide side)
+	inline Vector getKickoffLocation(KickoffPosition kickoff, KickoffSide side, GameMode gameMode)
 	{
-		const Vector heightOffset = Vector(0, 0, 20);
-
-		if (side == Blue)
-		{
-			if (kickoff == CornerRight)
-				return Vector(-2048, -2560, 0) + heightOffset;
-			if (kickoff == CornerLeft)
-				return Vector(2048, -2560, 0) + heightOffset;
-			if (kickoff == BackRight)
-				return Vector(-256, -3840, 0) + heightOffset;
-			if (kickoff == BackLeft)
-				return Vector(256.0, -3840, 0) + heightOffset;
-			if (kickoff == BackCenter)
-				return Vector(0.0, -4608, 0) + heightOffset;
-		}
-		else
-		{
-			return -1 * getKickoffLocation(kickoff, Blue) + (2 * heightOffset);
-		}
-	}
-
-	inline KickoffPosition getKickoffForLocation(Vector location)
-	{
-		float closestDistance = std::numeric_limits<float>::infinity();
-		KickoffPosition closestPosition = BackCenter;
-
-		for (KickoffSide side : { Blue, Orange })
-		{
-			for (KickoffPosition position : allKickoffPositions)
+		auto soccar = [&](KickoffPosition kickoff)
 			{
-				auto kickoffLoation = getKickoffLocation(position, side);
-				auto distance = (kickoffLoation - location).magnitude();
+				if (kickoff == CornerRight)	return Vector(-2048, -2560, 0);
+				if (kickoff == CornerLeft)	return Vector(2048, -2560, 0);
+				if (kickoff == BackRight)	return Vector(-256, -3840, 0);
+				if (kickoff == BackLeft)	return Vector(256, -3840, 0);
+				if (kickoff == BackCenter)	return Vector(0, -4608, 0);
+			};
+		auto hoops = [&](KickoffPosition kickoff)
+			{
+				if (kickoff == CornerRight)	return Vector(-1536, -3072, 0);
+				if (kickoff == CornerLeft)	return Vector(1536, -3072, 0);
+				if (kickoff == BackRight)	return Vector(-256, -2816, 0);
+				if (kickoff == BackLeft)	return Vector(256, -2816, 0);
+				if (kickoff == BackCenter)	return Vector(0, -3200, 0);
+			};
+		auto dropshot = [&](KickoffPosition kickoff)
+			{
+				if (kickoff == CornerRight)	return Vector(-1867, -2379, 0);
+				if (kickoff == CornerLeft)	return Vector(1867, -2379, 0);
+				if (kickoff == BackRight)	return Vector(-256, -3576, 0);
+				if (kickoff == BackLeft)	return Vector(256, -3576, 0);
+				if (kickoff == BackCenter)	return Vector(0, -4088, 0);
+			};
 
-				if (distance < closestDistance)
-				{
-					closestDistance = distance;
-					closestPosition = position;
-				}
-			}
-		}
+		auto getGroundLocation = [&](KickoffPosition kickoff, GameMode gameMode)
+			{
+				if (gameMode == GameMode::Soccar)	return soccar(kickoff);
+				if (gameMode == GameMode::Snowday)	return soccar(kickoff);
+				if (gameMode == GameMode::Hoops)	return hoops(kickoff);
+				if (gameMode == GameMode::Dropshot) return dropshot(kickoff);
+			};
 
-		return closestPosition;
+
+		auto groundLocation = getGroundLocation(kickoff, gameMode);
+		if (side == Orange) groundLocation *= -1;
+
+		auto heightOffset = Vector(0, 0, 20);
+
+		return groundLocation + heightOffset;
 	}
 
-	inline float getKickoffYaw(KickoffPosition kickoff, KickoffSide side)
+	inline float getKickoffYaw(KickoffPosition kickoff, KickoffSide side, GameMode gameMode)
 	{
 		if (side == Blue)
 		{
-			if (kickoff == CornerRight)
-				return 0.25f * CONST_PI_F;
-			if (kickoff == CornerLeft)
-				return 0.75f * CONST_PI_F;
-			if (kickoff == BackRight)
-				return 0.5f * CONST_PI_F;
-			if (kickoff == BackLeft)
-				return 0.5f * CONST_PI_F;
-			if (kickoff == BackCenter)
-				return 0.5f * CONST_PI_F;
+			if (gameMode == GameMode::Hoops) return 0.5f * CONST_PI_F;
+
+			if (kickoff == CornerRight) return 0.25f * CONST_PI_F;
+			if (kickoff == CornerLeft)	return 0.75f * CONST_PI_F;
+			if (kickoff == BackRight)	return 0.5f * CONST_PI_F;
+			if (kickoff == BackLeft)	return 0.5f * CONST_PI_F;
+			if (kickoff == BackCenter)	return 0.5f * CONST_PI_F;
 		}
 		else
 		{
-			return getKickoffYaw(kickoff, Blue) - CONST_PI_F;
+			return getKickoffYaw(kickoff, Blue, gameMode) - CONST_PI_F;
 		}
 	}
 
-	inline Rotator getKickoffRotation(KickoffPosition kickoff, KickoffSide side)
+	inline Rotator getKickoffRotation(KickoffPosition kickoff, KickoffSide side, GameMode gameMode)
 	{
-		float yaw = getKickoffYaw(kickoff, side);
+		float yaw = getKickoffYaw(kickoff, side, gameMode);
 		return Rotator(0, std::lroundf(yaw * CONST_RadToUnrRot), 0);
+	}
+
+	inline Vector getKickoffBallLocation(GameMode gameMode)
+	{
+		if (gameMode == GameMode::Soccar)	return Vector(0, 0, 92.75);
+		if (gameMode == GameMode::Hoops)	return Vector(0, 0, 98.37);
+		if (gameMode == GameMode::Dropshot) return Vector(0, 0, 101.58);
+		if (gameMode == GameMode::Snowday)	return Vector(0, 0, 32.57);
+		return Vector();
+	}
+
+	inline Vector getKickoffBallVelocity(GameMode gameMode)
+	{
+		if (gameMode == GameMode::Soccar)	return Vector(0, 0, 0);
+		if (gameMode == GameMode::Hoops)	return Vector(0, 0, 999.99);
+		if (gameMode == GameMode::Dropshot) return Vector(0, 0, 999.99);
+		if (gameMode == GameMode::Snowday)	return Vector(0, 0, 0);
+		return Vector();
 	}
 
 	inline std::string getKickoffPositionName(KickoffPosition kickoff)
 	{
-		switch (kickoff)
-		{
-		case CornerRight:
-			return "Corner Right";
-		case CornerLeft:
-			return "Corner Left";
-		case BackRight:
-			return "Back Right";
-		case BackLeft:
-			return "Back Left";
-		case BackCenter:
-			return "Back Center";
-		default:
-			return "Unknown";
-		}
+		if (kickoff == CornerRight) return "Corner Right";
+		if (kickoff == CornerLeft)	return "Corner Left";
+		if (kickoff == BackRight)	return "Back Right";
+		if (kickoff == BackLeft)	return "Back Left";
+		if (kickoff == BackCenter)	return "Back Center";
+		return "Unknown";
+	}
+
+	// Determine the current gamemode by the ball radius.
+	// There might be a better way, but I can't figure it out.
+	// Also: When calling `load_freeplay` for non-soccar maps, it won't load the right ball.
+	inline std::optional<GameMode> determineGameMode(BallWrapper ball)
+	{
+		auto radius = ball.GetRadius();
+
+		auto radiusIsCloseTo = [&](float expected) { return abs(radius - expected) < 0.1f; };
+
+		if (radiusIsCloseTo(95.49))  return GameMode::Soccar;
+		if (radiusIsCloseTo(98.13))  return GameMode::Hoops;
+		if (radiusIsCloseTo(29.0))	 return GameMode::Snowday;
+		if (radiusIsCloseTo(102.01)) return GameMode::Dropshot;
+
+		LOG("Can't determine gamemode from ball radius: {}", radius);
+		return std::nullopt;
 	}
 }
