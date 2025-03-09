@@ -32,14 +32,6 @@ static const std::string CVAR_BACK_TO_NORMAL = "kickoff_train_back_to_normal";
 static const std::string CVAR_COUNTDOWN_LENGTH = "kickoff_train_countdown_length";
 static const std::string CVAR_ACTIVE_POSITIONS = "kickoff_train_active_positions";
 
-struct BoostSettings
-{
-	int UnlimitedBoostRefCount;
-	unsigned long NoBoost;
-	float RechargeDelay;
-	float RechargeRate;
-};
-
 class KickoffPractice : public BakkesMod::Plugin::BakkesModPlugin, public SettingsWindowBase
 {
 private:

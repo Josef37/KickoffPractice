@@ -61,6 +61,14 @@ enum class GameMode
 	Snowday
 };
 
+struct BoostSettings
+{
+	int UnlimitedBoostRefCount;
+	unsigned long NoBoost;
+	float RechargeDelay;
+	float RechargeRate;
+};
+
 namespace Utils
 {
 	using enum KickoffPosition;
@@ -205,5 +213,31 @@ namespace Utils
 
 		LOG("Can't determine gamemode from ball radius: {}", radius);
 		return std::nullopt;
+	}
+
+	inline float getInitialBoostAmount(GameMode gameMode)
+	{
+		if (gameMode == GameMode::Dropshot)
+			return 1.0f;
+
+		return 0.333f;
+	}
+
+	inline BoostSettings getInitialBoostSettings(GameMode gameMode)
+	{
+		BoostSettings settings = {
+			.UnlimitedBoostRefCount = 0,
+			.NoBoost = false,
+			.RechargeDelay = 0.f,
+			.RechargeRate = 0.f
+		};
+
+		if (gameMode == GameMode::Dropshot)
+		{
+			settings.RechargeDelay = 0.25f;
+			settings.RechargeRate = 0.1f;
+		}
+
+		return settings;
 	}
 }

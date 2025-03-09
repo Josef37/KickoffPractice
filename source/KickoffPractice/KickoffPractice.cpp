@@ -5,14 +5,6 @@ BAKKESMOD_PLUGIN(KickoffPractice, "Kickoff Practice", plugin_version, PLUGINTYPE
 
 std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 
-static const float INITIAL_BOOST_AMOUNT = 0.333f;
-static const BoostSettings INITIAL_BOOST_SETTINGS = BoostSettings{
-	.UnlimitedBoostRefCount = 0,
-	.NoBoost = false,
-	.RechargeDelay = 0.f,
-	.RechargeRate = 0.f
-};
-
 static const std::string PLUGIN_FOLDER = "kickoffpractice";
 static const std::string BOT_CAR_NAME = "Kickoff Bot";
 
@@ -553,8 +545,8 @@ void KickoffPractice::setupPlayer(CarWrapper player)
 
 	if (BoostWrapper boost = player.GetBoostComponent())
 	{
-		applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
-		boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
+		applyBoostSettings(boost, Utils::getInitialBoostSettings(*gameMode));
+		boost.SetCurrentBoostAmount(Utils::getInitialBoostAmount(*gameMode));
 	}
 }
 void KickoffPractice::setupBot(CarWrapper bot)
@@ -578,8 +570,8 @@ void KickoffPractice::setupBot(CarWrapper bot)
 
 	if (auto boost = bot.GetBoostComponent())
 	{
-		applyBoostSettings(boost, INITIAL_BOOST_SETTINGS);
-		boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
+		applyBoostSettings(boost, Utils::getInitialBoostSettings(*gameMode));
+		boost.SetCurrentBoostAmount(Utils::getInitialBoostAmount(*gameMode));
 	}
 
 	if (currentKickoffIndex.has_value())
@@ -716,8 +708,8 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 		// Disabling was quite messy (with `PlayerController::ToggleBoost` or `BoostComponent::SetbActive`),
 		// which resulted in weird game states. So we just fill the tank every tick.
 		if (auto boost = player.GetBoostComponent())
-			if (this->kickoffState == KickoffState::WaitingToStart)
-				boost.SetCurrentBoostAmount(INITIAL_BOOST_AMOUNT);
+			if (this->kickoffState == KickoffState::WaitingToStart && gameMode.has_value())
+				boost.SetCurrentBoostAmount(Utils::getInitialBoostAmount(*gameMode));
 
 		if (this->kickoffState != KickoffState::Started)
 			return;
