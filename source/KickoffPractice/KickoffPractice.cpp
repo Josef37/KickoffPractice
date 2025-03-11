@@ -182,7 +182,7 @@ void KickoffPractice::registerCommands()
 		{
 			// Always allow, because we can interact with cvars and settings.
 
-			this->saveRecording();
+			this->saveLastAttempt();
 		},
 		"Save the last kickoff. Recordings are saved automatically.",
 		PERMISSION_FREEPLAY
@@ -294,7 +294,7 @@ void KickoffPractice::hookEvents()
 						if (this->kickoffCounter != kickoffCounterOnHit) return;
 
 						if (this->mode == KickoffMode::Recording)
-							this->saveRecording();
+							this->saveLastAttempt();
 
 						this->reset();
 
@@ -455,6 +455,11 @@ void KickoffPractice::start()
 	// resetting freeplay to repeat the last command (and not repeat the same kickoff).
 	if (this->mode == KickoffMode::Training)
 	{
+		if (gameMode) LOG("Gamemode: {}", Utils::getGameModeName(*gameMode));
+		else LOG("No gamemode");
+		LOG("For gamemode: {}", kickoffLoader->getKickoffs(GameMode::Soccar).size());
+		LOG("All: {}", kickoffLoader->getKickoffs().size());
+
 		std::vector<std::shared_ptr<RecordedKickoff>> suitableKickoffs;
 		for (auto& kickoff : kickoffLoader->getKickoffs(gameMode))
 		{
@@ -613,8 +618,8 @@ void KickoffPractice::doCountdown()
 	{
 		server.SendGoMessage(gameWrapper->GetPlayerController());
 
-		recordedInputs.clear();
 		kickoffState = KickoffState::Started;
+		initNewRecording();
 	}
 	else if (framesLeft % frameRate == 0)
 	{
@@ -724,7 +729,7 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 				*input = *recordedInput;
 		}
 
-		this->recordedInputs.push_back(*input);
+		recordInput(*input);
 
 		this->speedFlipTrainer->OnVehicleInput(player, input);
 	}
@@ -769,28 +774,15 @@ void KickoffPractice::setCurrentKickoff(std::shared_ptr<RecordedKickoff> kickoff
 	if (kickoff) currentKickoffPosition = kickoff->position;
 }
 
-void KickoffPractice::saveRecording()
+void KickoffPractice::initNewRecording()
 {
-	if (this->recordedInputs.empty())
-	{
-		LOG("Nothing recorded.");
-		return;
-	}
-	LOG("Saving... Ticks recorded: {}", this->recordedInputs.size());
-
-	std::shared_ptr<RecordedKickoff> kickoff = std::make_shared<RecordedKickoff>();
-	kickoff->name = getNewRecordingName();
-	kickoff->position = this->currentKickoffPosition;
-	// TODO: Improve by using the values during the recording. This could fail outside of freeplay.
-	kickoff->carBody = gameWrapper->GetLocalCar().GetLoadoutBody();
-	kickoff->settings = gameWrapper->GetSettings().GetGamepadSettings();
-	kickoff->gameMode = this->gameMode.value_or(GameMode::Soccar);
-	kickoff->inputs = this->recordedInputs;
-	kickoff->isActive = true; // Automatically select the newly recorded kickoff.
-
-	kickoffStorage->saveRecording(kickoff);
-	kickoffLoader->loadKickoff(kickoff);
-	kickoffStorage->saveActiveKickoffs(kickoffLoader->getKickoffs());
+	lastAttempt = std::make_shared<RecordedKickoff>();
+	lastAttempt->name = getNewRecordingName();
+	lastAttempt->position = this->currentKickoffPosition;
+	lastAttempt->carBody = gameWrapper->GetLocalCar().GetLoadoutBody();
+	lastAttempt->settings = gameWrapper->GetSettings().GetGamepadSettings();
+	lastAttempt->gameMode = this->gameMode.value_or(GameMode::Soccar);
+	lastAttempt->isActive = true;
 }
 
 std::string KickoffPractice::getNewRecordingName() const
@@ -800,6 +792,25 @@ std::string KickoffPractice::getNewRecordingName() const
 	std::string gameModeName = Utils::getGameModeName(gameMode.value_or(GameMode::Soccar));
 
 	return gameModeName + " - " + positionName + " - " + timestamp;
+}
+
+void KickoffPractice::recordInput(ControllerInput& input)
+{
+	lastAttempt->inputs.push_back(input);
+}
+
+void KickoffPractice::saveLastAttempt()
+{
+	if (!lastAttempt || lastAttempt->inputs.empty())
+	{
+		LOG("Nothing recorded.");
+		return;
+	}
+	LOG("Saving... Ticks recorded: {}", lastAttempt->inputs.size());
+
+	kickoffStorage->saveRecording(lastAttempt);
+	kickoffLoader->loadKickoff(lastAttempt);
+	kickoffStorage->saveActiveKickoffs(kickoffLoader->getKickoffs());
 }
 
 void KickoffPractice::readKickoffsFromDisk()

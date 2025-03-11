@@ -94,12 +94,12 @@ private:
 	// Updates the current kickoff and the position.
 	void setCurrentKickoff(std::shared_ptr<RecordedKickoff> kickoff);
 
-	// Inputs for the last kickoff regardless of `mode`. Resets the next time the countdown finishes.
-	std::vector<ControllerInput> recordedInputs;
-
-	// Gets all necessary information and persists them.
-	void saveRecording();
+	// Recording for the last kickoff regardless of `mode`. Resets the next time the countdown reaches 0.
+	std::shared_ptr<RecordedKickoff> lastAttempt;
+	void initNewRecording();
 	std::string getNewRecordingName() const;
+	void recordInput(ControllerInput& input);
+	void saveLastAttempt();
 	void readKickoffsFromDisk();
 	void renameKickoffFile(std::string oldName, std::string newName, std::function<void()> onSuccess);
 	void deleteKickoffFile(std::string name, std::function<void()> onSuccess);
