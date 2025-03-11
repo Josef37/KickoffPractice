@@ -290,8 +290,8 @@ void KickoffPractice::hookEvents()
 					[this, kickoffCounterOnHit](...)
 					{
 						if (!this->shouldExecute()) return;
-						if (this->kickoffState != KickoffState::Started) return;
 						if (this->kickoffCounter != kickoffCounterOnHit) return;
+						if (this->kickoffState != KickoffState::Started) return;
 
 						if (this->mode == KickoffMode::Recording)
 							this->saveLastAttempt();
@@ -342,7 +342,18 @@ void KickoffPractice::hookEvents()
 
 	gameWrapper->HookEvent(
 		"Function TAGame.Ball_TA.OnHitGoal",
-		[this](...) { this->isInGoalReplay = true; }
+		[this](...)
+		{
+			this->isInGoalReplay = true;
+
+			if (this->kickoffState == KickoffState::Started)
+			{
+				if (this->mode == KickoffMode::Recording)
+					this->saveLastAttempt();
+
+				this->reset();
+			}
+		}
 	);
 	gameWrapper->HookEvent(
 		"Function GameEvent_Soccar_TA.ReplayPlayback.BeginState",
