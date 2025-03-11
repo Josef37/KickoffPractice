@@ -229,7 +229,7 @@ void KickoffPractice::load()
 
 	hookEvents();
 	resetPluginState();
-	if(kickoffLoader->getKickoffs().empty()) readKickoffsFromDisk();
+	if (kickoffLoader->getKickoffs().empty()) readKickoffsFromDisk();
 	determineGameMode();
 }
 
@@ -328,7 +328,7 @@ void KickoffPractice::hookEvents()
 		{
 			if (!shouldExecute()) return;
 			if (kickoffState == KickoffState::Nothing) return;
-
+			
 			// Respawn all cars on demo - also bots.
 			// If we didn't, the bot could respawn for the next shot a few seconds later.
 			car.RespawnInPlace();
@@ -448,7 +448,7 @@ bool KickoffPractice::shouldExecute(bool log)
 	}
 	if (this->gameMode == std::nullopt)
 	{
-		if (log) LOG("Could not determine gamemode.");
+		if (log) LOG("Could not determine game-mode.");
 		return false;
 	}
 
@@ -688,7 +688,7 @@ static const ControllerInput EMPTY_INPUT = ControllerInput{
 
 void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 {
-	// TODO: When dodging or colliding before restarting, the position is slighly offset...
+	// TODO: When dodging or colliding before restarting, the position is slightly offset...
 	if (this->isBot(car))
 	{
 		auto& bot = car;
@@ -869,8 +869,8 @@ void KickoffPractice::removeBot(CarWrapper car)
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) return;
 
-	// To avoid the lightning that shows on `server.RemovePlayer()` we call `car.Destory()` first.
-	// After `car.Destory()` `car.GetAIController()` wouldn't work, so we have to store it beforehand.
+	// To avoid the lightning that shows on `server.RemovePlayer()` we call `car.Destroy()` first.
+	// After `car.Destroy()` `car.GetAIController()` wouldn't work, so we have to store it beforehand.
 	// If we don't call `server.RemovePlayer()`, the bots will respawn on "Reset Ball".
 	auto controller = car.GetAIController();
 	car.Destroy();

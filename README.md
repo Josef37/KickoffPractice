@@ -2,7 +2,7 @@
 
 Kickoff Practice is a BakkesMod plugin for RocketLeague that helps you train your kickoffs by spawning a bot in freeplay to face you on kickoffs.
 
-With this plugin you can record a kickoff sequence then go in freeplay and spawn a bot to face you on kickoff, the bot will then use the pre-recorded sequence and thus copy your movements.
+With this plugin you can record a kickoff sequence, then go into freeplay and spawn a bot to face you on kickoff. The bot will then use the pre-recorded sequence and thus copy your movements.
 
 This plugin also uses the core of the great [Speedflip Trainer Plugin](https://bakkesplugins.com/plugins/view/286) to guide you to better kickoffs.
 
@@ -40,7 +40,7 @@ This project is a fork of the MIT-licensed [kickoffPractice by @MrMoine](https:/
 Something now working as expected? Look at the BakkesMod console first (open with `F6`)!
 There might be some error message telling you what's wrong.
 
-If this still does not resolve your issue, don't hestitate to open a issue on GitHub.
+If this still does not resolve your issue, don't hesitate to open a issue on GitHub.
 Please be as specific as possible when describing your issue.
 
 
@@ -52,7 +52,7 @@ Please be as specific as possible when describing your issue.
 - Install the plugin through the [BakkesMod website](https://bakkesplugins.com/plugin-search/1/kickoff).
 - Start freeplay.  
   _All major game-modes are supported: Soccar, Hoops, Dropshot and Snowday._
-- Open Bakkesmod settings (`F2`). Select the "Plugins" tab. Select "Kickoff Practice" on the left.
+- Open BakkesMod settings (`F2`). Select the "Plugins" tab. Select "Kickoff Practice" on the left.
 - In the "Training" section: Select the positions you want to train and click "Train Selected".  
   _You will start training against some pre-recorded kickoffs._
 - You will continue training until you reset freeplay.  

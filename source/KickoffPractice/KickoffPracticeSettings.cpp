@@ -39,16 +39,23 @@ void KickoffPractice::RenderSettingsTab()
 	ImGui::Spacing();
 
 	ImGui::SetNextItemWidth(300);
-	if (ImGui::DragFloat("Time before back to normal", &timeAfterBackToNormal, 0.002f, 0.0f, FLT_MAX, "%.1f seconds"))
+	if (ImGui::InputFloat("Time before back to normal", &timeAfterBackToNormal, 0.1f, 1.0f, "%.1f seconds"))
+	{
+		timeAfterBackToNormal = std::clamp(timeAfterBackToNormal, 0.f, FLT_MAX);
 		cvarManager->getCvar(CVAR_BACK_TO_NORMAL).setValue(timeAfterBackToNormal);
+	}
 	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("How long you stay in \"kickoff mode\" after someone hit the ball. This also affects how long the recording lasts after hitting the ball.");
+		ImGui::SetTooltip("How long to stay in \"kickoff mode\" after the ball was hit. This also affects how long the recording lasts after hitting the ball.");
 
 	ImGui::Spacing();
 
 	ImGui::SetNextItemWidth(300);
-	if (ImGui::SliderInt("Countdown length", &countdownLength, 1, 5, countdownLength == 1 ? "%d second" : "%d seconds"))
+	int inputStep = 1;
+	if (ImGui::InputScalar("Countdown length", ImGuiDataType_S32, &countdownLength, &inputStep, nullptr, countdownLength == 1 ? "%d second" : "%d seconds"))
+	{
+		countdownLength = std::clamp(countdownLength, 1, INT_MAX);
 		cvarManager->getCvar(CVAR_COUNTDOWN_LENGTH).setValue(countdownLength);
+	}
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Countdown length in seconds. Affected by slow-motion.");
 
@@ -281,7 +288,7 @@ void KickoffPractice::RenderReadmeTab()
 	if (ImGui::TreeNode("Troubleshooting"))
 	{
 		ImGui::TextWrapped("Something now working as expected? Look at the BakkesMod console first (open with `F6`)! There might be some error message telling you what's wrong.");
-		ImGui::TextWrapped("If this still does not resolve your issue, don't hestitate to open a issue on GitHub. Please be as specific as possible when describing your issue.");
+		ImGui::TextWrapped("If this still does not resolve your issue, don't hesitate to open a issue on GitHub. Please be as specific as possible when describing your issue.");
 
 		ImGui::Spacing(); ImGui::TreePop();
 	}
@@ -293,7 +300,7 @@ void KickoffPractice::RenderReadmeTab()
 			ImGui::BulletText("Install [BakkesMod](https://bakkesplugins.com/) (PC only).");
 			ImGui::BulletText("Install Plugin through the [BakkesMod website](https://bakkesplugins.com/plugin-search/1/kickoff).");
 			ImGui::BulletText("Start freeplay.\nAll major game-modes are supported: Soccar, Hoops, Dropshot and Snowday.");
-			ImGui::BulletText("Open Bakkesmod settings (`F2`). Select the \"Plugins\" tab. Select \"Kickoff Practice\" on the left.");
+			ImGui::BulletText("Open BakkesMod settings (`F2`). Select the \"Plugins\" tab. Select \"Kickoff Practice\" on the left.");
 			ImGui::BulletText("In the \"Training\" section: Select the positions you want to train and click \"Train Selected\".\nYou will start training against some pre-recorded kickoffs.");
 			ImGui::BulletText("You will continue training until you reset freeplay.\nIf you don't want to auto-restart the kickoff training, uncheck the \"Auto-Restart\" option.");
 			ImGui::BulletText("If you made a good attempt you want to save, pause the game and click \"Save Last Attempt\" (in the \"Recording\" section).\nIt will automatically be selected for training.");
