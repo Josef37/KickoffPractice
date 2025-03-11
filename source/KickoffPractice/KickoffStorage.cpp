@@ -17,9 +17,9 @@ KickoffStorage::KickoffStorage(std::filesystem::path recordingDirectory)
 			LOG("Can't create recording directory {}", recordingDirectory.string());
 }
 
-void KickoffStorage::saveRecording(RecordedKickoff& kickoff)
+void KickoffStorage::saveRecording(std::shared_ptr<RecordedKickoff> kickoff)
 {
-	auto filename = kickoff.name + FILE_EXT;
+	auto filename = kickoff->name + FILE_EXT;
 	std::ofstream inputFile(recordingDirectory / filename);
 	if (!inputFile.is_open())
 	{
@@ -27,18 +27,20 @@ void KickoffStorage::saveRecording(RecordedKickoff& kickoff)
 		return;
 	}
 
-	inputFile << "version: 1.0" << "\n";
-	inputFile << "position:" << Utils::toInt(kickoff.position) << "\n";
-	inputFile << "carBody:" << kickoff.carBody << "\n";
+	inputFile << "version: 1.1" << "\n";
+	inputFile << "position:" << Utils::positionToInt(kickoff->position) << "\n";
+	inputFile << "carBody:" << kickoff->carBody << "\n";
 
-	inputFile << "settings:" << kickoff.settings.ControllerDeadzone
-		<< "," << kickoff.settings.DodgeInputThreshold
-		<< "," << kickoff.settings.SteeringSensitivity
-		<< "," << kickoff.settings.AirControlSensitivity
+	inputFile << "settings:" << kickoff->settings.ControllerDeadzone
+		<< "," << kickoff->settings.DodgeInputThreshold
+		<< "," << kickoff->settings.SteeringSensitivity
+		<< "," << kickoff->settings.AirControlSensitivity
 		<< "\n";
 
+	inputFile << "gameMode:" << Utils::gameModeToInt(kickoff->gameMode) << "\n";
+
 	inputFile << "inputs" << "\n";
-	for (const ControllerInput& input : kickoff.inputs)
+	for (const ControllerInput& input : kickoff->inputs)
 	{
 		inputFile << input.Throttle
 			<< "," << input.Steer
@@ -57,13 +59,13 @@ void KickoffStorage::saveRecording(RecordedKickoff& kickoff)
 	inputFile.close();
 }
 
-std::vector<RecordedKickoff> KickoffStorage::readRecordings()
+std::vector<std::shared_ptr<RecordedKickoff>> KickoffStorage::readRecordings()
 {
 	auto names = readActiveKickoffs();
 	std::set<std::string> activeKickoffNames(names.begin(), names.end());
-	auto isActive = [&](const RecordedKickoff& kickoff) { return 0 < activeKickoffNames.count(kickoff.name); };
+	auto isActive = [&](const std::shared_ptr<RecordedKickoff>& kickoff) { return 0 < activeKickoffNames.count(kickoff->name); };
 
-	std::vector<RecordedKickoff> kickoffs;
+	std::vector<std::shared_ptr<RecordedKickoff>> kickoffs;
 
 	try
 	{
@@ -73,7 +75,7 @@ std::vector<RecordedKickoff> KickoffStorage::readRecordings()
 			if (entry.path().extension() != FILE_EXT) continue;
 
 			auto kickoff = readRecording(entry.path());
-			kickoff.isActive = isActive(kickoff);
+			kickoff->isActive = isActive(kickoff);
 			kickoffs.push_back(kickoff);
 		}
 	}
@@ -87,28 +89,31 @@ std::vector<RecordedKickoff> KickoffStorage::readRecordings()
 
 /*
  * Expected format for version 1.0
- * 
+ *
  * ```
- * version: 1.0
+ * version: 1.1
  * position: <position>
  * carBody: <carBody>
  * settings: <ControllerDeadzone>,<DodgeInputThreshold>,<SteeringSensitivity>,<AirControlSensitivity>
+ * gameMode: <gameMode>
  * inputs
  * <Throttle>,<Steer>,<Pitch>,<Yaw>,<Roll>,<DodgeForward>,<DodgeStrafe>,<Handbrake>,<Jump>,<ActivateBoost>,<HoldingBoost>,<Jumped>
  * <Throttle>,<Steer>,<Pitch>,...
  * ...
  * ```
- * 
+ *
  * position: 0 to 4
  * carBody: CarWrapper::GetLoadoutBody()
  * settings: SettingsWrapper::GetGamepadSettings()
+ * gameMode: 0 to 3
  * inputs: one line equals one physics frame (tick) taken from hook "Function TAGame.Car_TA.SetVehicleInput"
  */
-RecordedKickoff KickoffStorage::readRecording(fs::path filePath)
+std::shared_ptr<RecordedKickoff> KickoffStorage::readRecording(fs::path filePath)
 {
 	std::optional<KickoffPosition> position;
 	std::optional<int> carBody;
 	std::optional<GamepadSettings> settings;
+	std::optional<GameMode> gameMode;
 	std::vector<ControllerInput> inputs;
 
 	std::vector<std::string> row;
@@ -154,7 +159,7 @@ RecordedKickoff KickoffStorage::readRecording(fs::path filePath)
 				else if (header == "position")
 				{
 					if (row.size() == 1)
-						position = Utils::fromInt(std::stoi(row[0]));
+						position = Utils::positionFromInt(std::stoi(row[0]));
 					else
 						LOG("Error on line {}: size of {} instead of 1", i, row.size());
 				}
@@ -170,6 +175,13 @@ RecordedKickoff KickoffStorage::readRecording(fs::path filePath)
 					}
 					else
 						LOG("Error on line {}: size of {} instead of 4", i, row.size());
+				}
+				else if (header == "gameMode")
+				{
+					if (row.size() == 1)
+						gameMode = Utils::gameModeFromInt(std::stoi(row[0]));
+					else
+						LOG("Error on line {}: size of {} instead of 1", i, row.size());
 				}
 				else
 				{
@@ -210,32 +222,34 @@ RecordedKickoff KickoffStorage::readRecording(fs::path filePath)
 		LOG("Can't open {}", filePath.string());
 	}
 
-	RecordedKickoff kickoff;
-	kickoff.name = filePath.stem().string();
+	std::shared_ptr<RecordedKickoff> kickoff = std::make_shared<RecordedKickoff>();
+	kickoff->name = filePath.stem().string();
 
 	if (position.has_value())
-		kickoff.position = *position;
+		kickoff->position = *position;
 	else
 		LOG("Header `position` not found.");
 
 	if (carBody.has_value())
-		kickoff.carBody = *carBody;
+		kickoff->carBody = *carBody;
 	else
 		LOG("Header `carBody` not found.");
 
 	if (settings.has_value())
-		kickoff.settings = *settings;
+		kickoff->settings = *settings;
 	else
 		LOG("Header `settings` not found.");
 
-	kickoff.inputs = inputs;
+	kickoff->gameMode = gameMode.value_or(GameMode::Soccar);
+
+	kickoff->inputs = inputs;
 	if (inputs.empty())
 		LOG("No inputs found.");
 
 	return kickoff;
 }
 
-void KickoffStorage::saveActiveKickoffs(std::vector<RecordedKickoff>& kickoffs)
+void KickoffStorage::saveActiveKickoffs(std::vector<std::shared_ptr<RecordedKickoff>> kickoffs)
 {
 	auto filename = recordingDirectory / CONFIG_FILE;
 
@@ -249,8 +263,8 @@ void KickoffStorage::saveActiveKickoffs(std::vector<RecordedKickoff>& kickoffs)
 
 	for (auto& kickoff : kickoffs)
 	{
-		if (!kickoff.isActive) continue;
-		inputFile << kickoff.name << "\n";
+		if (!kickoff->isActive) continue;
+		inputFile << kickoff->name << "\n";
 	}
 	inputFile.close();
 }

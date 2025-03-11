@@ -12,6 +12,7 @@
 #include "PersistentStorage.h"
 #include "SpeedFlipTrainer.h"
 #include "KickoffStorage.h"
+#include "KickoffLoader.h"
 
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
@@ -40,6 +41,8 @@ private:
 	std::unique_ptr<SpeedFlipTrainer> speedFlipTrainer;
 
 	std::unique_ptr<KickoffStorage> kickoffStorage;
+
+	std::unique_ptr<KickoffLoader> kickoffLoader;
 
 	void registerCvars();
 	void registerCommands();
@@ -88,18 +91,8 @@ private:
 	// Resets the external game-state.
 	void resetGameState();
 
-	// Currently available kickoffs. Don't write directly, as other fields depend on it...
-	std::vector<RecordedKickoff> loadedKickoffs;
-	std::map<KickoffPosition, std::vector<int>> kickoffIndexByPosition;
-	std::map<std::string, int> kickoffIndexByName;
-	// Don't write directly. Use `setCurrentKickoff()`.
-	std::optional<int> currentKickoffIndex = std::nullopt;
-
-	void clearLoadedKickoffs();
-	void loadKickoff(RecordedKickoff& kickoff);
-	void renameKickoff(std::string oldName, std::string newName);
-	void unloadKickoff(std::string name);
-	void setCurrentKickoffIndex(std::optional<int> index);
+	// Updates the current kickoff and the position.
+	void setCurrentKickoff(std::shared_ptr<RecordedKickoff> kickoff);
 
 	// Inputs for the last kickoff regardless of `mode`. Resets the next time the countdown finishes.
 	std::vector<ControllerInput> recordedInputs;

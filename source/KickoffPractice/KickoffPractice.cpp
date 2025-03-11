@@ -27,6 +27,8 @@ void KickoffPractice::onLoad()
 		gameWrapper->GetDataFolder() / PLUGIN_FOLDER
 	);
 
+	kickoffLoader = std::make_unique<KickoffLoader>();
+
 	registerCvars();
 
 	registerCommands();
@@ -138,12 +140,13 @@ void KickoffPractice::registerCommands()
 				return;
 			}
 			auto& kickoffName = args[1];
-			if (!kickoffIndexByName.contains(kickoffName))
+			auto kickoff = kickoffLoader->findKickoffByName(kickoffName);
+			if (!kickoff)
 			{
 				LOG("No kickoff found with the specified name: {}", kickoffName);
 				return;
 			}
-			this->setCurrentKickoffIndex(kickoffIndexByName[kickoffName]);
+			setCurrentKickoff(kickoff);
 
 			this->start();
 		},
@@ -197,18 +200,16 @@ void KickoffPractice::registerCommands()
 			}
 
 			auto& kickoffName = args[1];
-
-			if (!kickoffIndexByName.contains(kickoffName))
+			auto kickoff = kickoffLoader->findKickoffByName(kickoffName);
+			if (!kickoff)
 			{
 				LOG("No kickoff found with the specified name: {}", kickoffName);
 				return;
 			}
 
-			auto& index = kickoffIndexByName[kickoffName];
-
-			loadedKickoffs[index].isActive = args.size() > 2
+			kickoff->isActive = args.size() > 2
 				? args[2] == "1"
-				: !loadedKickoffs[index].isActive;
+				: !kickoff->isActive;
 		},
 		"Selects a kickoff for training.\n"
 		"Arguments: <kickoff name> <(optional) state - 0:disable, 1:enable, missing:toggle>.",
@@ -228,7 +229,7 @@ void KickoffPractice::load()
 
 	hookEvents();
 	resetPluginState();
-	if (loadedKickoffs.empty()) readKickoffsFromDisk();
+	if(kickoffLoader->getKickoffs().empty()) readKickoffsFromDisk();
 	determineGameMode();
 }
 
@@ -243,6 +244,7 @@ void KickoffPractice::unload()
 		resetGameState();
 
 	unhookEvents();
+	gameMode = std::nullopt;
 }
 
 void KickoffPractice::hookEvents()
@@ -453,29 +455,29 @@ void KickoffPractice::start()
 	// resetting freeplay to repeat the last command (and not repeat the same kickoff).
 	if (this->mode == KickoffMode::Training)
 	{
-		std::vector<int> suitableKickoffIndices;
-		for (int index = 0; index < loadedKickoffs.size(); index++)
+		std::vector<std::shared_ptr<RecordedKickoff>> suitableKickoffs;
+		for (auto& kickoff : kickoffLoader->getKickoffs(gameMode))
 		{
-			auto& kickoff = loadedKickoffs[index];
-
-			bool isSuitable = kickoff.isActive;
+			bool isSuitable = kickoff->isActive;
 
 			if (this->positionOverride.has_value())
-				isSuitable = isSuitable && kickoff.position == *this->positionOverride;
+				isSuitable = isSuitable && kickoff->position == *this->positionOverride;
 			else
-				isSuitable = isSuitable && this->activePositions.contains(kickoff.position);
+				isSuitable = isSuitable && this->activePositions.contains(kickoff->position);
 
 			if (isSuitable)
-				suitableKickoffIndices.push_back(index);
+				suitableKickoffs.push_back(kickoff);
 		}
 
-		if (suitableKickoffIndices.empty())
+		if (suitableKickoffs.empty())
 		{
 			LOG("No suitable kickoff recording found! Make sure there are active kickoffs for your selected positions.");
 			return;
 		}
 
-		this->setCurrentKickoffIndex(suitableKickoffIndices[rand() % suitableKickoffIndices.size()]);
+		// TODO: Better random selection.
+		auto& newKickoff = suitableKickoffs[rand() % suitableKickoffs.size()];
+		setCurrentKickoff(newKickoff);
 	}
 
 	if (this->mode == KickoffMode::Recording)
@@ -487,9 +489,10 @@ void KickoffPractice::start()
 	{
 		auto server = gameWrapper->GetCurrentGameState();
 		if (!server) return;
-		if (!currentKickoffIndex.has_value()) return;
+		auto currentKickoff = kickoffLoader->getCurrentKickoff();
+		if (!currentKickoff) return;
 
-		auto carBody = loadedKickoffs[*currentKickoffIndex].carBody;
+		auto carBody = currentKickoff->carBody;
 		server.SpawnBot(carBody, BOT_CAR_NAME);
 		spawnBotCalled = true;
 	}
@@ -574,9 +577,9 @@ void KickoffPractice::setupBot(CarWrapper bot)
 		boost.SetCurrentBoostAmount(Utils::getInitialBoostAmount(*gameMode));
 	}
 
-	if (currentKickoffIndex.has_value())
+	if (auto currentKickoff = kickoffLoader->getCurrentKickoff())
 	{
-		auto& settings = loadedKickoffs[*currentKickoffIndex].settings;
+		auto& settings = currentKickoff->settings;
 		bot.GetPRI().SetUserCarPreferences(settings.DodgeInputThreshold, settings.SteeringSensitivity, settings.AirControlSensitivity);
 	}
 	else
@@ -729,10 +732,11 @@ void KickoffPractice::onVehicleInput(CarWrapper car, ControllerInput* input)
 
 std::optional<ControllerInput> KickoffPractice::getRecordedInput()
 {
-	if (currentKickoffIndex == std::nullopt)
+	auto currentKickoff = kickoffLoader->getCurrentKickoff();
+	if (!currentKickoff)
 		return std::nullopt;
 
-	auto& inputs = loadedKickoffs[*currentKickoffIndex].inputs;
+	auto& inputs = currentKickoff->inputs;
 	auto currentFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	auto tick = currentFrame - this->startingFrame;
 
@@ -759,65 +763,10 @@ void KickoffPractice::resetGameState()
 	this->resetBoostSettings();
 }
 
-void KickoffPractice::clearLoadedKickoffs()
+void KickoffPractice::setCurrentKickoff(std::shared_ptr<RecordedKickoff> kickoff)
 {
-	loadedKickoffs.clear();
-	kickoffIndexByName.clear();
-	kickoffIndexByPosition.clear();
-	setCurrentKickoffIndex(std::nullopt);
-}
-void KickoffPractice::loadKickoff(RecordedKickoff& kickoff)
-{
-	loadedKickoffs.push_back(kickoff);
-	auto index = loadedKickoffs.size() - 1;
-	kickoffIndexByName[kickoff.name] = index;
-	kickoffIndexByPosition[kickoff.position].push_back(index);
-}
-void KickoffPractice::renameKickoff(std::string oldName, std::string newName)
-{
-	if (!kickoffIndexByName.contains(oldName)) return;
-	if (kickoffIndexByName.contains(newName)) return;
-
-	auto index = kickoffIndexByName[oldName];
-	loadedKickoffs[index].name = newName;
-
-	kickoffIndexByName.erase(oldName);
-	kickoffIndexByName[newName] = index;
-}
-void KickoffPractice::unloadKickoff(std::string name)
-{
-	if (!kickoffIndexByName.contains(name)) return;
-
-	auto index = kickoffIndexByName[name];
-
-	loadedKickoffs.erase(loadedKickoffs.begin() + index);
-
-	if (currentKickoffIndex.has_value())
-	{
-		if (index == currentKickoffIndex) setCurrentKickoffIndex(std::nullopt);
-		else if (index < currentKickoffIndex) setCurrentKickoffIndex(*currentKickoffIndex - 1);
-	}
-
-	// Re-create the lookup maps because of index shift.
-	kickoffIndexByName.clear();
-	kickoffIndexByPosition.clear();
-	for (int i = 0; i < loadedKickoffs.size(); i++)
-	{
-		auto& kickoff = loadedKickoffs[i];
-		kickoffIndexByName[kickoff.name] = i;
-		kickoffIndexByPosition[kickoff.position].push_back(i);
-	}
-}
-void KickoffPractice::setCurrentKickoffIndex(std::optional<int> index)
-{
-	if (index == std::nullopt || 0 > *index || *index >= loadedKickoffs.size())
-	{
-		currentKickoffIndex = std::nullopt;
-		return;
-	}
-
-	currentKickoffIndex = index;
-	currentKickoffPosition = loadedKickoffs[*index].position;
+	kickoffLoader->setCurrentKickoff(kickoff);
+	if (kickoff) currentKickoffPosition = kickoff->position;
 }
 
 void KickoffPractice::saveRecording()
@@ -829,56 +778,59 @@ void KickoffPractice::saveRecording()
 	}
 	LOG("Saving... Ticks recorded: {}", this->recordedInputs.size());
 
-	RecordedKickoff kickoff;
-	kickoff.name = getNewRecordingName();
-	kickoff.position = this->currentKickoffPosition;
-	kickoff.carBody = gameWrapper->GetLocalCar().GetLoadoutBody(); // TODO: Improve by using the values during the recording.
-	kickoff.settings = gameWrapper->GetSettings().GetGamepadSettings();
-	kickoff.inputs = this->recordedInputs;
-	kickoff.isActive = true; // Automatically select the newly recorded kickoff.
+	std::shared_ptr<RecordedKickoff> kickoff = std::make_shared<RecordedKickoff>();
+	kickoff->name = getNewRecordingName();
+	kickoff->position = this->currentKickoffPosition;
+	// TODO: Improve by using the values during the recording. This could fail outside of freeplay.
+	kickoff->carBody = gameWrapper->GetLocalCar().GetLoadoutBody();
+	kickoff->settings = gameWrapper->GetSettings().GetGamepadSettings();
+	kickoff->gameMode = this->gameMode.value_or(GameMode::Soccar);
+	kickoff->inputs = this->recordedInputs;
+	kickoff->isActive = true; // Automatically select the newly recorded kickoff.
 
 	kickoffStorage->saveRecording(kickoff);
-	loadKickoff(kickoff);
-	kickoffStorage->saveActiveKickoffs(loadedKickoffs);
+	kickoffLoader->loadKickoff(kickoff);
+	kickoffStorage->saveActiveKickoffs(kickoffLoader->getKickoffs());
 }
 
 std::string KickoffPractice::getNewRecordingName() const
 {
 	std::string timestamp = Utils::getCurrentTimestamp();
-	std::string kickoffName = Utils::getKickoffPositionName(this->currentKickoffPosition);
+	std::string positionName = Utils::getKickoffPositionName(currentKickoffPosition);
+	std::string gameModeName = Utils::getGameModeName(gameMode.value_or(GameMode::Soccar));
 
-	return timestamp + " " + kickoffName;
+	return gameModeName + " - " + positionName + " - " + timestamp;
 }
 
 void KickoffPractice::readKickoffsFromDisk()
 {
-	clearLoadedKickoffs();
+	auto kickoffs = kickoffStorage->readRecordings();
 
-	for (auto& kickoff : kickoffStorage->readRecordings())
-		loadKickoff(kickoff);
+	kickoffLoader->clearLoadedKickoffs();
+	kickoffLoader->loadKickoffs(kickoffs);
 }
 
 void KickoffPractice::renameKickoffFile(std::string oldName, std::string newName, std::function<void()> onSuccess)
 {
 	if (newName.empty()) return;
-	if (!kickoffIndexByName.contains(oldName)) return;
-	if (kickoffIndexByName.contains(newName)) return;
+	if (!kickoffLoader->findKickoffByName(oldName)) return;
+	if (kickoffLoader->findKickoffByName(newName)) return;
 
 	if (!kickoffStorage->renameKickoffFile(oldName, newName)) return;
 
-	renameKickoff(oldName, newName);
+	kickoffLoader->renameKickoff(oldName, newName);
 
 	onSuccess();
 }
 
 void KickoffPractice::deleteKickoffFile(std::string name, std::function<void()> onSuccess)
 {
-	if (!kickoffIndexByName.contains(name))
+	if (!kickoffLoader->findKickoffByName(name))
 		return;
 
 	if (!kickoffStorage->deleteKickoffFile(name)) return;
 
-	unloadKickoff(name);
+	kickoffLoader->unloadKickoff(name);
 
 	onSuccess();
 }
@@ -977,11 +929,11 @@ std::optional<KickoffPosition> KickoffPractice::parseKickoffArg(std::string arg)
 		LOG("The kickoff number argument should be between 1 and 5 (included).");
 		return std::nullopt;
 	}
-	return Utils::fromInt(kickoffNumber - 1);
+	return Utils::positionFromInt(kickoffNumber - 1);
 }
 std::string KickoffPractice::getKickoffArg(KickoffPosition position)
 {
-	auto kickoffNumber = Utils::toInt(position);
+	auto kickoffNumber = Utils::positionToInt(position);
 	return std::to_string(kickoffNumber + 1);
 }
 
@@ -990,7 +942,7 @@ std::string KickoffPractice::getActivePositionsMask()
 	std::string mask = "00000";
 	for (auto position : activePositions)
 	{
-		auto index = Utils::toInt(position);
+		auto index = Utils::positionToInt(position);
 		if (index < mask.size()) mask[index] = '1';
 	}
 	return mask;
@@ -1001,5 +953,5 @@ void KickoffPractice::setActivePositionFromMask(std::string mask)
 
 	for (int index = 0; index < 5; index++)
 		if (index < mask.size() && mask.at(index) == '1')
-			activePositions.insert(Utils::fromInt(index));
+			activePositions.insert(Utils::positionFromInt(index));
 }

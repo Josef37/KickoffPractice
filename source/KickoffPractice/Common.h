@@ -37,6 +37,14 @@ enum class KickoffMode
 	Replaying
 };
 
+enum class GameMode
+{
+	Soccar,
+	Hoops,
+	Dropshot,
+	Snowday
+};
+
 struct RecordedKickoff
 {
 	// Equals the file name (without extension).
@@ -48,17 +56,10 @@ struct RecordedKickoff
 	KickoffPosition position = KickoffPosition::CornerLeft;
 	int carBody = 23; // Octane
 	GamepadSettings settings = GamepadSettings(0, 0.5, 1, 1);
+	GameMode gameMode = GameMode::Soccar;
 
 	// Recorded inputs
 	std::vector<ControllerInput> inputs;
-};
-
-enum class GameMode
-{
-	Soccar,
-	Hoops,
-	Dropshot,
-	Snowday
 };
 
 struct BoostSettings
@@ -90,16 +91,11 @@ namespace Utils
 		BackCenter
 	};
 
-	inline int toInt(KickoffPosition position)
-	{
-		// Avoid casting everywhere... Do it only here!
-		return static_cast<int>(position);
-	}
-	inline KickoffPosition fromInt(int position)
-	{
-		// Avoid casting everywhere... Do it only here!
-		return static_cast<KickoffPosition>(position);
-	}
+	// Avoid casting everywhere... Do it only here!
+	inline int positionToInt(KickoffPosition position) { return static_cast<int>(position); }
+	inline KickoffPosition positionFromInt(int position) { return static_cast<KickoffPosition>(position); }
+	inline int gameModeToInt(GameMode gameMode) { return static_cast<int>(gameMode); }
+	inline GameMode gameModeFromInt(int gameMode) { return static_cast<GameMode>(gameMode); }
 
 	inline Vector getKickoffLocation(KickoffPosition kickoff, KickoffSide side, GameMode gameMode)
 	{
@@ -197,6 +193,15 @@ namespace Utils
 		return "Unknown";
 	}
 
+	inline std::string getGameModeName(GameMode gameMode)
+	{
+		if (gameMode == GameMode::Soccar)	return "Soccar";
+		if (gameMode == GameMode::Hoops)	return "Hoops";
+		if (gameMode == GameMode::Dropshot)	return "Dropshot";
+		if (gameMode == GameMode::Snowday)	return "Snowday";
+		return "Unknown";
+	}
+
 	// Determine the current gamemode by the ball radius.
 	// There might be a better way, but I can't figure it out.
 	// Also: When calling `load_freeplay` for non-soccar maps, it won't load the right ball.
@@ -239,5 +244,20 @@ namespace Utils
 		}
 
 		return settings;
+	}
+
+	template<typename T>
+	inline void removeFromVector(std::vector<T>& vector, T& kickoff)
+	{
+		auto it = std::find_if(
+			vector.begin(),
+			vector.end(),
+			[&](T& other) { return other == kickoff; }
+		);
+
+		if (it == vector.end())
+			return;
+
+		vector.erase(it);
 	}
 }
