@@ -29,6 +29,7 @@ static const std::string CVAR_RESTART_ON_RESET = "kickoff_train_restart_on_reset
 static const std::string CVAR_AUTO_RESTART = "kickoff_train_auto_restart";
 static const std::string CVAR_SHOW_INDICATOR = "kickoff_train_show_indicator";
 static const std::string CVAR_SPEEDFLIP_TRAINER = "kickoff_train_speedflip";
+static const std::string CVAR_CLOSE_SETTINGS = "kickoff_train_close_settings";
 static const std::string CVAR_BACK_TO_NORMAL = "kickoff_train_back_to_normal";
 static const std::string CVAR_COUNTDOWN_LENGTH = "kickoff_train_countdown_length";
 static const std::string CVAR_ACTIVE_POSITIONS = "kickoff_train_active_positions";
@@ -147,6 +148,8 @@ private:
 	void renderIndicator(CanvasWrapper canvas);
 	// SpeedFlipTrainer integration, but we use our own state for enabling.
 	bool showSpeedFlipTrainer = true;
+	// Close the BakkesMod settings UI when doing a kickoff.
+	bool closeSettingsOnCountdown = true;
 
 	// Used for renaming kickoffs in the UI.
 	std::string tempName;

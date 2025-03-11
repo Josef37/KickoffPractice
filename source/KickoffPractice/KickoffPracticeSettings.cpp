@@ -82,6 +82,11 @@ void KickoffPractice::RenderSettingsTab()
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Show Speedflip Trainer overlay while training kickoffs.\nSee the \"Speedflip\" tab for more settings.");
 
+	if (ImGui::Checkbox("Close Settings on Countdown Start", &closeSettingsOnCountdown))
+		cvarManager->getCvar(CVAR_CLOSE_SETTINGS).setValue(closeSettingsOnCountdown);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Close this settings window when starting the countdown for a kickoff.");
+
 	ImGui::Spacing();
 
 	CommandButton("Reset Training/Recording", RESET_COMMAND);

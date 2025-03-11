@@ -69,6 +69,9 @@ void KickoffPractice::registerCvars()
 
 	persistentStorage->RegisterPersistentCvar(CVAR_SPEEDFLIP_TRAINER, "1")
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { showSpeedFlipTrainer = cvar.getBoolValue(); });
+	
+	persistentStorage->RegisterPersistentCvar(CVAR_CLOSE_SETTINGS, "1")
+		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { closeSettingsOnCountdown = cvar.getBoolValue(); });
 
 	persistentStorage->RegisterPersistentCvar(CVAR_BACK_TO_NORMAL, "0.5", "", true, true, 0.0f)
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { timeAfterBackToNormal = cvar.getFloatValue(); });
@@ -540,6 +543,9 @@ void KickoffPractice::setupKickoff()
 	server.ResetPickups();
 
 	kickoffState = KickoffState::WaitingToStart;
+
+	if (closeSettingsOnCountdown)
+		cvarManager->executeCommand("closemenu settings", false);
 
 	initCountdown();
 }
