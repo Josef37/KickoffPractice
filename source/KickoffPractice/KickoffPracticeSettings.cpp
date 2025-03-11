@@ -292,13 +292,20 @@ void KickoffPractice::RenderReadmeTab()
 		{
 			ImGui::BulletText("Install [BakkesMod](https://bakkesplugins.com/) (PC only).");
 			ImGui::BulletText("Install Plugin through the [BakkesMod website](https://bakkesplugins.com/plugin-search/1/kickoff).");
+			ImGui::BulletText("Start freeplay.\nAll major game-modes are supported: Soccar, Hoops, Dropshot and Snowday.");
 			ImGui::BulletText("Open Bakkesmod settings (`F2`). Select the \"Plugins\" tab. Select \"Kickoff Practice\" on the left.");
-			ImGui::BulletText("Click \"Record Left Corner\" (or any other position you're interested in).");
-			ImGui::BulletText("(optional) Reset freeplay (with the default command) to record another attempt.\n_You can always save your last attempt - even when not recording. So just start training against your first recording._");
-			ImGui::BulletText("(optional) If you're satisfied with your attempts, uncheck the ones you don't want to train against (or delete them).\n_If you're unsure which recordings are good, use the \"Replay\" feature to check._");
-			ImGui::BulletText("Click \"Train Left Corner\" and do another attempt.");
-			ImGui::BulletText("Reset freeplay (with the default command) to make another attempt.\n_Congrats! You're training your kickoff._");
-			ImGui::BulletText("Click \"Save Last Attempt\" when you had a good kickoff you want to add to your training list.\n_It will automatically be selected for training._");
+			ImGui::BulletText("In the \"Training\" section: Select the positions you want to train and click \"Train Selected\".\nYou will start training against some pre-recorded kickoffs.");
+			ImGui::BulletText("You will continue training until you reset freeplay.\nIf you don't want to auto-restart the kickoff training, uncheck the \"Auto-Restart\" option.");
+			ImGui::BulletText("If you made a good attempt you want to save, pause the game and click \"Save Last Attempt\" (in the \"Recording\" section).\nIt will automatically be selected for training.");
+			ImGui::BulletText("To continue training with the same settings, just reset freeplay again.");
+
+			ImGui::Spacing(); ImGui::TreePop();
+		}
+
+		if (ImGui::TreeNode("Recording Kickoffs"))
+		{
+			ImGui::BulletText("You would want to just use \"Save Last Attempt\" most of the time when training.");
+			ImGui::BulletText("To record a kickoff without facing a bot, click one of the \"Record ...\" buttons.\nThe recorded kickoffs will be saved and selected automatically.");
 
 			ImGui::Spacing(); ImGui::TreePop();
 		}
@@ -331,11 +338,19 @@ void KickoffPractice::RenderReadmeTab()
 			ImGui::Spacing(); ImGui::TreePop();
 		}
 
-		if (ImGui::TreeNode("Slow-motion"))
+		if (ImGui::TreeNode("Slow-Motion"))
 		{
 			ImGui::BulletText("The plugin also works for slower game speeds! So you can record and train in slow-motion.");
 			ImGui::BulletText("You have to set the game-speed yourself. There is no automation for that in this plugin.");
 			ImGui::BulletText("Slow-motion also affects countdowns. But you can adjust the countdown duration.");
+
+			ImGui::Spacing(); ImGui::TreePop();
+		}
+
+		if (ImGui::TreeNode("Different Game-Modes"))
+		{
+			ImGui::BulletText("The plugin supports training kickoffs for all game-modes available in freeplay: Soccar, Hoops, Dropshot and Snowday.");
+			ImGui::BulletText("Only kickoffs for the current game-mode are displayed. If recordings are missing or the game-mode is not matching, make sure you are in freeplay and the ball is of the correct type.\nThe `load_freeplay` command always loads a soccar ball!");
 
 			ImGui::Spacing(); ImGui::TreePop();
 		}
@@ -345,7 +360,7 @@ void KickoffPractice::RenderReadmeTab()
 			ImGui::BulletText("Enabling \"Auto-Restart\" will loop the last command indefinitely (Training, Recording or Replaying).\nBut it makes saving the last attempt harder... You have to pause before the countdown is over.\nExit the loop by resetting or exiting freeplay or clicking the \"Reset Training/Recording\" button.");
 			ImGui::BulletText("If you don't want the plugin to start when resetting freeplay, uncheck \"Restart on Freeplay Reset\".");
 			ImGui::BulletText("\"Time before back to normal\": This settings affects how much time after hitting the ball is still considered a kickoff.\nThis also affects recording length. Changing this setting won't update old recordings (obviously).");
-			ImGui::BulletText("\"Show Speedflip Trainer\" will enable the [Speedflip Trainer Plugin](https://bakkesplugins.com/plugins/view/286) overlay. Install the Speedflip Trainer Plugin to actually configure the values in the display.\nI only ported the applicable features of this plugin (for example the automatic game speed adaption got lost). Make sure to check out the original, too.");
+			ImGui::BulletText("\"Show Speedflip Trainer\" will enable the [Speedflip Trainer Plugin](https://bakkesplugins.com/plugins/view/286) overlay. You don't need to install the plugin.\nI only ported the applicable features of this plugin (for example the automatic game speed adaption got lost). Make sure to check out the original, too.");
 
 			ImGui::Spacing(); ImGui::TreePop();
 		}

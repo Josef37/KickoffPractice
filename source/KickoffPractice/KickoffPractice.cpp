@@ -455,11 +455,6 @@ void KickoffPractice::start()
 	// resetting freeplay to repeat the last command (and not repeat the same kickoff).
 	if (this->mode == KickoffMode::Training)
 	{
-		if (gameMode) LOG("Gamemode: {}", Utils::getGameModeName(*gameMode));
-		else LOG("No gamemode");
-		LOG("For gamemode: {}", kickoffLoader->getKickoffs(GameMode::Soccar).size());
-		LOG("All: {}", kickoffLoader->getKickoffs().size());
-
 		std::vector<std::shared_ptr<RecordedKickoff>> suitableKickoffs;
 		for (auto& kickoff : kickoffLoader->getKickoffs(gameMode))
 		{
