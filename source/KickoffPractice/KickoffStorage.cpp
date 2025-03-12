@@ -88,8 +88,9 @@ std::vector<std::shared_ptr<RecordedKickoff>> KickoffStorage::readRecordings()
 }
 
 /*
- * Expected format for version 1.0
+ * Reads a recorded kickoff from a file.
  *
+ * Expected format:
  * ```
  * version: 1.1
  * position: <position>
@@ -106,7 +107,7 @@ std::vector<std::shared_ptr<RecordedKickoff>> KickoffStorage::readRecordings()
  * carBody: CarWrapper::GetLoadoutBody()
  * settings: SettingsWrapper::GetGamepadSettings()
  * gameMode: 0 to 3
- * inputs: one line equals one physics frame (tick) taken from hook "Function TAGame.Car_TA.SetVehicleInput"
+ * inputs: one line equals one physics frame (tick) taken from "Function TAGame.Car_TA.SetVehicleInput"
  */
 std::shared_ptr<RecordedKickoff> KickoffStorage::readRecording(fs::path filePath)
 {
@@ -269,6 +270,9 @@ void KickoffStorage::saveActiveKickoffs(std::vector<std::shared_ptr<RecordedKick
 	inputFile.close();
 }
 
+/*
+ * Reads the names of active kickoffs from a file.
+ */
 std::vector<std::string> KickoffStorage::readActiveKickoffs()
 {
 	auto filename = recordingDirectory / CONFIG_FILE;
