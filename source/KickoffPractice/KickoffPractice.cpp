@@ -322,7 +322,13 @@ void KickoffPractice::hookEvents()
 
 			if (!this->shouldExecute()) return;
 
-			shouldSetupKickoff = true;
+			// Setting the bot location the next frame gets ignored in some rare cases.
+			// I guess it might be because setting the initial position is not done.
+			// So we try waiting a little to avoid this race.
+			gameWrapper->SetTimeout(
+				[this](...) { shouldSetupKickoff = true; },
+				0.1f 
+			);
 		}
 	);
 
