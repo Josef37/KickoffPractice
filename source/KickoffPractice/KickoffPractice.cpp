@@ -69,7 +69,7 @@ void KickoffPractice::registerCvars()
 
 	persistentStorage->RegisterPersistentCvar(CVAR_SPEEDFLIP_TRAINER, "1")
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { showSpeedFlipTrainer = cvar.getBoolValue(); });
-	
+
 	persistentStorage->RegisterPersistentCvar(CVAR_CLOSE_SETTINGS, "1")
 		.addOnValueChanged([this](std::string oldValue, CVarWrapper cvar) { closeSettingsOnCountdown = cvar.getBoolValue(); });
 
@@ -234,6 +234,7 @@ void KickoffPractice::load()
 	resetPluginState();
 	if (kickoffLoader->getKickoffs().empty()) readKickoffsFromDisk();
 	determineGameMode();
+	recordBoostSettings(); // When already in freeplay... Otherwise this does nothing.
 }
 
 void KickoffPractice::unload()
@@ -331,7 +332,7 @@ void KickoffPractice::hookEvents()
 		{
 			if (!shouldExecute()) return;
 			if (kickoffState == KickoffState::Nothing) return;
-			
+
 			// Respawn all cars on demo - also bots.
 			// If we didn't, the bot could respawn for the next shot a few seconds later.
 			car.RespawnInPlace();
@@ -377,15 +378,32 @@ void KickoffPractice::hookEvents()
 		"Function TAGame.PlayerController_TA.PlayerResetTraining",
 		[this](...)
 		{
-			if (!shouldExecute()) return;
+			// We can't alter the game state here, because not everything is initialized (esp. boost).
+			// But we also don't want to start kickoff training when freeplay is loaded initially.
+			this->isResetByPlayer = true;
+		}
+	);
+	gameWrapper->HookEventPost(
+		// Called when a new car is spawned and the boost component is attached.
+		"Function TAGame.PlayerController_TA.HandleAddBoostComponent",
+		[this](...)
+		{
+			// At "Function GameEvent_Soccar_TA.Countdown.EndState" the boost component isn't attached to the car.
+			// We need to wait for it to record/reset boost settings.
+			recordBoostSettings();
 
-			// Always break out of the current kickoff.
-			auto shouldRestart = restartOnTrainingReset && kickoffState == KickoffState::Nothing;
+			if (this->isResetByPlayer && shouldExecute())
+			{
+				// If a kickoff is still active, don't restart to allow the player breaking out.
+				// This check would fail if we did it after resetting.
+				auto shouldRestart = restartOnTrainingReset && kickoffState == KickoffState::Nothing;
 
-			reset();
+				reset();
 
-			if (shouldRestart)
-				start();
+				if (shouldRestart)
+					start();
+			}
+			this->isResetByPlayer = false;
 		}
 	);
 
@@ -414,6 +432,7 @@ void KickoffPractice::unhookEvents()
 	gameWrapper->UnhookEventPost("Function GameEvent_Soccar_TA.ReplayPlayback.EndState");
 	gameWrapper->UnhookEventPost("Function GameEvent_Soccar_TA.Countdown.EndState");
 	gameWrapper->UnhookEventPost("Function TAGame.PlayerController_TA.PlayerResetTraining");
+	gameWrapper->UnhookEventPost("Function TAGame.PlayerController_TA.HandleAddBoostComponent");
 	gameWrapper->UnregisterDrawables();
 }
 
@@ -914,7 +933,8 @@ void KickoffPractice::resetBoostSettings()
 	BoostWrapper boost = player.GetBoostComponent();
 	if (!boost) return;
 
-	KickoffPractice::applyBoostSettings(boost, this->boostSettings);
+	if (this->boostSettings.has_value())
+		KickoffPractice::applyBoostSettings(boost, *this->boostSettings);
 }
 
 void KickoffPractice::applyBoostSettings(BoostWrapper boost, BoostSettings settings)

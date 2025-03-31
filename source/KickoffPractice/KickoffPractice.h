@@ -113,7 +113,7 @@ private:
 	void recordBoostSettings();
 	void resetBoostSettings();
 	static void applyBoostSettings(BoostWrapper boost, BoostSettings settings);
-	BoostSettings boostSettings{};
+	std::optional<BoostSettings> boostSettings;
 
 	std::optional<GameMode> gameMode;
 	KickoffMode mode = KickoffMode::Training; // TODO: Link mode to current position/kickoff values to check what's required.
@@ -127,6 +127,8 @@ private:
 	int kickoffCounter = 0;
 	// Set after scoring a goal to prevent execution. Can be incorrect at the start when loading the plugin after scoring.
 	bool isInGoalReplay = false;
+	// Set to `true` when the player resets freeplay until everything is loaded.
+	bool isResetByPlayer = false;
 
 	// How long (in seconds) after hitting the ball we end the kickoff.
 	float timeAfterBackToNormal = 0.5;
