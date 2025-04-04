@@ -12,8 +12,8 @@ void KickoffPractice::onLoad()
 {
 	_globalCvarManager = cvarManager;
 
-	// initialize the random number generator seed
-	srand((int)time(0));
+	auto rd = std::random_device();
+	randomNumberGenerator = std::mt19937(rd());
 
 	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffpractice", true, true);
 
@@ -327,7 +327,7 @@ void KickoffPractice::hookEvents()
 			// So we try waiting a little to avoid this race.
 			gameWrapper->SetTimeout(
 				[this](...) { shouldSetupKickoff = true; },
-				0.1f 
+				0.1f
 			);
 		}
 	);
@@ -514,8 +514,9 @@ void KickoffPractice::start()
 			return;
 		}
 
-		// TODO: Better random selection.
-		auto& newKickoff = suitableKickoffs[rand() % suitableKickoffs.size()];
+		auto distribution = std::uniform_int_distribution<int>(0, suitableKickoffs.size() - 1);
+		auto index = distribution(randomNumberGenerator);
+		auto& newKickoff = suitableKickoffs[index];
 		setCurrentKickoff(newKickoff);
 	}
 

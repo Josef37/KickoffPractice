@@ -1,6 +1,7 @@
 #pragma once
 
 #include <set>
+#include <random>
 
 #include "GuiBase.h"
 #include "bakkesmod/plugin/bakkesmodplugin.h"
@@ -44,6 +45,8 @@ private:
 	std::unique_ptr<KickoffStorage> kickoffStorage;
 
 	std::unique_ptr<KickoffLoader> kickoffLoader;
+
+	std::mt19937 randomNumberGenerator;
 
 	void registerCvars();
 	void registerCommands();
