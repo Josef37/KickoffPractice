@@ -1,11 +1,11 @@
 #include "pch.h"
 #include "KickoffPractice.h"
 
-BAKKESMOD_PLUGIN(KickoffPractice, "Kickoff Practice", plugin_version, PLUGINTYPE_FREEPLAY);
+BAKKESMOD_PLUGIN(KickoffPractice, "Kickoff Training", plugin_version, PLUGINTYPE_FREEPLAY);
 
 std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 
-static const std::string PLUGIN_FOLDER = "kickoffpractice";
+static const std::string PLUGIN_FOLDER = "kickofftraining";
 static const std::string BOT_CAR_NAME = "Kickoff Bot";
 
 void KickoffPractice::onLoad()
@@ -15,7 +15,7 @@ void KickoffPractice::onLoad()
 	auto rd = std::random_device();
 	randomNumberGenerator = std::mt19937(rd());
 
-	persistentStorage = std::make_shared<PersistentStorage>(this, "kickoffpractice", true, true);
+	persistentStorage = std::make_shared<PersistentStorage>(this, "kickofftraining", true, true);
 
 	speedFlipTrainer = std::make_unique<SpeedFlipTrainer>(
 		gameWrapper,

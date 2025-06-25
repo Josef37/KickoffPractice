@@ -1,47 +1,25 @@
-# KickoffPractice
+# Better Kickoff Training
 
-Kickoff Practice is a BakkesMod plugin for RocketLeague that helps you train your kickoffs by spawning a bot in freeplay to face you on kickoffs.
+Better Kickoff Training is a BakkesMod plugin for RocketLeague that helps you train your kickoffs by spawning a bot in freeplay to face you on kickoffs.
 
-With this plugin you can record a kickoff sequence, then go into freeplay and spawn a bot to face you on kickoff. The bot will then use the pre-recorded sequence and thus copy your movements.
-
-This plugin also uses the core of the great [Speedflip Trainer Plugin](https://bakkesplugins.com/plugins/view/286) to guide you to better kickoffs.
+This plugin also uses the core of the great [Speedflip Trainer Plugin](https://bakkesplugins.com/plugins/view/286).
 
 
-## How it works
+## How it Works
 
-The plugin works by recording your inputs at every game tick.
+When you want to practice, the plugin will spawn a bot in freeplay, setup the kickoff and replay pre-recorded inputs for the bot.
 
-When you want to practice, the plugin will spawn a bot in freeplay (and teleport you, limit your boost, set up a countdown, etc.) and then, at every tick, replay the pre-recorded inputs with the bot.
-
-That's the core of the plugin, the rest is just UI and little features.
+That's the core idea of the plugin. The rest is just UI and little features.
 
 
-## Contributing
+## Quick Feature List
 
-All contributions welcome!
-
-I hope the code is good enough for others to understand. Feel free to open an issue, if something is unclear.
-
-If you don't know how to code plugins and want to learn it, please visit https://wiki.bakkesplugins.com/plugin_tutorial/getting_started/ 
-and join the [BakkesMod programming discord](https://discord.gg/s97RgrgkxE).
-
-
-## Licensing
-
-This project is licensed under the GNU General Public License (GPL). See the [LICENSE](./LICENSE) file for details.
-
-This project is a fork of the MIT-licensed [kickoffPractice by @MrMoine](https://github.com/MrMoine/kickoffPractice). The MIT-licensed code retains its original copyright notice and license terms. See the [LICENSE-MIT](LICENSE-MIT) file for details.
-
-[Speedflip Trainer by @tynidev](https://github.com/tynidev/SpeedFlipTrainer) was integrated into this project and adjusted to make it work for this use-case.
-
-
-## Troubleshooting
-
-Something now working as expected? Look at the BakkesMod console first (open with `F6`)!
-There might be some error message telling you what's wrong.
-
-If this still does not resolve your issue, don't hesitate to open a issue on GitHub.
-Please be as specific as possible when describing your issue.
+- Seamless Integration into Freeplay
+- Works for Soccar, Hoops, Dropshot and Snowday
+- Works for Different Game-Speed (read: Slow-Motion)
+- Random Selection of Kickoffs
+- Recorded Kickoffs can be Shared
+- Tons of Customization
 
 
 ## Setup and Settings
@@ -52,10 +30,10 @@ Please be as specific as possible when describing your issue.
 - Install the plugin through the [BakkesMod website](https://bakkesplugins.com/plugin-search/1/kickoff).
 - Start freeplay.  
   _All major game-modes are supported: Soccar, Hoops, Dropshot and Snowday._
-- Open BakkesMod settings (`F2`). Select the "Plugins" tab. Select "Kickoff Practice" on the left.
+- Open BakkesMod settings (`F2`). Select the "Plugins" tab. Select "Kickoff Training" on the left.
 - In the "Training" section: Select the positions you want to train and click "Train Selected".  
   _You will start training against some pre-recorded kickoffs._
-- You will continue training until you reset freeplay.  
+- Training will go on until you reset freeplay.  
   _If you don't want to auto-restart the kickoff training, uncheck the "Auto-Restart" option._
 - If you made a good attempt you want to save, pause the game and click "Save Last Attempt" (in the "Recording" section).  
   _It will automatically be selected for training._
@@ -78,7 +56,7 @@ Please be as specific as possible when describing your issue.
 
 ### Manually Adding Recordings
 
-- Go to the BakkesMod data folder (usually `%appdata%\bakkesmod\bakkesmod`) and open `.\data\kickoffPractice`.
+- Go to the BakkesMod data folder (usually `%appdata%\bakkesmod\bakkesmod`) and open `.\data\kickofftraining`.
 - You can manually add, rename or delete recordings. Just make sure they end in `.kinputs` to be recognized by the plugin.
 - If you made changes to these files while the game was running, click "Reload Files" to apply changes.  
   _Renaming a recording file will deselect it._
@@ -114,6 +92,7 @@ Please be as specific as possible when describing your issue.
 - "Show Speedflip Trainer" will enable the [Speedflip Trainer Plugin](https://bakkesplugins.com/plugins/view/286) overlay. You don't need to install the plugin.  
   I only ported the applicable features of this plugin (for example the automatic game speed adaption got lost). Make sure to check out the original, too.
 
+
 ## Technical Details
 
 - You can use any car or have any control settings you like. You can even change them later on.  
@@ -121,3 +100,31 @@ Please be as specific as possible when describing your issue.
 - Since only the inputs are recorded, there can be slight inconsistencies when replaying it.  
   I made sure to test it thoroughly and got it working well, but there might still be issues on other machines.  
   If you have such a case, please let me know!
+
+
+## Contributing
+
+All contributions welcome!
+
+I hope the code is good enough for others to understand. Feel free to open an issue, if something is unclear.
+
+If you don't know how to code plugins and want to learn it, please visit https://wiki.bakkesplugins.com/plugin_tutorial/getting_started/ 
+and join the [BakkesMod programming discord](https://discord.gg/s97RgrgkxE).
+
+
+## Licensing
+
+This project is licensed under the GNU General Public License (GPL). See the [LICENSE](./LICENSE) file for details.
+
+This project is a fork of the MIT-licensed [kickoffPractice by @MrMoine](https://github.com/MrMoine/kickoffPractice). The MIT-licensed code retains its original copyright notice and license terms. See the [LICENSE-MIT](LICENSE-MIT) file for details.
+
+[Speedflip Trainer by @tynidev](https://github.com/tynidev/SpeedFlipTrainer) was integrated into this project and adjusted to make it work for this use-case.
+
+
+## Troubleshooting
+
+Something now working as expected? Look at the BakkesMod console first (open with `F6`)!
+There might be some error message telling you what's wrong.
+
+If this still does not resolve your issue, don't hesitate to open a [issue on GitHub](https://github.com/Josef37/KickoffPractice/issues).
+Please be as specific as possible when describing your issue.

@@ -290,6 +290,18 @@ void KickoffPractice::RenderReadmeTab()
 		ImGui::Spacing(); ImGui::TreePop();
 	}
 
+	if (ImGui::TreeNode("Quick Feature List"))
+	{
+		ImGui::BulletText("Seamless Integration into Freeplay");
+		ImGui::BulletText("Works for Soccar, Hoops, Dropshot and Snowday");
+		ImGui::BulletText("Works for Different Game-Speed (read: Slow-Motion)");
+		ImGui::BulletText("Random Selection of Kickoffs");
+		ImGui::BulletText("Recorded Kickoffs can be Shared");
+		ImGui::BulletText("Tons of Customization");
+
+		ImGui::Spacing(); ImGui::TreePop();
+	}
+
 	if (ImGui::TreeNode("Troubleshooting"))
 	{
 		ImGui::TextWrapped("Something now working as expected? Look at the BakkesMod console first (open with `F6`)! There might be some error message telling you what's wrong.");
@@ -305,7 +317,7 @@ void KickoffPractice::RenderReadmeTab()
 			ImGui::BulletText("Install [BakkesMod](https://bakkesplugins.com/) (PC only).");
 			ImGui::BulletText("Install Plugin through the [BakkesMod website](https://bakkesplugins.com/plugin-search/1/kickoff).");
 			ImGui::BulletText("Start freeplay.\nAll major game-modes are supported: Soccar, Hoops, Dropshot and Snowday.");
-			ImGui::BulletText("Open BakkesMod settings (`F2`). Select the \"Plugins\" tab. Select \"Kickoff Practice\" on the left.");
+			ImGui::BulletText("Open BakkesMod settings (`F2`). Select the \"Plugins\" tab. Select \"Kickoff Training\" on the left.");
 			ImGui::BulletText("In the \"Training\" section: Select the positions you want to train and click \"Train Selected\".\nYou will start training against some pre-recorded kickoffs.");
 			ImGui::BulletText("You will continue training until you reset freeplay.\nIf you don't want to auto-restart the kickoff training, uncheck the \"Auto-Restart\" option.");
 			ImGui::BulletText("If you made a good attempt you want to save, pause the game and click \"Save Last Attempt\" (in the \"Recording\" section).\nIt will automatically be selected for training.");
@@ -334,7 +346,7 @@ void KickoffPractice::RenderReadmeTab()
 
 		if (ImGui::TreeNode("Manually Adding Recordings"))
 		{
-			ImGui::BulletText("Go to the BakkesMod data folder (usually `%%appdata%%\\bakkesmod\\bakkesmod`) and open `.\\data\\kickoffpractice`.");
+			ImGui::BulletText("Go to the BakkesMod data folder (usually `%%appdata%%\\bakkesmod\\bakkesmod`) and open `.\\data\\kickofftraining`.");
 			ImGui::BulletText("You can manually edit these recordings. Just make sure they end in `.kinputs` to be recognized by the plugin.");
 			ImGui::BulletText("If you made changes to these files while the game was running, click \"Reload Files\" to apply changes.\n_Renaming a recording file will deselect it._");
 

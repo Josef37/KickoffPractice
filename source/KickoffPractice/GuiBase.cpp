@@ -3,7 +3,7 @@
 
 std::string SettingsWindowBase::GetPluginName()
 {
-	return "Kickoff Practice";
+	return "Kickoff Training";
 }
 
 void SettingsWindowBase::SetImGuiContext(uintptr_t ctx)
@@ -13,7 +13,7 @@ void SettingsWindowBase::SetImGuiContext(uintptr_t ctx)
 
 std::string PluginWindowBase::GetMenuName()
 {
-	return "Kickoff Practice";
+	return "KickoffTraining";
 }
 
 std::string PluginWindowBase::GetMenuTitle()
