@@ -2,7 +2,8 @@
 
 Better Kickoff Training is a BakkesMod plugin for RocketLeague that helps you train your kickoffs by spawning a bot in freeplay to face you on kickoffs.
 
-This plugin also uses the core of the great [Speedflip Trainer Plugin](https://bakkesplugins.com/plugins/view/286).
+It is based on the [Kickoff Practice Plugin](https://bakkesplugins.com/plugins/view/328) by @MrMoine.  
+It also uses the core of the great [Speedflip Trainer Plugin](https://bakkesplugins.com/plugins/view/286) by @tyni.
 
 
 ## How it Works
