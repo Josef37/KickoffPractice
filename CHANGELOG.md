@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.4.0
+
+- Renamed to "Kickoff Training"
+- Added more pre-recorded speedflip examples
+- Fixed issues with resetting freeplay
+- Better random selection of kickoffs
+
 ## 2.3.0
 
 - Added support for multiple game modes: Soccar, Hoops, Dropshot, and Snowday.
