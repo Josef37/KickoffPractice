@@ -7,9 +7,12 @@ This plugin also uses the core of the great [Speedflip Trainer Plugin](https://b
 
 ## How it Works
 
-When you want to practice, the plugin will spawn a bot in freeplay, setup the kickoff and replay pre-recorded inputs for the bot.
+The plugin spawns a bot (in freeplay), sets up a random kickoff and replays pre-recorded inputs for the bot. That's all there is to it.
 
-That's the core idea of the plugin. The rest is just UI and little features.
+So just reset freeplay and you're good to go!
+
+When you want to customize your training, bind different commands or record your own kickoffs, this plugin got you covered.  
+Just read on for instructions or figure it out yourself.
 
 
 ## Quick Feature List
@@ -21,6 +24,20 @@ That's the core idea of the plugin. The rest is just UI and little features.
 - Recorded Kickoffs can be Shared
 - Tons of Customization
 
+
+## Screenshots
+
+![Plugin Settings](screenshots/settings.jpg)
+
+![Countdown Done](screenshots/kickoff-start.jpg)
+
+![Ball Hit](screenshots/kickoff-end.jpg)
+
+![Snowday](screenshots/kickoff-snowday.jpg)
+
+![Dropshot](screenshots/kickoff-dropshot.jpg)
+
+![Hoops](screenshots/kickoff-hoops.jpg)
 
 ## Setup and Settings
 

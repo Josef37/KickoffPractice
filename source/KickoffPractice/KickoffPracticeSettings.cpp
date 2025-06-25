@@ -283,9 +283,9 @@ void KickoffPractice::RenderReadmeTab()
 {
 	if (ImGui::TreeNode("How it works"))
 	{
-		ImGui::TextWrapped("The plugin works by recording your inputs at every game tick.");
-		ImGui::TextWrapped("When you want to practice, the plugin will spawn a bot in freeplay (and teleport you, limit your boost, set up a countdown, etc.) and then, at every tick, replay the pre-recorded inputs with the bot.");
-		ImGui::TextWrapped("That's the core of the plugin, the rest is just UI and little features.");
+		ImGui::TextWrapped("The plugin spawns a bot (in freeplay), sets up a random kickoff and replays pre-recorded inputs for the bot. That's all there is to it.");
+		ImGui::TextWrapped("So just reset freeplay and you're good to go!");
+		ImGui::TextWrapped("When you want to customize your training, bind different commands or record your own kickoffs, this plugin got you covered.\nJust read on for instructions or figure it out yourself.");
 
 		ImGui::Spacing(); ImGui::TreePop();
 	}
