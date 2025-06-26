@@ -26,7 +26,6 @@ struct Attempt
 
 	// Number of ticks taken to reach the ball
 	int ticksToBall = 0;
-	float timeToBall = 0.0f;
 
 	// Was the ball already hit?
 	bool hit() const { return ticksToBall > 0; }

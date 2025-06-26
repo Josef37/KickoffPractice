@@ -107,7 +107,6 @@ void SpeedFlipTrainer::OnBallHit(CarWrapper& car)
 		return;
 
 	attempt.ticksToBall = car.GetLastBallImpactFrame() - startingPhysicsFrame;
-	attempt.timeToBall = startingTime - gameWrapper->GetEngine().GetPhysicsTime();
 }
 
 void SpeedFlipTrainer::Reset()
