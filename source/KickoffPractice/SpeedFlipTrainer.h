@@ -31,6 +31,9 @@ inline constexpr Color GREEN(float opacity = 1) { return Color{ 50, 255, 50, opa
 inline constexpr Color WHITE(float opacity = 1) { return Color{ 255, 255, 255, opacity }; };
 inline constexpr Color BLACK(float opacity = 1) { return Color{ 0, 0, 0, opacity }; };
 
+static const Color BACKGROUND = WHITE(0.4);
+static const Line BORDER = { WHITE(), 3 };
+
 class SpeedFlipTrainer
 {
 private:
@@ -68,24 +71,24 @@ private:
 
 	Attempt attempt;
 
-	std::function<bool()> ShouldExecute;
+	function<bool()> ShouldExecute;
 
 	// Records metrics for the speedflip being performed.
 	// Only call for the car you want to measure (i.e. the player).
 	void Measure(CarWrapper& car, ControllerInput& input);
 
 	// Render functions to render various meters and measured values on screen
-	void RenderAngleMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
-	void RenderFlipCancelMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
-	void RenderSecondJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
-	void RenderFirstJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
-	void RenderPositionMeter(CanvasWrapper canvas, float screenWidth, float screenHeight) const;
+	void RenderAngleMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize);
+	void RenderFlipCancelMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize);
+	void RenderSecondJumpMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize);
+	void RenderFirstJumpMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize);
+	void RenderPositionMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize);
 
 public:
 	SpeedFlipTrainer(
 		shared_ptr<GameWrapper> gameWrapper,
 		shared_ptr<CVarManagerWrapper> cvarManager,
-		std::function<bool()> shouldExecute
+		function<bool()> shouldExecute
 	);
 	
 	void RegisterCvars(shared_ptr<PersistentStorage> persistentStorage);
@@ -103,5 +106,5 @@ public:
 	void RenderMeters(CanvasWrapper canvas);
 
 	// Renders ImGui settings dialog.
-	void RenderSettings(std::string CVAR_ENABLE);
+	void RenderSettings(string CVAR_ENABLE);
 };

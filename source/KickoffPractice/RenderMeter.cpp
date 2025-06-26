@@ -1,61 +1,71 @@
 #include "pch.h"
 #include "RenderMeter.h"
 
-Vector2 RenderMeter(
+// `CanvasWrapper::DrawBox` always draws 2 pixels of border.
+// This functions draws a border out of four non-overlapping boxes.
+static void DrawBox(CanvasWrapper canvas, Vector2F innerSize, float width)
+{
+	auto position = canvas.GetPositionFloat();
+
+	// top (with corner)
+	canvas.SetPosition(position + Vector2F(-width, -width));
+	canvas.FillBox(Vector2F(innerSize.X + 2 * width, width));
+
+	// bottom (with corner)
+	canvas.SetPosition(position + Vector2F(-width, innerSize.Y));
+	canvas.FillBox(Vector2F(innerSize.X + 2 * width, width));
+
+	// left
+	canvas.SetPosition(position + Vector2F(-width, 0));
+	canvas.FillBox(Vector2F(width, innerSize.Y));
+
+	// right
+	canvas.SetPosition(position + Vector2F(innerSize.X, 0));
+	canvas.FillBox(Vector2F(width, innerSize.Y));
+
+	canvas.SetPosition(position);
+}
+
+void RenderMeter(
 	CanvasWrapper canvas,
-	Vector2 startPos,
-	Vector2 reqBoxSize,
+	Vector2F startPos,
+	Vector2F boxSize,
 	Color base,
 	Line border,
-	int totalUnits,
+	float totalUnits,
 	std::list<MeterRange> ranges,
 	std::list<MeterMarking> markings,
 	bool vertical
 )
 {
-	int unitWidth = vertical ? reqBoxSize.Y / totalUnits : reqBoxSize.X / totalUnits;
-	Vector2 boxSize = vertical ? Vector2{ reqBoxSize.X, unitWidth * totalUnits } : Vector2{ unitWidth * totalUnits, reqBoxSize.Y };
+	float unitWidth = (vertical ? boxSize.Y : boxSize.X) / totalUnits;
 
 	// Draw base meter base color
-	canvas.SetColor(base.red, base.green, base.blue, (char)(100 * base.opacity));
+	canvas.SetColor(base.red, base.green, base.blue, (char)(255 * base.opacity));
 	canvas.SetPosition(startPos);
 	canvas.FillBox(boxSize);
 
 	// Draw meter ranges
 	for (const MeterRange& range : ranges)
 	{
+		auto low = std::clamp(range.low, 0.f, totalUnits);
+		auto high = std::clamp(range.high, 0.f, totalUnits);
+
+		if (low >= high) continue;
+
 		canvas.SetColor(range.red, range.green, range.blue, (char)(255 * range.opacity));
-
-		auto l = range.low;
-		if (l < 0)
-			l = 0;
-		if (l > totalUnits)
-			l = totalUnits;
-
-		auto h = range.high;
-		if (h < 0)
-			h = 0;
-		if (h > totalUnits)
-			h = totalUnits;
-
-		if (l > h)
-			l = h;
 
 		if (vertical)
 		{
-			auto position = Vector2F(startPos.X, startPos.Y + boxSize.Y - (h * unitWidth));
-			auto size = Vector2F(boxSize.X, (h - l) * unitWidth);
+			auto position = Vector2F(startPos.X, startPos.Y + boxSize.Y - (high * unitWidth));
+			auto size = Vector2F(boxSize.X, (high - low) * unitWidth);
 			canvas.SetPosition(position);
 			canvas.FillBox(size);
 		}
 		else
 		{
-			if (l != 0)
-				l -= 1;
-			if (h != totalUnits)
-				h -= 1;
-			auto position = Vector2F(startPos.X + (l * unitWidth), startPos.Y);
-			auto size = Vector2F((h - l) * unitWidth, boxSize.Y);
+			auto position = Vector2F(startPos.X + (low * unitWidth), startPos.Y);
+			auto size = Vector2F((high - low) * unitWidth, boxSize.Y);
 			canvas.SetPosition(position);
 			canvas.FillBox(size);
 		}
@@ -66,26 +76,21 @@ Vector2 RenderMeter(
 	{
 		canvas.SetColor(marking.red, marking.green, marking.blue, (char)(255 * marking.opacity));
 
-		auto value = marking.value - 1;
-		if (value < 0)
-			value = 0;
-		if (value > totalUnits)
-			value = totalUnits;
+		auto value = std::clamp(marking.value, 0.f, totalUnits);
 
 		if (vertical)
 		{
-			float y = startPos.Y + boxSize.Y - ((value + 1) * unitWidth);
-			auto begin = Vector2F(startPos.X, y);
-			auto end = Vector2F(startPos.X + boxSize.X, y);
-			canvas.DrawLine(begin, end, marking.width);
+			auto position = Vector2F(startPos.X, startPos.Y + boxSize.Y - (value * unitWidth) - (marking.width / 2.f));
+			auto size = Vector2F(boxSize.X, marking.width);
+			canvas.SetPosition(position);
+			canvas.FillBox(size);
 		}
 		else
 		{
-			float x = startPos.X + (value * unitWidth) + (marking.width / 2);
-			float y = startPos.Y - (marking.width / 2);
-			auto begin = Vector2F(x, y);
-			auto end = Vector2F(x, y + boxSize.Y + 1);
-			canvas.DrawLine(begin, end, marking.width);
+			auto position = Vector2F(startPos.X + (value * unitWidth) - (marking.width / 2.f), startPos.Y);
+			auto size = Vector2F(marking.width, boxSize.Y);
+			canvas.SetPosition(position);
+			canvas.FillBox(size);
 		}
 	}
 
@@ -93,9 +98,7 @@ Vector2 RenderMeter(
 	if (border.width > 0)
 	{
 		canvas.SetColor(border.red, border.green, border.blue, (char)(255 * border.opacity));
-		canvas.SetPosition(startPos.minus(Vector2{ border.width / 2, border.width / 2 }));
-		canvas.DrawBox(boxSize.minus(Vector2{ border.width * -1, border.width * -1 }));
+		canvas.SetPosition(startPos);
+		DrawBox(canvas, boxSize, border.width);
 	}
-
-	return boxSize;
 }

@@ -27,9 +27,13 @@ static float sidewaysOffset(Vector forwards, Vector movement)
 	return (isLeft ? -1 : 1) * sidewaysMovement.magnitude();
 }
 
-static int msToTick(float ms)
+static int msToTicks(float ms)
 {
 	return lroundf(ms / 1000.f * 120.f);
+}
+static float ticksToMs(int tick)
+{
+	return tick / 120.f * 1000.f;
 }
 
 void SpeedFlipTrainer::Measure(CarWrapper& car, ControllerInput& input)
@@ -62,7 +66,7 @@ void SpeedFlipTrainer::Measure(CarWrapper& car, ControllerInput& input)
 
 		auto dodgeDeadzone = gameWrapper->GetSettings().GetGamepadSettings().DodgeInputThreshold;
 
-		if (std::abs(input.DodgeForward) + std::abs(input.DodgeStrafe) >= dodgeDeadzone)
+		if (abs(input.DodgeForward) + abs(input.DodgeStrafe) >= dodgeDeadzone)
 		{
 			Vector dodgeDirection = { input.DodgeForward, input.DodgeStrafe, 0 };
 			attempt.dodgeAngle = ComputeDodgeAngle(dodgeDirection);
@@ -133,7 +137,7 @@ void SpeedFlipTrainer::Reset()
 SpeedFlipTrainer::SpeedFlipTrainer(
 	shared_ptr<GameWrapper> gameWrapper,
 	shared_ptr<CVarManagerWrapper> cvarManager,
-	std::function<bool()> shouldExecute
+	function<bool()> shouldExecute
 )
 {
 	this->gameWrapper = gameWrapper;
@@ -162,44 +166,81 @@ void SpeedFlipTrainer::RenderMeters(CanvasWrapper canvas)
 	if (!ShouldExecute())
 		return;
 
-	float SCREENWIDTH = canvas.GetSize().X;
-	float SCREENHEIGHT = canvas.GetSize().Y;
+	float screenWidth = canvas.GetSize().X;
+	float screenHeight = canvas.GetSize().Y;
+
+	Vector2F horizontalMeterSize = Vector2F{ screenWidth * 0.66f, screenHeight * 0.04f };
 
 	if (*showAngleMeter)
-		RenderAngleMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
-
+	{
+		Vector2F boxSize = horizontalMeterSize;
+		Vector2F startPos = Vector2F{ (screenWidth - boxSize.X) / 2.f, screenHeight * 0.90f };
+		RenderAngleMeter(canvas, startPos, boxSize);
+	}
 	if (*showPositionMeter)
-		RenderPositionMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
+	{
+		Vector2F boxSize = horizontalMeterSize;
+		Vector2F startPos = Vector2F{ (screenWidth - boxSize.X) / 2.f, screenHeight * 0.10f };
+		RenderPositionMeter(canvas, startPos, boxSize);
+	}
 
-	if (*showFlipMeter)
-		RenderFlipCancelMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
-
-	if (*showSecondJumpMeter)
-		RenderSecondJumpMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
+	Vector2F verticalMeterSize = { screenWidth * 0.02f, screenHeight * 0.55f };
+	Vector2F startPos = Vector2F{ screenWidth * 0.80f, (screenHeight * 0.80f) - verticalMeterSize.Y };
+	float offset = 2.2f;
 
 	if (*showFirstJumpMeter)
-		RenderFirstJumpMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
+	{
+		RenderFirstJumpMeter(canvas, startPos, verticalMeterSize);
+		startPos.X -= verticalMeterSize.X * offset;
+	}
+	if (*showSecondJumpMeter)
+	{
+		RenderSecondJumpMeter(canvas, startPos, verticalMeterSize);
+		startPos.X -= verticalMeterSize.X * offset;
+	}
+	if (*showFlipMeter)
+	{
+		RenderFlipCancelMeter(canvas, startPos, verticalMeterSize);
+		startPos.X -= verticalMeterSize.X * offset;
+	}
 }
 
-void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWidth, float screenHeight) const
+static void DrawStringCentered(CanvasWrapper canvas, vector<string> lines, float width, float scale = 1)
+{
+	auto position = canvas.GetPositionFloat();
+
+	for (auto& line : lines)
+	{
+		auto size = canvas.GetStringSize(line, scale, scale);
+		auto offset = (width - size.X) / 2;
+
+		canvas.SetPosition(position + Vector2F(offset, 0));
+		canvas.DrawString(line, scale, scale, true);
+
+		position += Vector2F(0, size.Y);
+	}
+}
+static void DrawStringRight(CanvasWrapper canvas, string text, float scale = 1)
+{
+	auto position = canvas.GetPositionFloat();
+	auto size = canvas.GetStringSize(text, scale, scale);
+
+	canvas.SetPosition(position - Vector2F(size.X, 0));
+	canvas.DrawString(text, scale, scale, true);
+}
+
+void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize)
 {
 	float range = 200;
 	float position = sidewaysOffset(attempt.kickoffDirection, attempt.currentLocation - attempt.startingLocation);
 	float relLocation = position + range;
-	int totalUnits = range * 2;
+	float totalUnits = range * 2;
+	float unitWidth = boxSize.X / totalUnits;
 	float greenRange = 80, yellowRange = 160;
 
-	float opacity = 1;
-	Vector2 reqSize = Vector2{ (int)(screenWidth * 70 / 100.f), (int)(screenHeight * 4 / 100.f) };
-	int unitWidth = reqSize.X / totalUnits;
+	list<MeterRange> ranges;
+	list<MeterMarking> markings;
 
-	Vector2 boxSize = Vector2{ unitWidth * totalUnits, reqSize.Y };
-	Vector2 startPos = Vector2{ (int)((screenWidth / 2) - (boxSize.X / 2)), (int)(screenHeight * 10 / 100.f) };
-
-	struct Color baseColor = { WHITE(opacity) };
-	struct Line border = { WHITE(opacity), 2 };
-
-	std::list<MeterRange> ranges;
 	if (startingPhysicsFrame > 0)
 	{
 		if (relLocation >= range - greenRange && relLocation <= range + greenRange)
@@ -212,80 +253,82 @@ void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWid
 		}
 		else
 		{
-			ranges.push_back({ RED(), 0, (float)totalUnits });
+			ranges.push_back({ RED(), 0, totalUnits });
 		}
 	}
 
-	std::list<MeterMarking> markings;
-	markings.push_back({ WHITE(opacity), unitWidth, range - 80 });
-	markings.push_back({ WHITE(opacity), unitWidth, range + 80 });
-	markings.push_back({ WHITE(opacity), unitWidth, range - 160 });
-	markings.push_back({ WHITE(opacity), unitWidth, range + 160 });
+	markings.push_back({ WHITE(), BORDER.width, range - 80 });
+	markings.push_back({ WHITE(), BORDER.width, range + 80 });
+	markings.push_back({ WHITE(), BORDER.width, range - 160 });
+	markings.push_back({ WHITE(), BORDER.width, range + 160 });
 	markings.push_back({ BLACK(0.6), unitWidth * 2, relLocation });
 
-	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, false);
+	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, totalUnits, ranges, markings, false);
 
-	int ms = (int)(attempt.ticksNotPressingBoost / 120.0 * 1000.0);
+	//draw time not pressing boost label
+	int ms = ticksToMs(attempt.ticksNotPressingBoost);
 	if (ms != 0)
 	{
-		canvas.SetColor(255, 255, 50, (char)(255 * opacity));
-		//draw time not pressing boost label
-		string msg = std::format("Not pressing Boost: {0}ms", ms);
+		canvas.SetColor(255, 255, 50, 255);
+		string msg = format("Not pressing Boost: {0}ms", ms);
 		int width = 200;
-		canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 10) });
-		canvas.DrawString(msg, 1, 1, true, false);
+		canvas.SetPosition(Vector2F{ startPos.X, startPos.Y + boxSize.Y + 10 });
+		canvas.DrawString(msg, 1, 1, true);
 	}
 
-	ms = (int)(attempt.ticksNotPressingThrottle / 120.0 * 1000.0);
+	//draw time not pressing throttle label
+	ms = ticksToMs(attempt.ticksNotPressingThrottle);
 	if (ms != 0)
 	{
-		canvas.SetColor(255, 255, 50, (char)(255 * opacity));
-		//draw time not pressing throttle label
-		string msg = std::format("Not pressing Throttle: {0}ms", ms);
+		canvas.SetColor(255, 255, 50, 255);
+		string msg = format("Not pressing Throttle: {0}ms", ms);
 		int width = 200;
-		canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 25) });
-		canvas.DrawString(msg, 1, 1, true, false);
+		canvas.SetPosition(Vector2F{ startPos.X, startPos.Y + boxSize.Y + 25 });
+		canvas.DrawString(msg, 1, 1, true);
 	}
+
+	//draw sideways travel label
+	string msg = format("Horizontal distance traveled: {0:.1f}", attempt.traveledSideways);
+
+	if (attempt.traveledSideways < 225)
+		canvas.SetColor(50, 255, 50, 255);
+	else if (attempt.traveledSideways < 425)
+		canvas.SetColor(255, 255, 50, 255);
+	else
+		canvas.SetColor(255, 10, 10, 255);
+
+	canvas.SetPosition(Vector2F{ startPos.X + boxSize.X, startPos.Y + boxSize.Y + 10 });
+	DrawStringRight(canvas, msg);
 }
 
-void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
+void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize)
 {
-	float opacity = 1.0;
-
 	int redRange = 10;
 	int yellowRange = 5;
-	int greenRange = msToTick(*jumpHighMs - *jumpLowMs);
+	int greenRange = msToTicks(*jumpHighMs - *jumpLowMs);
 
-	int lowestTick = msToTick(*jumpLowMs) - yellowRange - redRange;
-	int totalUnits = greenRange + (2 * yellowRange) + (2 * redRange);
-
-	Vector2 reqSize = Vector2{ (int)(screenWidth * 2 / 100.f), (int)(screenHeight * 56 / 100.f) };
-	int unitWidth = reqSize.Y / totalUnits;
-
-	Vector2 boxSize = Vector2{ reqSize.X, unitWidth * totalUnits };
-	Vector2 startPos = Vector2{ (int)((screenWidth * 75 / 100.f) + 2.5 * reqSize.X), (int)((screenHeight * 80 / 100.f) - boxSize.Y) };
-
-	struct Color baseColor = WHITE(opacity);
-	struct Line border = { WHITE(opacity), 2 };
+	int lowestTick = msToTicks(*jumpLowMs) - yellowRange - redRange;
+	float totalUnits = greenRange + (2 * yellowRange) + (2 * redRange);
+	float unitWidth = boxSize.Y / totalUnits;
 
 	float yellowLow = redRange;
 	float greenLow = yellowLow + yellowRange;
 	float greenHigh = greenLow + greenRange;
 	float yellowHigh = greenHigh + yellowRange;
 
-	std::list<MeterMarking> markings;
-	markings.push_back({ WHITE(opacity), 3, yellowLow });
-	markings.push_back({ WHITE(opacity), 3, greenLow });
-	markings.push_back({ WHITE(opacity), 3, greenHigh });
-	markings.push_back({ WHITE(opacity), 3, yellowHigh });
+	list<MeterMarking> markings;
+	markings.push_back({ WHITE(), BORDER.width, yellowLow });
+	markings.push_back({ WHITE(), BORDER.width, greenLow });
+	markings.push_back({ WHITE(), BORDER.width, greenHigh });
+	markings.push_back({ WHITE(), BORDER.width, yellowHigh });
 
-	std::list<MeterRange> ranges;
+	list<MeterRange> ranges;
 	ranges.push_back({ YELLOW(0.2), yellowLow, greenLow });
 	ranges.push_back({ GREEN(0.2), greenLow, greenHigh });
 	ranges.push_back({ YELLOW(0.2), greenHigh, yellowHigh });
 
 	int tick = attempt.jumped ? attempt.jumpTick : attempt.currentTick;
-	int relativeTick = std::clamp(tick - lowestTick, 0, totalUnits);
+	int relativeTick = clamp(tick - lowestTick, 0, (int)totalUnits);
 
 	if (attempt.jumped)
 	{
@@ -307,7 +350,7 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 		}
 		else
 		{
-			ranges.push_back({ RED(), yellowHigh, (float)totalUnits });
+			ranges.push_back({ RED(), yellowHigh, totalUnits });
 		}
 	}
 
@@ -316,131 +359,101 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 		markings.push_back({ BLACK(0.6), unitWidth, (float)relativeTick });
 	}
 
-	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
+	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, totalUnits, ranges, markings, true);
 
 	//draw label
-	string msg = "First Jump";
-	canvas.SetColor(255, 255, 255, 255 * opacity);
-	canvas.SetPosition(Vector2{ (int)(startPos.X - 13), (int)(startPos.Y + boxSize.Y + 8) });
-	canvas.DrawString(msg, 1, 1, true, false);
-
-	auto ms = (int)(attempt.jumpTick * 1.0 / 120.0 * 1000.0 / 1.0);
-	msg = to_string(ms) + " ms";
-	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 8 + 15) });
-	canvas.DrawString(msg, 1, 1, true, false);
+	float margin = 8;
+	vector<string> text = {
+		"First Jump",
+		to_string(lroundf(ticksToMs(attempt.jumpTick))) + " ms"
+	};
+	canvas.SetColor(255, 255, 255, 255);
+	canvas.SetPosition(Vector2F{ startPos.X, (startPos.Y + boxSize.Y + margin) });
+	DrawStringCentered(canvas, text, boxSize.X);
 }
 
-void SpeedFlipTrainer::RenderSecondJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
+void SpeedFlipTrainer::RenderSecondJumpMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize)
 {
-	float opacity = 1.0;
-	int totalUnits = std::max(1, msToTick(*secondJumpThresholdMs));
-
-	Vector2 reqSize = Vector2{ (int)(screenWidth * 2 / 100.f), (int)(screenHeight * 55 / 100.f) };
-	int unitWidth = reqSize.Y / totalUnits;
-
-	Vector2 boxSize = Vector2{ reqSize.X, unitWidth * totalUnits };
-	Vector2 startPos = Vector2{ (int)(screenWidth * 75 / 100.f), (int)((screenHeight * 80 / 100.f) - boxSize.Y) };
-
-	struct Color baseColor = { WHITE(opacity) };
-	struct Line border = { WHITE(opacity), 2 };
+	float totalUnits = max(1, msToTicks(*secondJumpThresholdMs));
+	float unitWidth = boxSize.Y / totalUnits;
 
 	// Let the bar fill up when not dodged already.
 	auto ticks = 0;
 	if (attempt.dodged) ticks = attempt.dodgedTick - attempt.jumpTick;
 	else if (attempt.jumped) ticks = attempt.currentTick - attempt.jumpTick;
 
-	std::list<MeterRange> ranges;
-	std::list<MeterMarking> markings;
+	list<MeterRange> ranges;
+	list<MeterMarking> markings;
 
 	struct Color meterColor = ticks <= totalUnits * 0.6f
 		? GREEN()
 		: ticks <= totalUnits * 0.9f
 		? YELLOW()
 		: RED();
-	ranges.push_back({ meterColor, 0, (float)std::clamp(ticks, 0, totalUnits) });
+	ranges.push_back({ meterColor, 0, (float)clamp(ticks, 0, (int)totalUnits) });
 
-	markings.push_back({ WHITE(opacity), 3, totalUnits * 0.6f });
-	markings.push_back({ WHITE(opacity), 3, totalUnits * 0.9f });
+	markings.push_back({ WHITE(), BORDER.width, totalUnits * 0.6f });
+	markings.push_back({ WHITE(), BORDER.width, totalUnits * 0.9f });
 	// Don't add a black marker, because the whole bar is usually only about 10 ticks high.
 
-	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
+	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, totalUnits, ranges, markings, true);
 
 	//draw label
-	string msg = "Second Jump";
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(Vector2{ (int)(startPos.X - 16), (int)(startPos.Y + boxSize.Y + 8) });
-	canvas.DrawString(msg, 1, 1, true, false);
-
-	int ms = attempt.dodged ? lroundf(ticks / 120.0 * 1000.0) : 0;
-	msg = to_string(ms) + " ms";
-	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 8 + 15) });
-	canvas.DrawString(msg, 1, 1, true, false);
+	float margin = 8;
+	vector<string> text = {
+		"Second Jump",
+		to_string(attempt.dodged ? lroundf(ticksToMs(ticks)) : 0) + " ms"
+	};
+	canvas.SetColor(255, 255, 255, 255);
+	canvas.SetPosition(Vector2F{ startPos.X, (startPos.Y + boxSize.Y + margin) });
+	DrawStringCentered(canvas, text, boxSize.X);
 }
 
-void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
+void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize)
 {
-	float opacity = 1.0;
-	int totalUnits = std::max(1, msToTick(*flipCancelThresholdMs));
-
-	Vector2 reqSize = Vector2{ (int)(screenWidth * 2 / 100.f), (int)(screenHeight * 55 / 100.f) };
-	int unitWidth = reqSize.Y / totalUnits;
-
-	Vector2 boxSize = Vector2{ reqSize.X, unitWidth * totalUnits };
-	Vector2 startPos = Vector2{ (int)((screenWidth * 75 / 100.f) - 2.5 * reqSize.X), (int)((screenHeight * 80 / 100.f) - boxSize.Y) };
-
-	struct Color baseColor = { WHITE(opacity) };
-	struct Line border = { WHITE(opacity), 2 };
+	float totalUnits = max(1, msToTicks(*flipCancelThresholdMs));
+	float unitWidth = boxSize.Y / totalUnits;
 
 	// Let the bar fill up when not cancelled already.
 	auto ticks = 0;
 	if (attempt.flipCanceled) ticks = attempt.flipCancelTick - attempt.dodgedTick;
 	else if (attempt.dodged) ticks = attempt.currentTick - attempt.dodgedTick;
 
-	std::list<MeterRange> ranges;
-	std::list<MeterMarking> markings;
+	list<MeterRange> ranges;
+	list<MeterMarking> markings;
 
 	Color meterColor = ticks <= totalUnits * 0.6f
 		? GREEN()
 		: ticks <= totalUnits * 0.9f
 		? YELLOW()
 		: RED();
-	ranges.push_back({ meterColor, 0, (float)std::clamp(ticks, 0, totalUnits) });
+	ranges.push_back({ meterColor, 0, (float)clamp(ticks, 0, (int)totalUnits) });
 
-	markings.push_back({ WHITE(opacity), 3, totalUnits * 0.6f });
-	markings.push_back({ WHITE(opacity), 3, totalUnits * 0.9f });
+	markings.push_back({ WHITE(), BORDER.width, totalUnits * 0.6f });
+	markings.push_back({ WHITE(), BORDER.width, totalUnits * 0.9f });
 	// Don't add a black marker, because the whole bar is usually only about 10 ticks high.
 
-	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
+	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, totalUnits, ranges, markings, true);
 
 	//draw label
-	string msg = "Flip Cancel";
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(Vector2{ (int)(startPos.X - 16), (int)(startPos.Y + boxSize.Y + 8) });
-	canvas.DrawString(msg, 1, 1, true, false);
-
-	int ms = attempt.flipCanceled ? lroundf(ticks / 120.0 * 1000.0) : 0;
-	msg = to_string(ms) + " ms";
-	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 8 + 15) });
-	canvas.DrawString(msg, 1, 1, true, false);
+	float margin = 8;
+	vector<string> text = {
+		"Flip Cancel",
+		to_string(attempt.flipCanceled ? lroundf(ticksToMs(ticks)) : 0) + " ms"
+	};
+	canvas.SetColor(255, 255, 255, 255);
+	canvas.SetPosition(Vector2F{ startPos.X, (startPos.Y + boxSize.Y + margin) });
+	DrawStringCentered(canvas, text, boxSize.X);
 }
 
-void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
+void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize)
 {
 	// Cap angle at 90
-	int totalUnits = 180;
+	float totalUnits = 180;
+	float unitWidth = boxSize.X / totalUnits;
 
-	float opacity = 1.0;
-	Vector2 reqSize = Vector2{ (int)(screenWidth * 66 / 100.f), (int)(screenHeight * 4 / 100.f) };
-	int unitWidth = reqSize.X / totalUnits;
-
-	Vector2 boxSize = Vector2{ unitWidth * totalUnits, reqSize.Y };
-	Vector2 startPos = Vector2{ (int)((screenWidth / 2) - (boxSize.X / 2)), (int)(screenHeight * 90 / 100.f) };
-
-	struct Color baseColor = { WHITE(opacity) };
-	struct Line border = { WHITE(opacity), 2 };
-
-	std::list<MeterRange> ranges;
-	std::list<MeterMarking> markings;
+	list<MeterRange> ranges;
+	list<MeterMarking> markings;
 
 	int greenRange = 8, yellowRange = 15;
 	float leftTarget = *optimalLeftAngle + 90;
@@ -456,14 +469,14 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 	float rightGreenHigh = rightTarget + greenRange;
 	float rightYellowHigh = rightTarget + yellowRange;
 
-	markings.push_back({ WHITE(opacity), 3, leftYellowLow });
-	markings.push_back({ WHITE(opacity), 3, leftGreenLow });
-	markings.push_back({ WHITE(opacity), 3, leftGreenHigh });
-	markings.push_back({ WHITE(opacity), 3, leftYellowHigh });
-	markings.push_back({ WHITE(opacity), 3, rightYellowLow });
-	markings.push_back({ WHITE(opacity), 3, rightGreenLow });
-	markings.push_back({ WHITE(opacity), 3, rightGreenHigh });
-	markings.push_back({ WHITE(opacity), 3, rightYellowHigh });
+	markings.push_back({ WHITE(), BORDER.width, leftYellowLow });
+	markings.push_back({ WHITE(), BORDER.width, leftGreenLow });
+	markings.push_back({ WHITE(), BORDER.width, leftGreenHigh });
+	markings.push_back({ WHITE(), BORDER.width, leftYellowHigh });
+	markings.push_back({ WHITE(), BORDER.width, rightYellowLow });
+	markings.push_back({ WHITE(), BORDER.width, rightGreenLow });
+	markings.push_back({ WHITE(), BORDER.width, rightGreenHigh });
+	markings.push_back({ WHITE(), BORDER.width, rightYellowHigh });
 
 	ranges.push_back({ YELLOW(0.2), leftYellowLow, leftGreenLow });
 	ranges.push_back({ GREEN(0.2), leftGreenLow, leftGreenHigh });
@@ -472,7 +485,7 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 	ranges.push_back({ GREEN(0.2), rightGreenLow, rightGreenHigh });
 	ranges.push_back({ YELLOW(0.2), rightGreenHigh, rightYellowHigh });
 
-	float angleAdjusted = 90.f + std::clamp(attempt.dodgeAngle, -90.f, 90.f);
+	float angleAdjusted = 90.f + clamp(attempt.dodgeAngle, -90.f, 90.f);
 
 	// Always render the marker, because we compute a "preview" angle before dodging.
 	markings.push_back({ BLACK(0.6), unitWidth, angleAdjusted });
@@ -513,42 +526,26 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 		}
 		else
 		{
-			ranges.push_back({ RED(), rightTarget + yellowRange, (float)totalUnits });
+			ranges.push_back({ RED(), rightTarget + yellowRange, totalUnits });
 		}
 	}
 
-	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, false);
+	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, totalUnits, ranges, markings, false);
 
 	//draw angle label
-	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y - 20) });
-	auto angleString = std::to_string(!attempt.dodged ? 0 : std::lroundf(attempt.dodgeAngle));
+	canvas.SetColor(255, 255, 255, 255);
+	canvas.SetPosition(Vector2F{ startPos.X, (startPos.Y - 20) });
+	auto angleString = to_string(!attempt.dodged ? 0 : lroundf(attempt.dodgeAngle));
 	canvas.DrawString("Dodge Angle: " + angleString + " DEG", 1, 1, true, false);
 
 	//draw time to ball label
 	if (attempt.hit() && attempt.ticksToBall > 0)
 	{
-		auto ms = attempt.ticksToBall * 1.0 / 120.0;
-		string msg = std::format("Time to ball: {0:.4f}s", ms);
+		auto seconds = ticksToMs(attempt.ticksToBall) / 1000.f;
+		string msg = format("Time to ball: {0:.4f}s", seconds);
 
-		int width = (msg.length() * 8) - (5 * 3); // 8 pixels per char - 5 pixels per space
-
-		canvas.SetColor(255, 255, 255, (char)(255 * opacity));
-		canvas.SetPosition(Vector2{ startPos.X + (int)(boxSize.X / 2) - (width / 2), startPos.Y - 20 });
-		canvas.DrawString(msg, 1, 1, true, false);
+		canvas.SetColor(255, 255, 255, 255);
+		canvas.SetPosition(Vector2F{ startPos.X, startPos.Y - 20 });
+		DrawStringCentered(canvas, { msg }, boxSize.X);
 	}
-
-	//draw sideways travel label
-	string msg = std::format("Horizontal distance traveled: {0:.1f}", attempt.traveledSideways);
-	int width = (msg.length() * 6.6);
-
-	if (attempt.traveledSideways < 225)
-		canvas.SetColor(50, 255, 50, (char)(255 * opacity));
-	else if (attempt.traveledSideways < 425)
-		canvas.SetColor(255, 255, 50, (char)(255 * opacity));
-	else
-		canvas.SetColor(255, 10, 10, (char)(255 * opacity));
-
-	canvas.SetPosition(Vector2{ startPos.X + boxSize.X - width, (int)(startPos.Y - 20) });
-	canvas.DrawString(msg, 1, 1, true, false);
 }

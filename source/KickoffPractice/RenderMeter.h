@@ -8,7 +8,7 @@ struct Color
 
 struct Line : Color
 {
-	int width = 2;
+	float width = 2;
 };
 
 struct MeterRange : Color
@@ -21,13 +21,13 @@ struct MeterMarking : Line
 	float value = 0;
 };
 
-Vector2 RenderMeter(
+void RenderMeter(
 	CanvasWrapper canvas,
-	Vector2 startPos,
-	Vector2 reqBoxSize,
+	Vector2F startPos,
+	Vector2F boxSize,
 	Color base,
 	Line border,
-	int totalUnits,
+	float totalUnits,
 	std::list<MeterRange> ranges,
 	std::list<MeterMarking> markings,
 	bool vertical
