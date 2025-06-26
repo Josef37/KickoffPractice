@@ -111,6 +111,9 @@
     <ClCompile Include="KickoffLoader.cpp">
       <Filter>Plugin\src</Filter>
     </ClCompile>
+    <ClCompile Include="SpeedFlipTrainerRendering.cpp">
+      <Filter>SpeedFlipTrainer\src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imgui_rangeslider.h">

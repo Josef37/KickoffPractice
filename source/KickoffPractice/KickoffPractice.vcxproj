@@ -115,6 +115,7 @@
     <ClCompile Include="PersistentStorage.cpp" />
     <ClCompile Include="RenderMeter.cpp" />
     <ClCompile Include="SpeedFlipTrainer.cpp" />
+    <ClCompile Include="SpeedFlipTrainerRendering.cpp" />
     <ClCompile Include="SpeedFlipTrainerSettings.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -77,6 +77,13 @@ private:
 	// Only call for the car you want to measure (i.e. the player).
 	void Measure(CarWrapper& car, ControllerInput& input);
 
+	// Calculates how far sideways `movement` travels relative to `forwards`.
+	// Left is negative, right is positive.
+	float SidewaysOffset(Vector forwards, Vector movement) const;
+
+	// Calculates the dodge angle from the dodge direction in degrees.
+	float ComputeDodgeAngle(Vector direction) const;
+
 	// Render functions to render various meters and measured values on screen
 	void RenderAngleMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize);
 	void RenderFlipCancelMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize);
