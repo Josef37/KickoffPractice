@@ -43,8 +43,8 @@ Vector2 RenderMeter(
 
 		if (vertical)
 		{
-			auto position = Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y - (h * unitWidth)) };
-			auto size = Vector2{ boxSize.X, (int)((h - l) * unitWidth) };
+			auto position = Vector2F(startPos.X, startPos.Y + boxSize.Y - (h * unitWidth));
+			auto size = Vector2F(boxSize.X, (h - l) * unitWidth);
 			canvas.SetPosition(position);
 			canvas.FillBox(size);
 		}
@@ -54,8 +54,8 @@ Vector2 RenderMeter(
 				l -= 1;
 			if (h != totalUnits)
 				h -= 1;
-			auto position = Vector2{ (int)(startPos.X + (l * unitWidth)), startPos.Y };
-			auto size = Vector2{ (int)((h - l) * unitWidth), boxSize.Y };
+			auto position = Vector2F(startPos.X + (l * unitWidth), startPos.Y);
+			auto size = Vector2F((h - l) * unitWidth, boxSize.Y);
 			canvas.SetPosition(position);
 			canvas.FillBox(size);
 		}
@@ -75,16 +75,16 @@ Vector2 RenderMeter(
 		if (vertical)
 		{
 			float y = startPos.Y + boxSize.Y - ((value + 1) * unitWidth);
-			auto begin = Vector2{ startPos.X,             (int)y };
-			auto end = Vector2{ startPos.X + boxSize.X, (int)y };
+			auto begin = Vector2F(startPos.X, y);
+			auto end = Vector2F(startPos.X + boxSize.X, y);
 			canvas.DrawLine(begin, end, marking.width);
 		}
 		else
 		{
 			float x = startPos.X + (value * unitWidth) + (marking.width / 2);
 			float y = startPos.Y - (marking.width / 2);
-			auto begin = Vector2{ (int)x, (int)y };
-			auto end = Vector2{ (int)x, (int)(y + boxSize.Y + 1) };
+			auto begin = Vector2F(x, y);
+			auto end = Vector2F(x, y + boxSize.Y + 1);
 			canvas.DrawLine(begin, end, marking.width);
 		}
 	}

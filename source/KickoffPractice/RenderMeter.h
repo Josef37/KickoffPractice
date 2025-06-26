@@ -13,12 +13,12 @@ struct Line : Color
 
 struct MeterRange : Color
 {
-	int low, high = 0;
+	float low, high = 0;
 };
 
 struct MeterMarking : Line
 {
-	int value = 0;
+	float value = 0;
 };
 
 Vector2 RenderMeter(

@@ -1,17 +1,12 @@
 #include "pch.h"	
 #include "SpeedFlipTrainer.h"
-#include <array>
 
-static int ComputeDodgeAngle(DodgeComponentWrapper dodge)
+static int ComputeDodgeAngle(Vector direction)
 {
-	if (dodge.IsNull())
+	if (direction.X == 0 && direction.Y == 0)
 		return 0;
 
-	Vector dd = dodge.GetDodgeDirection();
-	if (dd.X == 0 && dd.Y == 0)
-		return 0;
-
-	return std::lroundf(atan2f(dd.Y, dd.X) * (180 / CONST_PI_F));
+	return atan2f(direction.Y, direction.X) * (180 / CONST_PI_F);
 }
 
 static float distance(Vector a, Vector b)
@@ -41,6 +36,7 @@ void SpeedFlipTrainer::Measure(CarWrapper& car, ControllerInput& input)
 {
 	int currentPhysicsFrame = gameWrapper->GetEngine().GetPhysicsFrame();
 	int currentTick = currentPhysicsFrame - startingPhysicsFrame;
+	attempt.currentTick = currentTick;
 
 	auto movement = car.GetLocation() - attempt.currentLocation;
 	attempt.traveledSideways += abs(sidewaysOffset(attempt.kickoffDirection, movement));
@@ -57,8 +53,20 @@ void SpeedFlipTrainer::Measure(CarWrapper& car, ControllerInput& input)
 		attempt.dodged = true;
 		attempt.dodgedTick = currentTick;
 		auto dodge = car.GetDodgeComponent();
-		if (!dodge.IsNull())
-			attempt.dodgeAngle = ComputeDodgeAngle(dodge);
+		attempt.dodgeAngle = dodge.IsNull() ? 0 : ComputeDodgeAngle(dodge.GetDodgeDirection());
+	}
+	// TODO: Preview does not work well with air-roll.
+	if (!attempt.dodged && !car.IsOnGround())
+	{
+		attempt.dodgeAngle = 0;
+
+		auto dodgeDeadzone = gameWrapper->GetSettings().GetGamepadSettings().DodgeInputThreshold;
+
+		if (std::abs(input.DodgeForward) + std::abs(input.DodgeStrafe) >= dodgeDeadzone)
+		{
+			Vector dodgeDirection = { input.DodgeForward, input.DodgeStrafe, 0 };
+			attempt.dodgeAngle = ComputeDodgeAngle(dodgeDirection);
+		}
 	}
 
 	if (input.Throttle != 1)
@@ -66,7 +74,7 @@ void SpeedFlipTrainer::Measure(CarWrapper& car, ControllerInput& input)
 	if (input.ActivateBoost != 1)
 		attempt.ticksNotPressingBoost++;
 
-	if (!attempt.flipCanceled && attempt.dodged && input.Pitch > 0.8)
+	if (!attempt.flipCanceled && attempt.dodged && input.DodgeForward < -0.8)
 	{
 		attempt.flipCanceled = true;
 		attempt.flipCancelTick = currentTick;
@@ -170,12 +178,13 @@ void SpeedFlipTrainer::RenderMeters(CanvasWrapper canvas)
 
 void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWidth, float screenHeight) const
 {
-	int range = 200;
+	float range = 200;
 	float position = sidewaysOffset(attempt.kickoffDirection, attempt.currentLocation - attempt.startingLocation);
-	int relLocation = lroundf(position) + range;
+	float relLocation = position + range;
 	int totalUnits = range * 2;
+	float greenRange = 80, yellowRange = 160;
 
-	float opacity = 1.0;
+	float opacity = 1;
 	Vector2 reqSize = Vector2{ (int)(screenWidth * 70 / 100.f), (int)(screenHeight * 4 / 100.f) };
 	int unitWidth = reqSize.X / totalUnits;
 
@@ -188,18 +197,17 @@ void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, float screenWid
 	std::list<MeterRange> ranges;
 	if (startingPhysicsFrame > 0)
 	{
-		if (relLocation >= range - 80 && relLocation <= range + 80)
+		if (relLocation >= range - greenRange && relLocation <= range + greenRange)
 		{
-			ranges.push_back({ GREEN(), range - 80, range + 80 });
+			ranges.push_back({ GREEN(), range - greenRange, range + greenRange });
 		}
-		else if (relLocation >= range - 160 && relLocation <= range + 160)
+		else if (relLocation >= range - yellowRange && relLocation <= range + yellowRange)
 		{
-			ranges.push_back({ YELLOW(), range - 160, range + 160 });
-			ranges.push_back({ YELLOW(), range - 160, range + 160 });
+			ranges.push_back({ YELLOW(), range - yellowRange, range + yellowRange });
 		}
 		else
 		{
-			ranges.push_back({ RED(), 0, totalUnits });
+			ranges.push_back({ RED(), 0, (float)totalUnits });
 		}
 	}
 
@@ -255,10 +263,10 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 	struct Color baseColor = WHITE(opacity);
 	struct Line border = { WHITE(opacity), 2 };
 
-	int yellowLow = redRange;
-	int greenLow = yellowLow + yellowRange;
-	int greenHigh = greenLow + greenRange;
-	int yellowHigh = greenHigh + yellowRange;
+	float yellowLow = redRange;
+	float greenLow = yellowLow + yellowRange;
+	float greenHigh = greenLow + greenRange;
+	float yellowHigh = greenHigh + yellowRange;
 
 	std::list<MeterMarking> markings;
 	markings.push_back({ WHITE(opacity), 3, yellowLow });
@@ -271,32 +279,36 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 	ranges.push_back({ GREEN(0.2), greenLow, greenHigh });
 	ranges.push_back({ YELLOW(0.2), greenHigh, yellowHigh });
 
+	int tick = attempt.jumped ? attempt.jumpTick : attempt.currentTick;
+	int relativeTick = std::clamp(tick - lowestTick, 0, totalUnits);
+
 	if (attempt.jumped)
 	{
-		int ticks = clamp(attempt.jumpTick - lowestTick, 0, totalUnits);
-
-		if (ticks < yellowLow)
+		if (relativeTick < yellowLow)
 		{
 			ranges.push_back({ RED(), 0, yellowLow });
 		}
-		else if (ticks < greenLow)
+		else if (relativeTick < greenLow)
 		{
 			ranges.push_back({ YELLOW(), yellowLow, greenLow });
 		}
-		else if (ticks < greenHigh)
+		else if (relativeTick < greenHigh)
 		{
 			ranges.push_back({ GREEN(), greenLow, greenHigh });
 		}
-		else if (ticks < yellowHigh)
+		else if (relativeTick < yellowHigh)
 		{
 			ranges.push_back({ YELLOW(), greenHigh, yellowHigh });
 		}
 		else
 		{
-			ranges.push_back({ RED(), yellowHigh, totalUnits });
+			ranges.push_back({ RED(), yellowHigh, (float)totalUnits });
 		}
+	}
 
-		markings.push_back({ BLACK(0.6), reqSize.Y / totalUnits, ticks });
+	if (lowestTick <= tick && tick <= lowestTick + totalUnits)
+	{
+		markings.push_back({ BLACK(0.6), unitWidth, (float)relativeTick });
 	}
 
 	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
@@ -327,29 +339,24 @@ void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenW
 	struct Color baseColor = { WHITE(opacity) };
 	struct Line border = { WHITE(opacity), 2 };
 
-	auto tickBeforeCancel = attempt.flipCancelTick - attempt.dodgedTick;
+	// Let the bar fill up when not cancelled already.
+	auto ticks = 0;
+	if (attempt.flipCanceled) ticks = attempt.flipCancelTick - attempt.dodgedTick;
+	else if (attempt.dodged) ticks = attempt.currentTick - attempt.dodgedTick;
 
-	// flip cancel time range
 	std::list<MeterRange> ranges;
-	if (attempt.flipCanceled)
-	{
-		auto ticks = tickBeforeCancel > totalUnits ? totalUnits : tickBeforeCancel;
-
-		struct Color meterColor;
-		if (ticks <= (int)(totalUnits * 0.6f))
-			meterColor = GREEN(0.7);
-		else if (ticks <= (int)(totalUnits * 0.9f))
-			meterColor = YELLOW(0.7);
-		else
-			meterColor = RED(0.7);
-
-		ranges.push_back({ meterColor.red, meterColor.green, meterColor.blue, 1, 0, ticks });
-	}
-
 	std::list<MeterMarking> markings;
-	markings.push_back({ WHITE(opacity), 3, ((int)(totalUnits * 0.6f)) });
-	markings.push_back({ WHITE(opacity), 3, ((int)(totalUnits * 0.9f)) });
-	//markings.push_back({ BLACK(0.6), 10, ticks });
+
+	Color meterColor = ticks <= totalUnits * 0.6f
+		? GREEN()
+		: ticks <= totalUnits * 0.9f
+		? YELLOW()
+		: RED();
+	ranges.push_back({ meterColor, 0, (float)std::clamp(ticks, 0, totalUnits) });
+
+	markings.push_back({ WHITE(opacity), 3, totalUnits * 0.6f });
+	markings.push_back({ WHITE(opacity), 3, totalUnits * 0.9f });
+	// Don't add a black marker, because the whole bar is usually only about 10 ticks high.
 
 	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
 
@@ -359,7 +366,7 @@ void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenW
 	canvas.SetPosition(Vector2{ (int)(startPos.X - 16), (int)(startPos.Y + boxSize.Y + 8) });
 	canvas.DrawString(msg, 1, 1, true, false);
 
-	int ms = attempt.flipCanceled ? lroundf(tickBeforeCancel / 120.0 * 1000.0) : 0;
+	int ms = attempt.flipCanceled ? lroundf(ticks / 120.0 * 1000.0) : 0;
 	msg = to_string(ms) + " ms";
 	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 8 + 15) });
 	canvas.DrawString(msg, 1, 1, true, false);
@@ -384,79 +391,77 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 	std::list<MeterMarking> markings;
 
 	int greenRange = 8, yellowRange = 15;
-	int lTarget = *optimalLeftAngle + 90;
-	int rTarget = *optimalRightAngle + 90;
+	float leftTarget = *optimalLeftAngle + 90;
+	float rightTarget = *optimalRightAngle + 90;
 
-	int lyl = lTarget - yellowRange;
-	int lgl = lTarget - greenRange;
-	int lgh = lTarget + greenRange;
-	int lyh = lTarget + yellowRange;
+	float leftYellowLow = leftTarget - yellowRange;
+	float leftGreenLow = leftTarget - greenRange;
+	float leftGreenHigh = leftTarget + greenRange;
+	float leftYellowHigh = leftTarget + yellowRange;
 
-	int ryl = rTarget - yellowRange;
-	int rgl = rTarget - greenRange;
-	int rgh = rTarget + greenRange;
-	int ryh = rTarget + yellowRange;
+	float rightYellowLow = rightTarget - yellowRange;
+	float rightGreenLow = rightTarget - greenRange;
+	float rightGreenHigh = rightTarget + greenRange;
+	float rightYellowHigh = rightTarget + yellowRange;
 
-	markings.push_back({ WHITE(opacity), 3, lyl });
-	markings.push_back({ WHITE(opacity), 3, lgl });
-	markings.push_back({ WHITE(opacity), 3, lgh });
-	markings.push_back({ WHITE(opacity), 3, lyh });
-	markings.push_back({ WHITE(opacity), 3, ryl });
-	markings.push_back({ WHITE(opacity), 3, rgl });
-	markings.push_back({ WHITE(opacity), 3, rgh });
-	markings.push_back({ WHITE(opacity), 3, ryh });
+	markings.push_back({ WHITE(opacity), 3, leftYellowLow });
+	markings.push_back({ WHITE(opacity), 3, leftGreenLow });
+	markings.push_back({ WHITE(opacity), 3, leftGreenHigh });
+	markings.push_back({ WHITE(opacity), 3, leftYellowHigh });
+	markings.push_back({ WHITE(opacity), 3, rightYellowLow });
+	markings.push_back({ WHITE(opacity), 3, rightGreenLow });
+	markings.push_back({ WHITE(opacity), 3, rightGreenHigh });
+	markings.push_back({ WHITE(opacity), 3, rightYellowHigh });
 
-	ranges.push_back({ YELLOW(0.2), lyl, lgl });
-	ranges.push_back({ GREEN(0.2), lgl, lgh });
-	ranges.push_back({ YELLOW(0.2), lgh, lyh });
-	ranges.push_back({ YELLOW(0.2), ryl, rgl });
-	ranges.push_back({ GREEN(0.2), rgl, rgh });
-	ranges.push_back({ YELLOW(0.2), rgh, ryh });
+	ranges.push_back({ YELLOW(0.2), leftYellowLow, leftGreenLow });
+	ranges.push_back({ GREEN(0.2), leftGreenLow, leftGreenHigh });
+	ranges.push_back({ YELLOW(0.2), leftGreenHigh, leftYellowHigh });
+	ranges.push_back({ YELLOW(0.2), rightYellowLow, rightGreenLow });
+	ranges.push_back({ GREEN(0.2), rightGreenLow, rightGreenHigh });
+	ranges.push_back({ YELLOW(0.2), rightGreenHigh, rightYellowHigh });
+
+	float angleAdjusted = 90.f + std::clamp(attempt.dodgeAngle, -90.f, 90.f);
+
+	// Always render the marker, because we compute a "preview" angle before dodging.
+	markings.push_back({ BLACK(0.6), unitWidth, angleAdjusted });
 
 	if (attempt.dodged)
 	{
-		int angle = attempt.dodgeAngle;
-		if (angle > 90) angle = 90;
-		if (angle < -90) angle = -90;
-
-		int angleAdjusted = 90 + angle;
-		markings.push_back({ BLACK(0.6), unitWidth, angleAdjusted });
-
-		if (angleAdjusted < lyl)
+		if (angleAdjusted < leftYellowLow)
 		{
-			ranges.push_back({ RED(), 0, lyl });
+			ranges.push_back({ RED(), 0, leftYellowLow });
 		}
-		else if (angleAdjusted < lgl)
+		else if (angleAdjusted < leftGreenLow)
 		{
-			ranges.push_back({ YELLOW(), lTarget - yellowRange, lTarget - greenRange });
+			ranges.push_back({ YELLOW(), leftTarget - yellowRange, leftTarget - greenRange });
 		}
-		else if (angleAdjusted < lgh)
+		else if (angleAdjusted < leftGreenHigh)
 		{
-			ranges.push_back({ GREEN(), lTarget - greenRange, lTarget + greenRange });
+			ranges.push_back({ GREEN(), leftTarget - greenRange, leftTarget + greenRange });
 		}
-		else if (angleAdjusted < lyh)
+		else if (angleAdjusted < leftYellowHigh)
 		{
-			ranges.push_back({ YELLOW(), lTarget + greenRange, lTarget + yellowRange });
+			ranges.push_back({ YELLOW(), leftTarget + greenRange, leftTarget + yellowRange });
 		}
-		else if (angleAdjusted < ryl)
+		else if (angleAdjusted < rightYellowLow)
 		{
-			ranges.push_back({ RED(), lTarget + yellowRange, rTarget - yellowRange });
+			ranges.push_back({ RED(), leftTarget + yellowRange, rightTarget - yellowRange });
 		}
-		else if (angleAdjusted < rgl)
+		else if (angleAdjusted < rightGreenLow)
 		{
-			ranges.push_back({ YELLOW(), rTarget - yellowRange, rTarget - greenRange });
+			ranges.push_back({ YELLOW(), rightTarget - yellowRange, rightTarget - greenRange });
 		}
-		else if (angleAdjusted < rgh)
+		else if (angleAdjusted < rightGreenHigh)
 		{
-			ranges.push_back({ GREEN(), rTarget - greenRange, rTarget + greenRange });
+			ranges.push_back({ GREEN(), rightTarget - greenRange, rightTarget + greenRange });
 		}
-		else if (angleAdjusted < ryh)
+		else if (angleAdjusted < rightYellowHigh)
 		{
-			ranges.push_back({ YELLOW(), rTarget + greenRange, rTarget + yellowRange });
+			ranges.push_back({ YELLOW(), rightTarget + greenRange, rightTarget + yellowRange });
 		}
 		else
 		{
-			ranges.push_back({ RED(), rTarget + yellowRange, totalUnits });
+			ranges.push_back({ RED(), rightTarget + yellowRange, (float)totalUnits });
 		}
 	}
 
@@ -465,13 +470,13 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, float screenWidth,
 	//draw angle label
 	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
 	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y - 20) });
-	canvas.DrawString("Dodge Angle: " + to_string(attempt.dodgeAngle) + " DEG", 1, 1, true, false);
+	auto angleString = std::to_string(!attempt.dodged ? 0 : std::lroundf(attempt.dodgeAngle));
+	canvas.DrawString("Dodge Angle: " + angleString + " DEG", 1, 1, true, false);
 
 	//draw time to ball label
 	if (attempt.hit() && attempt.ticksToBall > 0)
 	{
 		auto ms = attempt.ticksToBall * 1.0 / 120.0;
-		//string msg = std::format("Time to ball: {0:.3f}s", attempt.timeToBall);
 		string msg = std::format("Time to ball: {0:.4f}s", ms);
 
 		int width = (msg.length() * 8) - (5 * 3); // 8 pixels per char - 5 pixels per space

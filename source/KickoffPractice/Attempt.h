@@ -2,6 +2,9 @@
 
 struct Attempt
 {
+	// Current tick relative to start of attempt
+	int currentTick = 0;
+
 	// Variables to measure the first jump
 	int jumpTick = 0;
 	bool jumped = false;
@@ -11,7 +14,7 @@ struct Attempt
 	bool flipCanceled = false;
 
 	// Variables to measure the dodge angle
-	int dodgeAngle = 0;
+	float dodgeAngle = 0;
 	int dodgedTick = 0;
 	bool dodged = false;
 
