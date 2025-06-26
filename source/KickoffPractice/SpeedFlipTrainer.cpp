@@ -73,9 +73,9 @@ void SpeedFlipTrainer::Measure(CarWrapper& car, ControllerInput& input)
 		}
 	}
 
-	if (input.Throttle != 1)
+	if (input.Throttle != 1 && input.ActivateBoost != 1)
 		attempt.ticksNotPressingThrottle++;
-	if (input.ActivateBoost != 1)
+	if (input.HoldingBoost != 1)
 		attempt.ticksNotPressingBoost++;
 
 	if (!attempt.flipCanceled && attempt.dodged && input.DodgeForward < -0.8)
