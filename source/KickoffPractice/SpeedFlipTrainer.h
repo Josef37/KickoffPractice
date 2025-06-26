@@ -13,9 +13,8 @@
 
 using namespace std;
 
-static const string CVAR_LEFT_ANGLE = "kickoff_train_sf_left_angle";
-static const string CVAR_RIGHT_ANGLE = "kickoff_train_sf_right_angle";
-static const string CVAR_CANCEL_THRESHOLD = "kickoff_train_sf_cancel_threshold";
+static const string CVAR_TARGET_ANGLE = "kickoff_train_sf_target_angle";
+static const string CVAR_FLIP_CANCEL_THRESHOLD = "kickoff_train_sf_cancel_threshold";
 static const string CVAR_SECOND_JUMP_THRESHOLD = "kickoff_train_sf_second_jump_threshold";
 static const string CVAR_JUMP_LOW = "kickoff_train_sf_jump_low";
 static const string CVAR_JUMP_HIGH = "kickoff_train_sf_jump_high";
@@ -23,7 +22,7 @@ static const string CVAR_SHOW_ANGLE = "kickoff_train_sf_show_angle";
 static const string CVAR_SHOW_POSITION = "kickoff_train_sf_show_position";
 static const string CVAR_SHOW_FIRST_JUMP = "kickoff_train_sf_show_jump";
 static const string CVAR_SHOW_SECOND_JUMP = "kickoff_train_sf_show_second_jump";
-static const string CVAR_SHOW_FLIP = "kickoff_train_sf_show_flip";
+static const string CVAR_SHOW_FLIP_CANCEL = "kickoff_train_sf_show_flip";
 
 inline constexpr Color RED(float opacity = 1) { return Color{ 255, 50, 50, opacity }; };
 inline constexpr Color YELLOW(float opacity = 1) { return Color{ 255, 255, 50, opacity }; };
@@ -33,6 +32,7 @@ inline constexpr Color BLACK(float opacity = 1) { return Color{ 0, 0, 0, opacity
 
 static const Color BACKGROUND = WHITE(0.4);
 static const Line BORDER = { WHITE(), 3 };
+static const Line MARKER = { BLACK(0.6), BORDER.width * 2 };
 
 class SpeedFlipTrainer
 {
@@ -46,21 +46,18 @@ private:
 	// Whether to show various meters
 	shared_ptr<bool> showAngleMeter = make_shared<bool>(true);
 	shared_ptr<bool> showPositionMeter = make_shared<bool>(true);
-	shared_ptr<bool> showFlipMeter = make_shared<bool>(true);
+	shared_ptr<bool> showFlipCancelMeter = make_shared<bool>(true);
 	shared_ptr<bool> showFirstJumpMeter = make_shared<bool>(true);
 	shared_ptr<bool> showSecondJumpMeter = make_shared<bool>(true);
 
-	// Optimal left angle for dodge
-	shared_ptr<int> optimalLeftAngle = make_shared<int>(-30);
-
-	// Optimal right angle for dodge
-	shared_ptr<int> optimalRightAngle = make_shared<int>(30);
+	// Optimal angle for dodge
+	shared_ptr<int> targetAngle = make_shared<int>(-30);
 
 	// Milliseconds the flip canceled should be performed under
-	shared_ptr<int> flipCancelThresholdMs = make_shared<int>(100);
+	shared_ptr<int> flipCancelThresholdMs = make_shared<int>(50);
 
 	// Milliseconds the second jump should be performed within
-	shared_ptr<int> secondJumpThresholdMs = make_shared<int>(150);
+	shared_ptr<int> secondJumpThresholdMs = make_shared<int>(100);
 
 	// Millisecond range during which first jump should be performed
 	shared_ptr<int> jumpLowMs = make_shared<int>(450);

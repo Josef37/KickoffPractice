@@ -32,13 +32,13 @@ void RenderMeter(
 	Vector2F boxSize,
 	Color base,
 	Line border,
-	float totalUnits,
+	Bounds bounds,
 	std::list<MeterRange> ranges,
 	std::list<MeterMarking> markings,
 	bool vertical
 )
 {
-	float unitWidth = (vertical ? boxSize.Y : boxSize.X) / totalUnits;
+	float unitWidth = (vertical ? boxSize.Y : boxSize.X) / (bounds.high - bounds.low);
 
 	// Draw base meter base color
 	canvas.SetColor(base.red, base.green, base.blue, (char)(255 * base.opacity));
@@ -48,8 +48,8 @@ void RenderMeter(
 	// Draw meter ranges
 	for (const MeterRange& range : ranges)
 	{
-		auto low = std::clamp(range.low, 0.f, totalUnits);
-		auto high = std::clamp(range.high, 0.f, totalUnits);
+		auto low = std::clamp(range.low, bounds.low, bounds.high) - bounds.low;
+		auto high = std::clamp(range.high, bounds.low, bounds.high) - bounds.low;
 
 		if (low >= high) continue;
 
@@ -74,9 +74,11 @@ void RenderMeter(
 	// Draw meter markings
 	for (const MeterMarking& marking : markings)
 	{
-		canvas.SetColor(marking.red, marking.green, marking.blue, (char)(255 * marking.opacity));
+		if (marking.value < bounds.low || marking.value > bounds.high) continue;
 
-		auto value = std::clamp(marking.value, 0.f, totalUnits);
+		auto value = marking.value - bounds.low;
+
+		canvas.SetColor(marking.red, marking.green, marking.blue, (char)(255 * marking.opacity));
 
 		if (vertical)
 		{

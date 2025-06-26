@@ -66,7 +66,7 @@ float SpeedFlipTrainer::ComputeDodgeAngle(Vector direction) const
 	if (direction.X == 0 && direction.Y == 0)
 		return 0;
 
-	return atan2f(direction.Y, direction.X) * (180 / CONST_PI_F);
+	return atan2(direction.Y, direction.X) * (180 / CONST_PI_D);
 }
 
 void SpeedFlipTrainer::OnVehicleInput(CarWrapper& car, ControllerInput* input)
@@ -131,9 +131,8 @@ SpeedFlipTrainer::SpeedFlipTrainer(
 
 void SpeedFlipTrainer::RegisterCvars(shared_ptr<PersistentStorage> persistentStorage)
 {
-	persistentStorage->RegisterPersistentCvar(CVAR_LEFT_ANGLE, "-30", "Optimal left angle", true, true, -90, true, 0, true).bindTo(optimalLeftAngle);
-	persistentStorage->RegisterPersistentCvar(CVAR_RIGHT_ANGLE, "30", "Optimal right angle", true, true, 0, true, 90, true).bindTo(optimalRightAngle);
-	persistentStorage->RegisterPersistentCvar(CVAR_CANCEL_THRESHOLD, "100", "Optimal flip cancel threshold.", true, true, 0, true, 500, true).bindTo(flipCancelThresholdMs);
+	persistentStorage->RegisterPersistentCvar(CVAR_TARGET_ANGLE, "30", "Optimal dodge angle", true, true, 0, true, 90, true).bindTo(targetAngle);
+	persistentStorage->RegisterPersistentCvar(CVAR_FLIP_CANCEL_THRESHOLD, "100", "Optimal flip cancel threshold.", true, true, 0, true, 500, true).bindTo(flipCancelThresholdMs);
 	persistentStorage->RegisterPersistentCvar(CVAR_SECOND_JUMP_THRESHOLD, "150", "Optimal second jump threshold.", true, true, 0, true, 500, true).bindTo(secondJumpThresholdMs);
 	persistentStorage->RegisterPersistentCvar(CVAR_JUMP_LOW, "450", "Low threshold for first jump of speedflip.", true, true, 0, true, 1000, false).bindTo(jumpLowMs);
 	persistentStorage->RegisterPersistentCvar(CVAR_JUMP_HIGH, "600", "High threshold for first jump of speedflip.", true, true, 0, true, 1000, false).bindTo(jumpHighMs);
@@ -142,5 +141,5 @@ void SpeedFlipTrainer::RegisterCvars(shared_ptr<PersistentStorage> persistentSto
 	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_POSITION, "1", "Show horizontal position meter.", true, false, 0, false, 0, true).bindTo(showPositionMeter);
 	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_FIRST_JUMP, "1", "Show first jump meter.", true, false, 0, false, 0, true).bindTo(showFirstJumpMeter);
 	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_SECOND_JUMP, "1", "Show second jump meter.", true, false, 0, false, 0, true).bindTo(showSecondJumpMeter);
-	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_FLIP, "1", "Show flip cancel meter.", true, false, 0, false, 0, true).bindTo(showFlipMeter);
+	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_FLIP_CANCEL, "1", "Show flip cancel meter.", true, false, 0, false, 0, true).bindTo(showFlipCancelMeter);
 }

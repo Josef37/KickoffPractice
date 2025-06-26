@@ -21,13 +21,18 @@ struct MeterMarking : Line
 	float value = 0;
 };
 
+struct Bounds
+{
+	float low, high;
+};
+
 void RenderMeter(
 	CanvasWrapper canvas,
 	Vector2F startPos,
 	Vector2F boxSize,
 	Color base,
 	Line border,
-	float totalUnits,
+	Bounds bounds,
 	std::list<MeterRange> ranges,
 	std::list<MeterMarking> markings,
 	bool vertical

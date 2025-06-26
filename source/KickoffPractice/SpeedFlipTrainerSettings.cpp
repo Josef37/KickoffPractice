@@ -37,28 +37,19 @@ void SpeedFlipTrainer::RenderSettings(std::string CVAR_ENABLE)
 			ImGui::SetTooltip("Show meter for the dodge angle.");
 	}
 
-	CVarWrapper leftAngleCvar = cvarManager->getCvar(CVAR_LEFT_ANGLE);
-	if (!leftAngleCvar) return;
+	CVarWrapper angleCvar = cvarManager->getCvar(CVAR_TARGET_ANGLE);
+	if (!angleCvar) return;
 
-	int leftAngle = leftAngleCvar.getIntValue();
-	if (ImGui::SliderInt("Optimal left angle", &leftAngle, -70, -15, "%d degrees"))
-		leftAngleCvar.setValue(leftAngle);
+	int angle = angleCvar.getIntValue();
+	if (ImGui::SliderInt("Optimal dodge angle", &angle, 15, 70, "%d degrees"))
+		angleCvar.setValue(angle);
 	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("The optimal angle at which to dodge left.");
-
-	CVarWrapper rightAngleCvar = cvarManager->getCvar(CVAR_RIGHT_ANGLE);
-	if (!rightAngleCvar) return;
-
-	int rightAngle = rightAngleCvar.getIntValue();
-	if (ImGui::SliderInt("Optimal right angle", &rightAngle, 15, 70, "%d degrees"))
-		rightAngleCvar.setValue(rightAngle);
-	if (ImGui::IsItemHovered())
-		ImGui::SetTooltip("The optimal angle at which to dodge right.");
+		ImGui::SetTooltip("The optimal angle in degrees at which to dodge.");
 
 	// ------------------------ FLIP CANCEL ----------------------------------
 	SpacedSeparator();
 	{
-		CVarWrapper cvar = cvarManager->getCvar(CVAR_SHOW_FLIP);
+		CVarWrapper cvar = cvarManager->getCvar(CVAR_SHOW_FLIP_CANCEL);
 		if (!cvar) return;
 
 		bool value = cvar.getBoolValue();
@@ -69,7 +60,7 @@ void SpeedFlipTrainer::RenderSettings(std::string CVAR_ENABLE)
 			ImGui::SetTooltip("Show meter for the time to flip cancel.");
 	}
 
-	CVarWrapper cancelCvar = cvarManager->getCvar(CVAR_CANCEL_THRESHOLD);
+	CVarWrapper cancelCvar = cvarManager->getCvar(CVAR_FLIP_CANCEL_THRESHOLD);
 	if (!cancelCvar) return;
 
 	int cancel = cancelCvar.getIntValue();

@@ -71,7 +71,7 @@ void SpeedFlipTrainer::RenderMeters(CanvasWrapper canvas)
 		RenderSecondJumpMeter(canvas, startPos, verticalMeterSize);
 		startPos.X -= verticalMeterSize.X * offset;
 	}
-	if (*showFlipMeter)
+	if (*showFlipCancelMeter)
 	{
 		RenderFlipCancelMeter(canvas, startPos, verticalMeterSize);
 		startPos.X -= verticalMeterSize.X * offset;
@@ -80,39 +80,39 @@ void SpeedFlipTrainer::RenderMeters(CanvasWrapper canvas)
 
 void SpeedFlipTrainer::RenderPositionMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize)
 {
-	float range = 200;
+	float greenRange = 80;
+	float yellowRange = 160;
+	float totalRange = 200;
+
 	float position = SidewaysOffset(attempt.kickoffDirection, attempt.currentLocation - attempt.startingLocation);
-	float relLocation = position + range;
-	float totalUnits = range * 2;
-	float unitWidth = boxSize.X / totalUnits;
-	float greenRange = 80, yellowRange = 160;
+	Bounds bounds = { -totalRange, totalRange };
 
 	list<MeterRange> ranges;
 	list<MeterMarking> markings;
 
 	if (startingPhysicsFrame > 0)
 	{
-		if (relLocation >= range - greenRange && relLocation <= range + greenRange)
+		if (position >= -greenRange && position <= greenRange)
 		{
-			ranges.push_back({ GREEN(), range - greenRange, range + greenRange });
+			ranges.push_back({ GREEN(), -greenRange, greenRange });
 		}
-		else if (relLocation >= range - yellowRange && relLocation <= range + yellowRange)
+		else if (position >= -yellowRange && position <= yellowRange)
 		{
-			ranges.push_back({ YELLOW(), range - yellowRange, range + yellowRange });
+			ranges.push_back({ YELLOW(), -yellowRange, yellowRange });
 		}
 		else
 		{
-			ranges.push_back({ RED(), 0, totalUnits });
+			ranges.push_back({ RED(), bounds.low, bounds.high });
 		}
 	}
 
-	markings.push_back({ WHITE(), BORDER.width, range - 80 });
-	markings.push_back({ WHITE(), BORDER.width, range + 80 });
-	markings.push_back({ WHITE(), BORDER.width, range - 160 });
-	markings.push_back({ WHITE(), BORDER.width, range + 160 });
-	markings.push_back({ BLACK(0.6), unitWidth * 2, relLocation });
+	markings.push_back({ WHITE(), BORDER.width, -greenRange });
+	markings.push_back({ WHITE(), BORDER.width, greenRange });
+	markings.push_back({ WHITE(), BORDER.width, -yellowRange });
+	markings.push_back({ WHITE(), BORDER.width, yellowRange });
+	markings.push_back({ MARKER, position });
 
-	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, totalUnits, ranges, markings, false);
+	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, bounds, ranges, markings, false);
 
 	//draw time not pressing boost label
 	int ms = ticksToMs(attempt.ticksNotPressingBoost);
@@ -154,15 +154,15 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, Vector2F start
 {
 	int redRange = 10;
 	int yellowRange = 5;
-	int greenRange = msToTicks(*jumpHighMs - *jumpLowMs);
+	int greenRange = msToTicks(*jumpHighMs) - msToTicks(*jumpLowMs);
 
 	int lowestTick = msToTicks(*jumpLowMs) - yellowRange - redRange;
 	float totalUnits = greenRange + (2 * yellowRange) + (2 * redRange);
-	float unitWidth = boxSize.Y / totalUnits;
+	Bounds bounds = { lowestTick, lowestTick + totalUnits };
 
-	float yellowLow = redRange;
-	float greenLow = yellowLow + yellowRange;
-	float greenHigh = greenLow + greenRange;
+	float greenLow = msToTicks(*jumpLowMs);
+	float greenHigh = msToTicks(*jumpHighMs);
+	float yellowLow = greenLow - yellowRange;
 	float yellowHigh = greenHigh + yellowRange;
 
 	list<MeterMarking> markings;
@@ -177,38 +177,34 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, Vector2F start
 	ranges.push_back({ YELLOW(0.2), greenHigh, yellowHigh });
 
 	int tick = attempt.jumped ? attempt.jumpTick : attempt.currentTick;
-	int relativeTick = clamp(tick - lowestTick, 0, (int)totalUnits);
+
+	markings.push_back({ MARKER, (float)tick });
 
 	if (attempt.jumped)
 	{
-		if (relativeTick < yellowLow)
+		if (tick < yellowLow)
 		{
-			ranges.push_back({ RED(), 0, yellowLow });
+			ranges.push_back({ RED(), bounds.low, yellowLow });
 		}
-		else if (relativeTick < greenLow)
+		else if (tick < greenLow)
 		{
 			ranges.push_back({ YELLOW(), yellowLow, greenLow });
 		}
-		else if (relativeTick < greenHigh)
+		else if (tick < greenHigh)
 		{
 			ranges.push_back({ GREEN(), greenLow, greenHigh });
 		}
-		else if (relativeTick < yellowHigh)
+		else if (tick < yellowHigh)
 		{
 			ranges.push_back({ YELLOW(), greenHigh, yellowHigh });
 		}
 		else
 		{
-			ranges.push_back({ RED(), yellowHigh, totalUnits });
+			ranges.push_back({ RED(), yellowHigh, bounds.high });
 		}
 	}
 
-	if (lowestTick <= tick && tick <= lowestTick + totalUnits)
-	{
-		markings.push_back({ BLACK(0.6), unitWidth, (float)relativeTick });
-	}
-
-	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, totalUnits, ranges, markings, true);
+	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, bounds, ranges, markings, true);
 
 	//draw label
 	float margin = 8;
@@ -223,8 +219,11 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, Vector2F start
 
 void SpeedFlipTrainer::RenderSecondJumpMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize)
 {
-	float totalUnits = max(1, msToTicks(*secondJumpThresholdMs));
-	float unitWidth = boxSize.Y / totalUnits;
+	float threshold = msToTicks(*secondJumpThresholdMs);
+	float success = threshold;
+	float warning = 1.5f * threshold;
+	float upperBound = 2.0f * threshold;
+	Bounds bounds = { 0, upperBound };
 
 	// Let the bar fill up when not dodged already.
 	auto ticks = 0;
@@ -234,18 +233,18 @@ void SpeedFlipTrainer::RenderSecondJumpMeter(CanvasWrapper canvas, Vector2F star
 	list<MeterRange> ranges;
 	list<MeterMarking> markings;
 
-	struct Color meterColor = ticks <= totalUnits * 0.6f
+	struct Color meterColor = ticks <= success
 		? GREEN()
-		: ticks <= totalUnits * 0.9f
+		: ticks <= warning
 		? YELLOW()
 		: RED();
-	ranges.push_back({ meterColor, 0, (float)clamp(ticks, 0, (int)totalUnits) });
+	ranges.push_back({ meterColor, bounds.low, (float)ticks });
 
-	markings.push_back({ WHITE(), BORDER.width, totalUnits * 0.6f });
-	markings.push_back({ WHITE(), BORDER.width, totalUnits * 0.9f });
-	// Don't add a black marker, because the whole bar is usually only about 10 ticks high.
+	markings.push_back({ WHITE(), BORDER.width, success });
+	markings.push_back({ WHITE(), BORDER.width, warning });
+	markings.push_back({ MARKER, (float)ticks });
 
-	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, totalUnits, ranges, markings, true);
+	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, bounds, ranges, markings, true);
 
 	//draw label
 	float margin = 8;
@@ -260,8 +259,11 @@ void SpeedFlipTrainer::RenderSecondJumpMeter(CanvasWrapper canvas, Vector2F star
 
 void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize)
 {
-	float totalUnits = max(1, msToTicks(*flipCancelThresholdMs));
-	float unitWidth = boxSize.Y / totalUnits;
+	float threshold = msToTicks(*flipCancelThresholdMs);
+	float success = threshold;
+	float warning = 1.5f * threshold;
+	float upperBound = 2.0f * threshold;
+	Bounds bounds = { 0, upperBound };
 
 	// Let the bar fill up when not cancelled already.
 	auto ticks = 0;
@@ -271,18 +273,18 @@ void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, Vector2F star
 	list<MeterRange> ranges;
 	list<MeterMarking> markings;
 
-	Color meterColor = ticks <= totalUnits * 0.6f
+	Color meterColor = ticks <= success
 		? GREEN()
-		: ticks <= totalUnits * 0.9f
+		: ticks <= warning
 		? YELLOW()
 		: RED();
-	ranges.push_back({ meterColor, 0, (float)clamp(ticks, 0, (int)totalUnits) });
+	ranges.push_back({ meterColor, bounds.low, (float)ticks });
 
-	markings.push_back({ WHITE(), BORDER.width, totalUnits * 0.6f });
-	markings.push_back({ WHITE(), BORDER.width, totalUnits * 0.9f });
-	// Don't add a black marker, because the whole bar is usually only about 10 ticks high.
+	markings.push_back({ WHITE(), BORDER.width, success });
+	markings.push_back({ WHITE(), BORDER.width, warning });
+	markings.push_back({ MARKER, (float)ticks });
 
-	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, totalUnits, ranges, markings, true);
+	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, bounds, ranges, markings, true);
 
 	//draw label
 	float margin = 8;
@@ -297,16 +299,13 @@ void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, Vector2F star
 
 void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, Vector2F startPos, Vector2F boxSize)
 {
-	// Cap angle at 90
-	float totalUnits = 180;
-	float unitWidth = boxSize.X / totalUnits;
+	float greenRange = 8, yellowRange = 15;
+	float leftTarget = -(*targetAngle);
+	float rightTarget = *targetAngle;
+	Bounds bounds = { -90, 90 }; // Cap angle at 90 degrees
 
 	list<MeterRange> ranges;
 	list<MeterMarking> markings;
-
-	int greenRange = 8, yellowRange = 15;
-	float leftTarget = *optimalLeftAngle + 90;
-	float rightTarget = *optimalRightAngle + 90;
 
 	float leftYellowLow = leftTarget - yellowRange;
 	float leftGreenLow = leftTarget - greenRange;
@@ -327,59 +326,60 @@ void SpeedFlipTrainer::RenderAngleMeter(CanvasWrapper canvas, Vector2F startPos,
 	markings.push_back({ WHITE(), BORDER.width, rightGreenHigh });
 	markings.push_back({ WHITE(), BORDER.width, rightYellowHigh });
 
-	ranges.push_back({ YELLOW(0.2), leftYellowLow, leftGreenLow });
-	ranges.push_back({ GREEN(0.2), leftGreenLow, leftGreenHigh });
-	ranges.push_back({ YELLOW(0.2), leftGreenHigh, leftYellowHigh });
-	ranges.push_back({ YELLOW(0.2), rightYellowLow, rightGreenLow });
-	ranges.push_back({ GREEN(0.2), rightGreenLow, rightGreenHigh });
-	ranges.push_back({ YELLOW(0.2), rightGreenHigh, rightYellowHigh });
+	float previewOpacity = 0.2;
+	ranges.push_back({ YELLOW(previewOpacity), leftYellowLow, leftGreenLow });
+	ranges.push_back({ GREEN(previewOpacity), leftGreenLow, leftGreenHigh });
+	ranges.push_back({ YELLOW(previewOpacity), leftGreenHigh, leftYellowHigh });
+	ranges.push_back({ YELLOW(previewOpacity), rightYellowLow, rightGreenLow });
+	ranges.push_back({ GREEN(previewOpacity), rightGreenLow, rightGreenHigh });
+	ranges.push_back({ YELLOW(previewOpacity), rightGreenHigh, rightYellowHigh });
 
-	float angleAdjusted = 90.f + clamp(attempt.dodgeAngle, -90.f, 90.f);
+	float angle = attempt.dodgeAngle;
 
 	// Always render the marker, because we compute a "preview" angle before dodging.
-	markings.push_back({ BLACK(0.6), unitWidth, angleAdjusted });
+	markings.push_back({ MARKER, angle });
 
 	if (attempt.dodged)
 	{
-		if (angleAdjusted < leftYellowLow)
+		if (angle < leftYellowLow)
 		{
-			ranges.push_back({ RED(), 0, leftYellowLow });
+			ranges.push_back({ RED(), bounds.low, leftYellowLow });
 		}
-		else if (angleAdjusted < leftGreenLow)
+		else if (angle < leftGreenLow)
 		{
 			ranges.push_back({ YELLOW(), leftTarget - yellowRange, leftTarget - greenRange });
 		}
-		else if (angleAdjusted < leftGreenHigh)
+		else if (angle <= leftGreenHigh)
 		{
 			ranges.push_back({ GREEN(), leftTarget - greenRange, leftTarget + greenRange });
 		}
-		else if (angleAdjusted < leftYellowHigh)
+		else if (angle <= leftYellowHigh)
 		{
 			ranges.push_back({ YELLOW(), leftTarget + greenRange, leftTarget + yellowRange });
 		}
-		else if (angleAdjusted < rightYellowLow)
+		else if (angle < rightYellowLow)
 		{
 			ranges.push_back({ RED(), leftTarget + yellowRange, rightTarget - yellowRange });
 		}
-		else if (angleAdjusted < rightGreenLow)
+		else if (angle < rightGreenLow)
 		{
 			ranges.push_back({ YELLOW(), rightTarget - yellowRange, rightTarget - greenRange });
 		}
-		else if (angleAdjusted < rightGreenHigh)
+		else if (angle <= rightGreenHigh)
 		{
 			ranges.push_back({ GREEN(), rightTarget - greenRange, rightTarget + greenRange });
 		}
-		else if (angleAdjusted < rightYellowHigh)
+		else if (angle <= rightYellowHigh)
 		{
 			ranges.push_back({ YELLOW(), rightTarget + greenRange, rightTarget + yellowRange });
 		}
 		else
 		{
-			ranges.push_back({ RED(), rightTarget + yellowRange, totalUnits });
+			ranges.push_back({ RED(), rightTarget + yellowRange, bounds.high });
 		}
 	}
 
-	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, totalUnits, ranges, markings, false);
+	RenderMeter(canvas, startPos, boxSize, BACKGROUND, BORDER, { -90, 90 }, ranges, markings, false);
 
 	//draw angle label
 	canvas.SetColor(255, 255, 255, 255);
