@@ -81,7 +81,7 @@ void SpeedFlipTrainer::RenderSettings(std::string CVAR_ENABLE)
 	// ------------------------ FIRST JUMP ----------------------------------
 	SpacedSeparator();
 	{
-		CVarWrapper cvar = cvarManager->getCvar(CVAR_SHOW_JUMP);
+		CVarWrapper cvar = cvarManager->getCvar(CVAR_SHOW_FIRST_JUMP);
 		if (!cvar) return;
 
 		bool value = cvar.getBoolValue();
@@ -107,6 +107,29 @@ void SpeedFlipTrainer::RenderSettings(std::string CVAR_ENABLE)
 	}
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Number of milliseconds to perform the initial jump within.");
+
+	// ------------------------ SECOND JUMP ----------------------------------
+	SpacedSeparator();
+	{
+		CVarWrapper cvar = cvarManager->getCvar(CVAR_SHOW_SECOND_JUMP);
+		if (!cvar) return;
+
+		bool value = cvar.getBoolValue();
+
+		if (ImGui::Checkbox("Show time to second jump", &value))
+			cvar.setValue(value);
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Show meter for time between first and second jump");
+	}
+
+	CVarWrapper secondJumpCvar = cvarManager->getCvar(CVAR_SECOND_JUMP_THRESHOLD);
+	if (!secondJumpCvar) return;
+
+	int secondJump = secondJumpCvar.getIntValue();
+	if (ImGui::SliderInt("Second jump threshold", &secondJump, 0, 250, "%d ms"))
+		secondJumpCvar.setValue(secondJump);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Number of milliseconds to perform the second jump within.");
 
 	// ------------------------ POSITION ----------------------------------
 	SpacedSeparator();

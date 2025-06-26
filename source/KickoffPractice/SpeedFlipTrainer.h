@@ -16,11 +16,13 @@ using namespace std;
 static const string CVAR_LEFT_ANGLE = "kickoff_train_sf_left_angle";
 static const string CVAR_RIGHT_ANGLE = "kickoff_train_sf_right_angle";
 static const string CVAR_CANCEL_THRESHOLD = "kickoff_train_sf_cancel_threshold";
+static const string CVAR_SECOND_JUMP_THRESHOLD = "kickoff_train_sf_second_jump_threshold";
 static const string CVAR_JUMP_LOW = "kickoff_train_sf_jump_low";
 static const string CVAR_JUMP_HIGH = "kickoff_train_sf_jump_high";
 static const string CVAR_SHOW_ANGLE = "kickoff_train_sf_show_angle";
 static const string CVAR_SHOW_POSITION = "kickoff_train_sf_show_position";
-static const string CVAR_SHOW_JUMP = "kickoff_train_sf_show_jump";
+static const string CVAR_SHOW_FIRST_JUMP = "kickoff_train_sf_show_jump";
+static const string CVAR_SHOW_SECOND_JUMP = "kickoff_train_sf_show_second_jump";
 static const string CVAR_SHOW_FLIP = "kickoff_train_sf_show_flip";
 
 inline constexpr Color RED(float opacity = 1) { return Color{ 255, 50, 50, opacity }; };
@@ -42,7 +44,8 @@ private:
 	shared_ptr<bool> showAngleMeter = make_shared<bool>(true);
 	shared_ptr<bool> showPositionMeter = make_shared<bool>(true);
 	shared_ptr<bool> showFlipMeter = make_shared<bool>(true);
-	shared_ptr<bool> showJumpMeter = make_shared<bool>(true);
+	shared_ptr<bool> showFirstJumpMeter = make_shared<bool>(true);
+	shared_ptr<bool> showSecondJumpMeter = make_shared<bool>(true);
 
 	// Optimal left angle for dodge
 	shared_ptr<int> optimalLeftAngle = make_shared<int>(-30);
@@ -52,6 +55,9 @@ private:
 
 	// Milliseconds the flip canceled should be performed under
 	shared_ptr<int> flipCancelThresholdMs = make_shared<int>(100);
+
+	// Milliseconds the second jump should be performed within
+	shared_ptr<int> secondJumpThresholdMs = make_shared<int>(150);
 
 	// Millisecond range during which first jump should be performed
 	shared_ptr<int> jumpLowMs = make_shared<int>(450);
@@ -71,6 +77,7 @@ private:
 	// Render functions to render various meters and measured values on screen
 	void RenderAngleMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
 	void RenderFlipCancelMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
+	void RenderSecondJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
 	void RenderFirstJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight);
 	void RenderPositionMeter(CanvasWrapper canvas, float screenWidth, float screenHeight) const;
 

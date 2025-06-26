@@ -146,12 +146,14 @@ void SpeedFlipTrainer::RegisterCvars(shared_ptr<PersistentStorage> persistentSto
 	persistentStorage->RegisterPersistentCvar(CVAR_LEFT_ANGLE, "-30", "Optimal left angle", true, true, -90, true, 0, true).bindTo(optimalLeftAngle);
 	persistentStorage->RegisterPersistentCvar(CVAR_RIGHT_ANGLE, "30", "Optimal right angle", true, true, 0, true, 90, true).bindTo(optimalRightAngle);
 	persistentStorage->RegisterPersistentCvar(CVAR_CANCEL_THRESHOLD, "100", "Optimal flip cancel threshold.", true, true, 0, true, 500, true).bindTo(flipCancelThresholdMs);
+	persistentStorage->RegisterPersistentCvar(CVAR_SECOND_JUMP_THRESHOLD, "150", "Optimal second jump threshold.", true, true, 0, true, 500, true).bindTo(secondJumpThresholdMs);
 	persistentStorage->RegisterPersistentCvar(CVAR_JUMP_LOW, "450", "Low threshold for first jump of speedflip.", true, true, 0, true, 1000, false).bindTo(jumpLowMs);
 	persistentStorage->RegisterPersistentCvar(CVAR_JUMP_HIGH, "600", "High threshold for first jump of speedflip.", true, true, 0, true, 1000, false).bindTo(jumpHighMs);
 
 	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_ANGLE, "1", "Show angle meter.", true, false, 0, false, 0, true).bindTo(showAngleMeter);
 	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_POSITION, "1", "Show horizontal position meter.", true, false, 0, false, 0, true).bindTo(showPositionMeter);
-	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_JUMP, "1", "Show jump meter.", true, false, 0, false, 0, true).bindTo(showJumpMeter);
+	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_FIRST_JUMP, "1", "Show first jump meter.", true, false, 0, false, 0, true).bindTo(showFirstJumpMeter);
+	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_SECOND_JUMP, "1", "Show second jump meter.", true, false, 0, false, 0, true).bindTo(showSecondJumpMeter);
 	persistentStorage->RegisterPersistentCvar(CVAR_SHOW_FLIP, "1", "Show flip cancel meter.", true, false, 0, false, 0, true).bindTo(showFlipMeter);
 }
 
@@ -172,7 +174,10 @@ void SpeedFlipTrainer::RenderMeters(CanvasWrapper canvas)
 	if (*showFlipMeter)
 		RenderFlipCancelMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
 
-	if (*showJumpMeter)
+	if (*showSecondJumpMeter)
+		RenderSecondJumpMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
+
+	if (*showFirstJumpMeter)
 		RenderFirstJumpMeter(canvas, SCREENWIDTH, SCREENHEIGHT);
 }
 
@@ -325,16 +330,63 @@ void SpeedFlipTrainer::RenderFirstJumpMeter(CanvasWrapper canvas, float screenWi
 	canvas.DrawString(msg, 1, 1, true, false);
 }
 
-void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
+void SpeedFlipTrainer::RenderSecondJumpMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
 {
 	float opacity = 1.0;
-	int totalUnits = msToTick(*flipCancelThresholdMs);
+	int totalUnits = std::max(1, msToTick(*secondJumpThresholdMs));
 
 	Vector2 reqSize = Vector2{ (int)(screenWidth * 2 / 100.f), (int)(screenHeight * 55 / 100.f) };
 	int unitWidth = reqSize.Y / totalUnits;
 
 	Vector2 boxSize = Vector2{ reqSize.X, unitWidth * totalUnits };
 	Vector2 startPos = Vector2{ (int)(screenWidth * 75 / 100.f), (int)((screenHeight * 80 / 100.f) - boxSize.Y) };
+
+	struct Color baseColor = { WHITE(opacity) };
+	struct Line border = { WHITE(opacity), 2 };
+
+	// Let the bar fill up when not dodged already.
+	auto ticks = 0;
+	if (attempt.dodged) ticks = attempt.dodgedTick - attempt.jumpTick;
+	else if (attempt.jumped) ticks = attempt.currentTick - attempt.jumpTick;
+
+	std::list<MeterRange> ranges;
+	std::list<MeterMarking> markings;
+
+	struct Color meterColor = ticks <= totalUnits * 0.6f
+		? GREEN()
+		: ticks <= totalUnits * 0.9f
+		? YELLOW()
+		: RED();
+	ranges.push_back({ meterColor, 0, (float)std::clamp(ticks, 0, totalUnits) });
+
+	markings.push_back({ WHITE(opacity), 3, totalUnits * 0.6f });
+	markings.push_back({ WHITE(opacity), 3, totalUnits * 0.9f });
+	// Don't add a black marker, because the whole bar is usually only about 10 ticks high.
+
+	RenderMeter(canvas, startPos, reqSize, baseColor, border, totalUnits, ranges, markings, true);
+
+	//draw label
+	string msg = "Second Jump";
+	canvas.SetColor(255, 255, 255, (char)(255 * opacity));
+	canvas.SetPosition(Vector2{ (int)(startPos.X - 16), (int)(startPos.Y + boxSize.Y + 8) });
+	canvas.DrawString(msg, 1, 1, true, false);
+
+	int ms = attempt.dodged ? lroundf(ticks / 120.0 * 1000.0) : 0;
+	msg = to_string(ms) + " ms";
+	canvas.SetPosition(Vector2{ startPos.X, (int)(startPos.Y + boxSize.Y + 8 + 15) });
+	canvas.DrawString(msg, 1, 1, true, false);
+}
+
+void SpeedFlipTrainer::RenderFlipCancelMeter(CanvasWrapper canvas, float screenWidth, float screenHeight)
+{
+	float opacity = 1.0;
+	int totalUnits = std::max(1, msToTick(*flipCancelThresholdMs));
+
+	Vector2 reqSize = Vector2{ (int)(screenWidth * 2 / 100.f), (int)(screenHeight * 55 / 100.f) };
+	int unitWidth = reqSize.Y / totalUnits;
+
+	Vector2 boxSize = Vector2{ reqSize.X, unitWidth * totalUnits };
+	Vector2 startPos = Vector2{ (int)((screenWidth * 75 / 100.f) - 2.5 * reqSize.X), (int)((screenHeight * 80 / 100.f) - boxSize.Y) };
 
 	struct Color baseColor = { WHITE(opacity) };
 	struct Line border = { WHITE(opacity), 2 };
