@@ -24,16 +24,15 @@ void SpeedFlipTrainer::Measure(CarWrapper& car, ControllerInput& input)
 		auto dodge = car.GetDodgeComponent();
 		attempt.dodgeAngle = dodge.IsNull() ? 0 : ComputeDodgeAngle(dodge.GetDodgeDirection());
 	}
-	// TODO: Preview does not work well with air-roll.
 	if (!attempt.dodged && !car.IsOnGround())
 	{
 		attempt.dodgeAngle = 0;
 
 		auto dodgeDeadzone = gameWrapper->GetSettings().GetGamepadSettings().DodgeInputThreshold;
 
-		if (abs(input.DodgeForward) + abs(input.DodgeStrafe) >= dodgeDeadzone)
+		if (abs(input.DodgeForward) + abs(input.DodgeStrafe) + abs(input.Roll) >= dodgeDeadzone)
 		{
-			Vector dodgeDirection = { input.DodgeForward, input.DodgeStrafe, 0 };
+			Vector dodgeDirection = { input.DodgeForward, input.DodgeStrafe + input.Roll, 0 };
 			attempt.dodgeAngle = ComputeDodgeAngle(dodgeDirection);
 		}
 	}
